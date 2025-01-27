@@ -1,0 +1,12 @@
+New-Item -ItemType Directory -Force logs/error_logs
+New-Item -ItemType Directory -Force logs/trade_logs
+New-Item -ItemType Directory -Force models
+New-Item -ItemType Directory -Force data/historical_data
+New-Item -ItemType Directory -Force data/live_data
+
+New-Item logs\.gitkeep -Force
+New-Item logs\error_logs\.gitkeep -Force
+New-Item logs\trade_logs\.gitkeep -Force
+New-Item models\.gitkeep -Force
+New-Item data\historical_data\.gitkeep -Force
+New-Item data\live_data\.gitkeep -Force
