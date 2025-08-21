@@ -1,1 +1,7 @@
-
+pandas
+numpy
+scikit-learn
+joblib
+colorama
+pytz # Added for timezone support
+ibapi # Assuming ibapi is installed manually or via specific instructions

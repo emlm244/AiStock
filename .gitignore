@@ -1,44 +1,108 @@
-logs/
-!logs/.gitkeep
-logs/error_logs/
-!logs/error_logs/.gitkeep
-logs/trade_logs/
-!logs/trade_logs/.gitkeep
-*.log
-
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*$py.class
 
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+# Usually these files are written by a python script from a template
+# before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Environments
 .env
-venv/
+.venv
 env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-config/credentials.py
+# Spyder project settings
+.spyderproject
+.spyproject
 
-models/
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Log files
+logs/**/*.log
+*.log
+
+# Data files (especially sensitive ones)
+data/**/*.csv
+data/**/*.json # Exclude state file if sensitive
+data/**/*.db
+# Keep .gitkeep files if directories should exist but be empty
+!data/**/.gitkeep
+
+# Model files (can be large)
+models/**/*.pkl
+models/**/*.h5
+models/**/*.joblib
 !models/.gitkeep
-*.pkl
 
-*.tmp
-*.bak
+# Credentials
 
-data/historical_data/
-!data/historical_data/.gitkeep
-data/live_data/
-!data/live_data/.gitkeep
-
-.vscode/
-.idea/
-*.swp
+# OS specific files
 .DS_Store
 Thumbs.db
 
-*.egg-info/
-.eggs/
-build/
-dist/
+# IDE specific files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
 
-*.~*
-*.md~
-
-!.gitignore
+# Secrets
+*.pem
+*.key
+secrets.*
