@@ -8,6 +8,7 @@ import numpy as np
 import threading # <-- Ensure threading is imported
 import json
 import re
+import argparse  # For CLI argument parsing
 from datetime import datetime, timedelta, time as dt_time
 import queue
 import logging
@@ -217,67 +218,107 @@ class TradingBot:
         self.last_stale_data_check_time = datetime.min.replace(tzinfo=pytz.utc)
 
 
-    def prompt_user_config(self):
-        """Prompts user for essential settings and updates self.settings."""
-        print("\n--- AIStocker Configuration ---")
+    def prompt_user_config(self, args=None):
+        """
+        Configures bot settings from CLI args, env vars, or interactive prompts.
+        Priority: CLI args > env vars > interactive prompts > defaults
+
+        Args:
+            args: argparse.Namespace from parse_args(), or None for interactive mode
+        """
+        # If args provided (headless mode), use them; else prompt
+        headless = args is not None
+
         # Trading Mode
-        while True:
-            print("Select Trading Mode:")
-            print("  1: Stock")
-            print("  2: Crypto")
-            print("  3: Forex")
-            choice = input("Enter choice [1, 2, or 3]: ").strip()
-            if choice == '1': self.settings.TRADING_MODE = 'stock'; default_instruments = ['AAPL', 'MSFT', 'SPY']; break
-            elif choice == '2': self.settings.TRADING_MODE = 'crypto'; default_instruments = ['ETH/USD', 'BTC/USD']; break
-            elif choice == '3': self.settings.TRADING_MODE = 'forex'; default_instruments = ['EUR/USD', 'GBP/USD']; break
-            else: print("Invalid input.")
+        if headless and args.mode:
+            mode_map = {'stock': 'stock', 'crypto': 'crypto', 'forex': 'forex'}
+            self.settings.TRADING_MODE = mode_map.get(args.mode.lower(), 'crypto')
+        elif not headless:
+            print("\n--- AIStocker Configuration ---")
+            while True:
+                print("Select Trading Mode:")
+                print("  1: Stock")
+                print("  2: Crypto")
+                print("  3: Forex")
+                choice = input("Enter choice [1, 2, or 3]: ").strip()
+                if choice == '1': self.settings.TRADING_MODE = 'stock'; break
+                elif choice == '2': self.settings.TRADING_MODE = 'crypto'; break
+                elif choice == '3': self.settings.TRADING_MODE = 'forex'; break
+                else: print("Invalid input.")
         self.logger.info(f"Trading Mode set to: {self.settings.TRADING_MODE}")
 
+        # Default instruments per mode
+        default_instruments_map = {
+            'stock': ['AAPL', 'MSFT', 'SPY'],
+            'crypto': ['ETH/USD', 'BTC/USD'],
+            'forex': ['EUR/USD', 'GBP/USD']
+        }
+        default_instruments = default_instruments_map.get(self.settings.TRADING_MODE, ['ETH/USD', 'BTC/USD'])
+
         # Instruments
-        instr_prompt = f"Enter instruments (comma-separated, e.g., {','.join(default_instruments)}): "
-        instr_input = input(instr_prompt).strip()
-        if instr_input: self.settings.TRADE_INSTRUMENTS = [inst.strip().upper() for inst in instr_input.split(',') if inst.strip()]
-        else: self.settings.TRADE_INSTRUMENTS = default_instruments
-        self.logger.info(f"Trading Instruments selected: {self.settings.TRADE_INSTRUMENTS}") # Validation done later
+        if headless and args.instruments:
+            self.settings.TRADE_INSTRUMENTS = [inst.strip().upper() for inst in args.instruments.split(',') if inst.strip()]
+        elif not headless:
+            instr_prompt = f"Enter instruments (comma-separated, e.g., {','.join(default_instruments)}): "
+            instr_input = input(instr_prompt).strip()
+            if instr_input:
+                self.settings.TRADE_INSTRUMENTS = [inst.strip().upper() for inst in instr_input.split(',') if inst.strip()]
+            else:
+                self.settings.TRADE_INSTRUMENTS = default_instruments
+        else:
+            # Headless but no instruments specified, use defaults
+            self.settings.TRADE_INSTRUMENTS = default_instruments
+        self.logger.info(f"Trading Instruments selected: {self.settings.TRADE_INSTRUMENTS}")
 
         # Autonomous Mode
-        while True:
-            choice = input(f"Enable Autonomous Mode? (Adapts strategies/risk) [Y/n]: ").strip().lower()
-            if choice in ['y', 'yes', '']: self.settings.AUTONOMOUS_MODE = True; break
-            elif choice in ['n', 'no']: self.settings.AUTONOMOUS_MODE = False; break
-            else: print("Invalid input.")
+        if headless:
+            self.settings.AUTONOMOUS_MODE = args.autonomous if hasattr(args, 'autonomous') else True
+        elif not headless:
+            while True:
+                choice = input(f"Enable Autonomous Mode? (Adapts strategies/risk) [Y/n]: ").strip().lower()
+                if choice in ['y', 'yes', '']: self.settings.AUTONOMOUS_MODE = True; break
+                elif choice in ['n', 'no']: self.settings.AUTONOMOUS_MODE = False; break
+                else: print("Invalid input.")
         self.logger.info(f"Autonomous Mode set to: {self.settings.AUTONOMOUS_MODE}")
 
         # Dependent settings if Autonomous Mode enabled
         if self.settings.AUTONOMOUS_MODE:
-            while True:
-                choice = input(f"  Enable Adaptive Risk? (Adapts SL/TP based on volatility) [Y/n]: ").strip().lower()
-                if choice in ['y', 'yes', '']: self.settings.ENABLE_ADAPTIVE_RISK = True; break
-                elif choice in ['n', 'no']: self.settings.ENABLE_ADAPTIVE_RISK = False; break
-                else: print("Invalid input.")
-            self.logger.info(f"Adaptive Risk set to: {self.settings.ENABLE_ADAPTIVE_RISK}")
+            if headless:
+                self.settings.ENABLE_ADAPTIVE_RISK = args.adaptive_risk if hasattr(args, 'adaptive_risk') else True
+                self.settings.ENABLE_AUTO_RETRAINING = args.auto_retrain if hasattr(args, 'auto_retrain') else True
+                self.settings.ENABLE_DYNAMIC_STRATEGY_WEIGHTING = args.dynamic_weighting if hasattr(args, 'dynamic_weighting') else True
+            else:
+                while True:
+                    choice = input(f"  Enable Adaptive Risk? (Adapts SL/TP based on volatility) [Y/n]: ").strip().lower()
+                    if choice in ['y', 'yes', '']: self.settings.ENABLE_ADAPTIVE_RISK = True; break
+                    elif choice in ['n', 'no']: self.settings.ENABLE_ADAPTIVE_RISK = False; break
+                    else: print("Invalid input.")
+                self.logger.info(f"Adaptive Risk set to: {self.settings.ENABLE_ADAPTIVE_RISK}")
 
-            while True:
-                choice = input(f"  Enable Automated ML Retraining? (If ML strategy enabled) [Y/n]: ").strip().lower()
-                if choice in ['y', 'yes', '']: self.settings.ENABLE_AUTO_RETRAINING = True; break
-                elif choice in ['n', 'no']: self.settings.ENABLE_AUTO_RETRAINING = False; break
-                else: print("Invalid input.")
-            self.logger.info(f"Automated Retraining set to: {self.settings.ENABLE_AUTO_RETRAINING}")
+                while True:
+                    choice = input(f"  Enable Automated ML Retraining? (If ML strategy enabled) [Y/n]: ").strip().lower()
+                    if choice in ['y', 'yes', '']: self.settings.ENABLE_AUTO_RETRAINING = True; break
+                    elif choice in ['n', 'no']: self.settings.ENABLE_AUTO_RETRAINING = False; break
+                    else: print("Invalid input.")
+                self.logger.info(f"Automated Retraining set to: {self.settings.ENABLE_AUTO_RETRAINING}")
 
-            while True:
-                choice = input(f"  Enable Dynamic Strategy Weighting? [Y/n]: ").strip().lower()
-                if choice in ['y', 'yes', '']: self.settings.ENABLE_DYNAMIC_STRATEGY_WEIGHTING = True; break
-                elif choice in ['n', 'no']: self.settings.ENABLE_DYNAMIC_STRATEGY_WEIGHTING = False; break
-                else: print("Invalid input.")
-            self.logger.info(f"Dynamic Strategy Weighting set to: {self.settings.ENABLE_DYNAMIC_STRATEGY_WEIGHTING}")
+                while True:
+                    choice = input(f"  Enable Dynamic Strategy Weighting? [Y/n]: ").strip().lower()
+                    if choice in ['y', 'yes', '']: self.settings.ENABLE_DYNAMIC_STRATEGY_WEIGHTING = True; break
+                    elif choice in ['n', 'no']: self.settings.ENABLE_DYNAMIC_STRATEGY_WEIGHTING = False; break
+                    else: print("Invalid input.")
+                self.logger.info(f"Dynamic Strategy Weighting set to: {self.settings.ENABLE_DYNAMIC_STRATEGY_WEIGHTING}")
 
         # Continue After Close (only ask if stock mode)
         if self.settings.TRADING_MODE == 'stock':
-            while True:
-                choice = input("Allow trading in extended hours? [y/N]: ").strip().lower()
-                if choice in ['y', 'yes']: self.settings.CONTINUE_AFTER_CLOSE = True; break
-                elif choice in ['n', 'no', '']: self.settings.CONTINUE_AFTER_CLOSE = False; break
-                else: print("Invalid input.")
+            if headless:
+                self.settings.CONTINUE_AFTER_CLOSE = args.extended_hours if hasattr(args, 'extended_hours') else False
+            else:
+                while True:
+                    choice = input("Allow trading in extended hours? [y/N]: ").strip().lower()
+                    if choice in ['y', 'yes']: self.settings.CONTINUE_AFTER_CLOSE = True; break
+                    elif choice in ['n', 'no', '']: self.settings.CONTINUE_AFTER_CLOSE = False; break
+                    else: print("Invalid input.")
             self.logger.info(f"Continue After Close (Extended Hours) set to: {self.settings.CONTINUE_AFTER_CLOSE}")
         else: # Force True for 24/7 markets
             self.settings.CONTINUE_AFTER_CLOSE = True
@@ -1239,6 +1280,55 @@ class TradingBot:
              self.error_logger.error(f"Failed to submit bracket order for {symbol}.")
 
 
+def parse_args():
+    """Parse command-line arguments for headless operation."""
+    parser = argparse.ArgumentParser(
+        description='AIStocker: Automated trading system for Interactive Brokers',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  # Interactive mode (prompts for config)
+  python main.py
+
+  # Headless mode with defaults
+  python main.py --headless --mode crypto --instruments "BTC/USD,ETH/USD"
+
+  # Train ML model
+  python main.py --train
+
+  # Headless with all options
+  python main.py --headless --mode stock --instruments "AAPL,MSFT" --no-autonomous --extended-hours
+        '''
+    )
+    parser.add_argument('--headless', action='store_true',
+                        help='Run in headless mode (no interactive prompts)')
+    parser.add_argument('--train', action='store_true',
+                        help='Train ML model and exit')
+    parser.add_argument('--mode', type=str, choices=['stock', 'crypto', 'forex'],
+                        help='Trading mode (stock, crypto, forex)')
+    parser.add_argument('--instruments', type=str,
+                        help='Comma-separated list of instruments (e.g., "BTC/USD,ETH/USD")')
+    parser.add_argument('--autonomous', dest='autonomous', action='store_true', default=True,
+                        help='Enable autonomous mode (default: True)')
+    parser.add_argument('--no-autonomous', dest='autonomous', action='store_false',
+                        help='Disable autonomous mode')
+    parser.add_argument('--adaptive-risk', dest='adaptive_risk', action='store_true', default=True,
+                        help='Enable adaptive risk (default: True if autonomous)')
+    parser.add_argument('--no-adaptive-risk', dest='adaptive_risk', action='store_false',
+                        help='Disable adaptive risk')
+    parser.add_argument('--auto-retrain', dest='auto_retrain', action='store_true', default=True,
+                        help='Enable auto ML retraining (default: True if autonomous)')
+    parser.add_argument('--no-auto-retrain', dest='auto_retrain', action='store_false',
+                        help='Disable auto ML retraining')
+    parser.add_argument('--dynamic-weighting', dest='dynamic_weighting', action='store_true', default=True,
+                        help='Enable dynamic strategy weighting (default: True if autonomous)')
+    parser.add_argument('--no-dynamic-weighting', dest='dynamic_weighting', action='store_false',
+                        help='Disable dynamic strategy weighting')
+    parser.add_argument('--extended-hours', dest='extended_hours', action='store_true', default=False,
+                        help='Allow trading in extended hours (stock mode only)')
+    return parser.parse_args()
+
+
 # --- Main Execution ---
 if __name__ == "__main__":
     bot = None
@@ -1266,7 +1356,65 @@ if __name__ == "__main__":
         print(msg)
         sys.exit(1)
 
+    # Parse CLI arguments
+    args = parse_args()
+
     try:
+        # Check if training mode requested
+        if args.train:
+            print("\nStarting ML Model Training...")
+            startup_logger.info("Training mode requested via CLI")
+            try:
+                os.makedirs('logs/error_logs', exist_ok=True); os.makedirs('logs', exist_ok=True)
+                os.makedirs('models', exist_ok=True); os.makedirs('data/historical_data', exist_ok=True)
+                success = train_model_main()
+                if success: print("\n--- Training Task Completed Successfully ---")
+                else: print("\n--- Training Task Failed ---")
+                startup_logger.info(f"ML Model Training finished (Success: {success}).")
+                sys.exit(0 if success else 1)
+            except Exception as e:
+                print(f"\nAn error occurred during training: {e}")
+                startup_error_logger.critical(f"Training failed: {e}", exc_info=True)
+                sys.exit(1)
+
+        # Check if headless mode
+        if args.headless:
+            print("\nLaunching Trading Bot in headless mode...")
+            startup_logger.info("Launching bot in headless mode")
+            # Validate required args for headless
+            if not args.mode:
+                print("ERROR: --mode is required in headless mode")
+                sys.exit(1)
+            bot = TradingBot()
+            # Pass args to prompt_user_config for headless configuration
+            if not bot.prompt_user_config(args):
+                startup_logger.critical("Bot configuration failed in headless mode. Exiting.")
+                sys.exit(1)
+            bot.start()
+
+            # Keep main thread alive while bot runs
+            while bot and bot.running:
+                alive = True
+                if bot.main_thread and not bot.main_thread.is_alive():
+                    startup_error_logger.error("Main trading loop thread died unexpectedly.")
+                    alive = False
+                if bot.api and bot.api.api_thread and not bot.api.api_thread.is_alive() and bot.api.is_connected():
+                    startup_error_logger.error("IBKR API message loop thread died unexpectedly while connected.")
+                    alive = False
+                if hasattr(bot, 'data_aggregator') and bot.data_aggregator.thread and \
+                   not bot.data_aggregator.thread.is_alive() and bot.data_aggregator.running:
+                    startup_error_logger.error("Data Aggregator thread died unexpectedly while running.")
+                    alive = False
+                if not alive and bot.running:
+                    startup_error_logger.critical("A critical background thread died. Forcing bot stop.")
+                    bot.stop(reason="A background thread died")
+                time.sleep(2)
+
+            print("\nBot execution finished or stopped.")
+            startup_logger.info("Trading Bot execution finished.")
+            sys.exit(0)
+
+        # Interactive mode (original behavior)
         print("\n" + "="*30 + "\n   AIStocker Options\n" + "="*30)
         print(" 1. Launch Trading Bot")
         print(" 2. Train ML Model")

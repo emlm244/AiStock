@@ -105,4 +105,4 @@ Thumbs.db
 # Secrets
 *.pem
 *.key
-secrets.*
+secrets.*.claude/

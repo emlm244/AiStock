@@ -1,5 +1,7 @@
 # config/settings.py
 
+import os
+
 class Settings:
     # ==================================================
     # User Configurable Parameters (via Prompt or Defaults)
@@ -18,8 +20,8 @@ class Settings:
     # ==================================================
     TIMEFRAME = '30 secs' # e.g., '1 sec', '5 secs', '1 min', '5 mins', '1 hour', '1 day'
     DATA_SOURCE = 'live' # 'live' or 'historical' (for backtesting - not fully implemented)
-    TIMEZONE = 'America/New_York' # Timezone for logging, daily resets, market hours interpretation
-    TWS_TIMEZONE = 'America/New_York' # IMPORTANT: Timezone where TWS/Gateway application is running (affects timestamp parsing)
+    TIMEZONE = os.getenv('TIMEZONE', 'America/New_York')  # Timezone for logging, daily resets, market hours interpretation
+    TWS_TIMEZONE = os.getenv('TIMEZONE', 'America/New_York')  # IMPORTANT: Timezone where TWS/Gateway application is running (affects timestamp parsing)
     EXCHANGE_TIMEZONES = { # Timezones of specific exchanges for accurate market hour checks (used as fallback if ContractDetails unavailable)
         'SMART': 'America/New_York', 'NYSE': 'America/New_York',
         'NASDAQ': 'America/New_York', 'ARCA': 'America/New_York',
@@ -140,7 +142,7 @@ class Settings:
     # ==================================================
     # Logging & System Settings
     # ==================================================
-    LOG_LEVEL = 'DEBUG' # 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG')  # 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
     LOG_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S %Z%z' # Format for timestamps in logs
     # IBKR_GENERIC_TICKS = "100,101,104,106,165,233,236,258" # Example: Specific tick types if needed
 
