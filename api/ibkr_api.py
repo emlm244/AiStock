@@ -17,6 +17,10 @@ from ibapi.execution import Execution, ExecutionFilter
 from ibapi.order import Order
 from ibapi.commission_report import CommissionReport
 
+# Circuit breaker and retry imports
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from api.circuit_breaker_wrapper import with_circuit_breaker
+
 # Ensure config is importable
 try:
     from config.credentials import IBKR
@@ -101,6 +105,12 @@ class IBKRApi(EWrapper, EClient):
         self.broker_open_orders = {}
 
     # --- Connection / Disconnection ---
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=16),
+        retry=retry_if_exception_type((ConnectionError, OSError)),
+        reraise=True
+    )
     def connect_app(self):
         if self.connected or self.reconnecting:
             self.logger.warning("Connection attempt ignored: Already connected or reconnecting.")
@@ -740,10 +750,11 @@ class IBKRApi(EWrapper, EClient):
              with self.api_lock: self.active_market_data_reqs.pop(req_id, None)
              return False
 
+    @with_circuit_breaker(failure_threshold=5, recovery_timeout=60.0)
     def placeOrder(self, orderId, contract, order):
         if not self.isConnected():
             self.error_logger.error(f"Cannot place order {orderId}: API not connected.")
-            return False
+            raise ConnectionError("API not connected")
         try:
             if not isinstance(order.totalQuantity, (int, float)) or order.totalQuantity <= 0:
                  self.error_logger.error(f"Order {orderId} has invalid quantity: {order.totalQuantity}")
@@ -754,7 +765,7 @@ class IBKRApi(EWrapper, EClient):
             return True
         except Exception as e:
             self.error_logger.error(f"Exception in placeOrder (ID: {orderId}, Symbol: {contract.symbol}): {e}", exc_info=True)
-            return False
+            raise  # Re-raise to trigger circuit breaker
 
 
     def cancelOrder(self, orderId, manualCancelTime=""):

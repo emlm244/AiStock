@@ -8,6 +8,7 @@ import pytz # Use pytz for timezone handling
 try:
     from utils.logger import setup_logger
     from config.settings import Settings
+    from persistence.backup_manager import BackupManager
 except ImportError as e:
     print(f"Error importing modules in StateManager: {e}")
     raise
@@ -24,6 +25,13 @@ class StateManager:
         self.error_logger = setup_logger('StateError', 'logs/error_logs/errors.log', level='ERROR')
         self.state_file = state_file
         self._lock = threading.Lock() # Lock for file access and state modification
+
+        # Initialize backup manager
+        self.backup_manager = BackupManager(
+            state_file_path=state_file,
+            max_backups=10,
+            logger=self.logger
+        )
 
         # Ensure data directory exists
         try:
@@ -59,6 +67,15 @@ class StateManager:
 
                 # Atomic rename (on most OS)
                 os.replace(temp_file_path, self.state_file)
+
+                # Create backup after successful save
+                try:
+                    backup_path = self.backup_manager.create_backup(reason="Scheduled state save")
+                    if backup_path:
+                        self.logger.debug(f"Backup created: {backup_path}")
+                except Exception as backup_error:
+                    self.error_logger.error(f"Backup creation failed: {backup_error}", exc_info=True)
+                    # Don't fail the save operation due to backup failure
 
                 self.logger.info(f"Bot state successfully saved to {self.state_file}")
                 return True

@@ -160,6 +160,31 @@ class Settings:
     OPTIMIZER_MIN_TRADES = 15 # Min trades needed for optimizer heuristics to apply to a strategy parameter
 
     # ==================================================
+    # Autonomous Mode Settings (New AI Controller)
+    # ==================================================
+    TRADING_MODE_TYPE = 'autonomous'  # Options: 'autonomous', 'expert'
+
+    # Autonomous optimization intervals
+    AUTO_OPTIMIZE_INTERVAL_HOURS = 24  # Run optimization every 24 hours
+    AUTO_OPTIMIZE_MIN_TRADES = 50  # Or after 50 trades, whichever comes first
+    AUTO_OPTIMIZE_LOOKBACK_DAYS = 7  # Look back 7 days for optimization data
+    OPTIMIZATION_N_CALLS = 20  # Number of Bayesian optimization iterations
+
+    # Strategy selection and position sizing
+    STRATEGY_SELECTION_INTERVAL_HOURS = 6  # Update strategy selection every 6 hours
+    POSITION_SIZING_UPDATE_INTERVAL = 20  # Update position sizing every 20 trades
+
+    # Parameter bounds for AI optimization (safety limits)
+    AUTO_OPTIMIZE_BOUNDS = {
+        'risk_per_trade_min': 0.005,    # 0.5% minimum
+        'risk_per_trade_max': 0.02,     # 2% maximum
+        'stop_loss_atr_min': 1.0,
+        'stop_loss_atr_max': 4.0,
+        'take_profit_rr_min': 1.5,
+        'take_profit_rr_max': 4.0,
+    }
+
+    # ==================================================
     # API Connection / Data Settings
     # ==================================================
     RECONNECT_DELAY_SECONDS = 15 # Delay before attempting API reconnect (increased)
