@@ -15,7 +15,7 @@ from ..data import Bar
 from ..logging import configure_logger
 from ..ml.dataset import build_dataset_from_directory
 from ..ml.model import save_model, train_logistic_regression
-from ..ml.pipeline import train_ml_model
+from ..ml.pipeline import train_model
 
 
 class FirstTimeSetupWizard:
@@ -281,14 +281,14 @@ class FirstTimeSetupWizard:
             # Use the ML pipeline to train the model
             self.logger.info("training_ml_model", extra={"symbols": symbols})
 
-            result = train_ml_model(
+            result = train_model(
                 data_dir="data/historical",
                 symbols=symbols,
                 lookback=30,
                 horizon=1,
                 learning_rate=0.01,
                 epochs=200,
-                output_path=str(model_path)
+                model_path=str(model_path)
             )
 
             self.logger.info(

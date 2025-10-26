@@ -34,6 +34,7 @@ from .config import (  # noqa: F401
     BacktestConfig,
     BrokerConfig,
     ContractSpec,
+    DataSource,
     EngineConfig,
     ExecutionConfig,
     RiskLimits,
