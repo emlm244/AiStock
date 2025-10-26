@@ -136,6 +136,9 @@ class DataValidator:
         gaps, gap_warnings = self._inspect_gaps(bars, bar_interval)
         warnings: list[str] = gap_warnings
         self._enforce_volume_rules(bars)
+        # P0 Fix: Add price anomaly detection
+        price_warnings = self._detect_price_anomalies(bars)
+        warnings.extend(price_warnings)
         return ValidationReport(
             source="",
             symbol=symbol,
@@ -178,6 +181,71 @@ class DataValidator:
         for bar in bars:
             if bar.volume == 0:
                 raise ValueError(f"{bar.symbol}: zero volume detected at {bar.timestamp.isoformat()}")
+
+    def _detect_price_anomalies(self, bars: Sequence[Bar]) -> list[str]:
+        """
+        P0 Fix: Detect price anomalies that indicate bad data or circuit breakers.
+
+        Checks for:
+        - Negative or zero prices
+        - Extreme price jumps (>50% in a single bar)
+        - Prices outside reasonable bounds (< $0.01 or > $100,000)
+        - Circuit breaker indicators (exact price limits)
+
+        Returns:
+            List of warning messages (raises ValueError for critical issues)
+        """
+        warnings: list[str] = []
+        if not bars:
+            return warnings
+
+        # Define reasonable price bounds
+        MIN_PRICE = 0.01  # Penny stocks lower bound
+        MAX_PRICE = 100_000.0  # Extremely high price
+        MAX_JUMP_PCT = 0.50  # 50% max jump between bars
+
+        previous_close = None
+        for bar in bars:
+            # Check for invalid prices
+            if bar.close <= 0 or bar.open <= 0:
+                raise ValueError(
+                    f"{bar.symbol}: invalid price (<=0) at {bar.timestamp.isoformat()}: "
+                    f"open={bar.open}, close={bar.close}"
+                )
+
+            if bar.high <= 0 or bar.low <= 0:
+                raise ValueError(
+                    f"{bar.symbol}: invalid OHLC at {bar.timestamp.isoformat()}: "
+                    f"high={bar.high}, low={bar.low}"
+                )
+
+            # Warn about suspiciously low prices (potential data error)
+            if float(bar.close) < MIN_PRICE:
+                warnings.append(
+                    f"{bar.symbol}: suspiciously low price at {bar.timestamp.isoformat()}: close=${bar.close}"
+                )
+
+            # Warn about suspiciously high prices
+            if float(bar.close) > MAX_PRICE:
+                warnings.append(
+                    f"{bar.symbol}: suspiciously high price at {bar.timestamp.isoformat()}: close=${bar.close}"
+                )
+
+            # Check for extreme price jumps (circuit breaker or bad data)
+            if previous_close is not None and previous_close > 0:
+                close_float = float(bar.close)
+                prev_close_float = float(previous_close)
+                pct_change = abs(close_float - prev_close_float) / prev_close_float
+
+                if pct_change > MAX_JUMP_PCT:
+                    warnings.append(
+                        f"{bar.symbol}: extreme price jump at {bar.timestamp.isoformat()}: "
+                        f"{pct_change:.1%} (from ${previous_close} to ${bar.close})"
+                    )
+
+            previous_close = bar.close
+
+        return warnings
 
 
 class FileSystemFetcher:

@@ -1,7 +1,14 @@
 import csv
+import unittest
 from datetime import timedelta, timezone
+from pathlib import Path
 
-from aistock.acquisition import DataAcquisitionConfig, DataAcquisitionService, FileSystemSourceConfig
+from aistock.acquisition import (
+    DataAcquisitionConfig,
+    DataAcquisitionService,
+    DataValidator,
+    FileSystemSourceConfig,
+)
 from aistock.config import DataQualityConfig
 from aistock.ingestion import DataIngestionConfig
 
@@ -64,3 +71,131 @@ def test_acquisition_pipeline_fetches_validates_and_ingests(tmp_path):
         log_lines = handle.readlines()
     assert any('"event": "fetch"' in line for line in log_lines)
     assert any('"event": "ingestion"' in line for line in log_lines)
+
+
+class PriceAnomalyDetectionTests(unittest.TestCase):
+    """P0 Fix: Tests for price anomaly detection."""
+
+    def test_detects_invalid_negative_prices(self):
+        """Test that negative prices are rejected."""
+        tmp = Path("temp_test_negative")
+        tmp.mkdir(exist_ok=True)
+        try:
+            rows = [
+                ["2024-01-01T14:30:00+00:00", "100", "101", "99", "100.5", "10000"],
+                ["2024-01-02T14:30:00+00:00", "-10", "102", "100", "101.5", "11000"],  # Negative price
+            ]
+            _write_csv(tmp / "TEST.csv", rows)
+
+            validator = DataValidator(DataQualityConfig())
+            with self.assertRaises(ValueError) as ctx:
+                validator.validate(tmp / "TEST.csv", "TEST", timezone.utc, timedelta(days=1))
+            self.assertIn("invalid price", str(ctx.exception).lower())
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_detects_zero_prices(self):
+        """Test that zero prices are rejected."""
+        tmp = Path("temp_test_zero")
+        tmp.mkdir(exist_ok=True)
+        try:
+            rows = [
+                ["2024-01-01T14:30:00+00:00", "100", "101", "99", "100.5", "10000"],
+                ["2024-01-02T14:30:00+00:00", "0", "102", "100", "101.5", "11000"],  # Zero price
+            ]
+            _write_csv(tmp / "TEST.csv", rows)
+
+            validator = DataValidator(DataQualityConfig())
+            with self.assertRaises(ValueError) as ctx:
+                validator.validate(tmp / "TEST.csv", "TEST", timezone.utc, timedelta(days=1))
+            self.assertIn("invalid price", str(ctx.exception).lower())
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_warns_on_extreme_price_jump(self):
+        """Test that extreme price jumps generate warnings."""
+        tmp = Path("temp_test_jump")
+        tmp.mkdir(exist_ok=True)
+        try:
+            rows = [
+                ["2024-01-01T14:30:00+00:00", "100", "101", "99", "100", "10000"],
+                ["2024-01-02T14:30:00+00:00", "200", "201", "199", "200", "11000"],  # 100% jump
+            ]
+            _write_csv(tmp / "TEST.csv", rows)
+
+            validator = DataValidator(DataQualityConfig())
+            report = validator.validate(tmp / "TEST.csv", "TEST", timezone.utc, timedelta(days=1))
+
+            # Should have warning about extreme jump
+            self.assertTrue(any("extreme price jump" in w.lower() for w in report.warnings))
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_warns_on_suspiciously_low_price(self):
+        """Test that very low prices generate warnings."""
+        tmp = Path("temp_test_lowprice")
+        tmp.mkdir(exist_ok=True)
+        try:
+            rows = [
+                ["2024-01-01T14:30:00+00:00", "100", "101", "99", "100", "10000"],
+                ["2024-01-02T14:30:00+00:00", "0.001", "0.002", "0.0009", "0.001", "11000"],  # Very low
+            ]
+            _write_csv(tmp / "TEST.csv", rows)
+
+            validator = DataValidator(DataQualityConfig())
+            report = validator.validate(tmp / "TEST.csv", "TEST", timezone.utc, timedelta(days=1))
+
+            # Should have warning about suspiciously low price
+            self.assertTrue(any("suspiciously low" in w.lower() for w in report.warnings))
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_warns_on_suspiciously_high_price(self):
+        """Test that very high prices generate warnings."""
+        tmp = Path("temp_test_highprice")
+        tmp.mkdir(exist_ok=True)
+        try:
+            rows = [
+                ["2024-01-01T14:30:00+00:00", "100", "101", "99", "100", "10000"],
+                ["2024-01-02T14:30:00+00:00", "150000", "150001", "149999", "150000", "11000"],  # Very high
+            ]
+            _write_csv(tmp / "TEST.csv", rows)
+
+            validator = DataValidator(DataQualityConfig())
+            report = validator.validate(tmp / "TEST.csv", "TEST", timezone.utc, timedelta(days=1))
+
+            # Should have warning about suspiciously high price
+            self.assertTrue(any("suspiciously high" in w.lower() for w in report.warnings))
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_normal_prices_pass_validation(self):
+        """Test that normal price movements pass without warnings."""
+        tmp = Path("temp_test_normal")
+        tmp.mkdir(exist_ok=True)
+        try:
+            rows = [
+                ["2024-01-01T14:30:00+00:00", "100", "101", "99", "100.5", "10000"],
+                ["2024-01-02T14:30:00+00:00", "101", "103", "100", "102", "11000"],  # Normal 1.5% move
+                ["2024-01-03T14:30:00+00:00", "102", "104", "101", "103", "12000"],
+            ]
+            _write_csv(tmp / "TEST.csv", rows)
+
+            validator = DataValidator(DataQualityConfig())
+            report = validator.validate(tmp / "TEST.csv", "TEST", timezone.utc, timedelta(days=1))
+
+            # Should have no price-related warnings
+            price_warnings = [w for w in report.warnings if "price" in w.lower() or "jump" in w.lower()]
+            self.assertEqual(len(price_warnings), 0)
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    unittest.main()

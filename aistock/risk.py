@@ -5,7 +5,7 @@ Deterministic risk engine enforcing portfolio level limits.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from .config import RiskLimits
@@ -20,6 +20,9 @@ class RiskState:
     start_of_day_equity: Decimal = Decimal("0")
     halted: bool = False
     halt_reason: str | None = None
+    # P0 Fix: Order rate limiting tracking
+    order_timestamps: list[datetime] = field(default_factory=list)
+    daily_order_count: int = 0
 
 
 class RiskViolation(Exception):  # noqa: N818 - "Violation" is clearer than "ViolationError"
@@ -41,6 +44,9 @@ class RiskEngine:
             self.state.start_of_day_equity = equity
             self.state.halted = False
             self.state.halt_reason = None
+            # P0 Fix: Reset daily order count
+            self.state.daily_order_count = 0
+            self.state.order_timestamps.clear()
             if equity > self.state.peak_equity:
                 self.state.peak_equity = equity
         elif self.state.start_of_day_equity == Decimal("0"):
@@ -104,6 +110,43 @@ class RiskEngine:
         self.state.halted = True
         self.state.halt_reason = reason
 
+    def _check_rate_limit(self, current_time: datetime) -> None:
+        """
+        P0 Fix: Check order rate limits to prevent runaway algorithms.
+
+        Raises:
+            RiskViolation: If rate limit exceeded
+        """
+        if not self.limits.rate_limit_enabled:
+            return
+
+        # Check daily order limit
+        if self.state.daily_order_count >= self.limits.max_orders_per_day:
+            raise RiskViolation(
+                f"Daily order limit exceeded: {self.state.daily_order_count} >= {self.limits.max_orders_per_day}"
+            )
+
+        # Check per-minute order limit
+        cutoff = current_time - timedelta(minutes=1)
+        recent_orders = [ts for ts in self.state.order_timestamps if ts >= cutoff]
+        if len(recent_orders) >= self.limits.max_orders_per_minute:
+            raise RiskViolation(
+                f"Order rate limit exceeded: {len(recent_orders)} orders in last minute >= {self.limits.max_orders_per_minute}"
+            )
+
+    def _record_order_submission(self, current_time: datetime) -> None:
+        """
+        P0 Fix: Record order submission timestamp for rate limiting.
+
+        Call this AFTER an order passes all pre-trade checks and is about to be submitted.
+        """
+        self.state.order_timestamps.append(current_time)
+        self.state.daily_order_count += 1
+
+        # Cleanup old timestamps to prevent unbounded growth
+        cutoff = current_time - timedelta(minutes=5)
+        self.state.order_timestamps = [ts for ts in self.state.order_timestamps if ts >= cutoff]
+
     def check_pre_trade(
         self,
         symbol: str,
@@ -111,7 +154,27 @@ class RiskEngine:
         price: Decimal,
         equity: Decimal,
         last_prices: dict[str, Decimal],
+        timestamp: datetime | None = None,
     ) -> None:
+        """
+        Validate a proposed trade against all risk limits before execution.
+
+        Args:
+            symbol: Trading symbol
+            quantity: Order quantity (positive for buy, negative for sell)
+            price: Execution price
+            equity: Current account equity
+            last_prices: Latest prices for all positions
+            timestamp: Order submission time (for rate limiting). Defaults to datetime.now(UTC).
+
+        Raises:
+            RiskViolation: If any risk limit would be violated
+        """
+        # P0 Fix: Check order rate limits
+        if timestamp is None:
+            timestamp = datetime.now(timezone.utc)
+        self._check_rate_limit(timestamp)
+
         current_position = self.portfolio.position(symbol)
         projected_qty = current_position.quantity + quantity
 

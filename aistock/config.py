@@ -46,6 +46,10 @@ class RiskLimits:
     max_single_position_units: float = 10_000.0
     max_holding_period_bars: int = 10_000
     kill_switch_enabled: bool = True
+    # P0 Fix: Order rate limiting to prevent runaway algorithms
+    max_orders_per_minute: int = 10
+    max_orders_per_day: int = 500
+    rate_limit_enabled: bool = True
 
     def validate(self) -> None:
         for field_name, value in [
@@ -68,6 +72,11 @@ class RiskLimits:
             raise ValueError("max_single_position_units must be >= 0")
         if self.max_holding_period_bars <= 0:
             raise ValueError("max_holding_period_bars must be positive")
+        # P0 Fix: Validate rate limiting parameters
+        if self.max_orders_per_minute <= 0:
+            raise ValueError("max_orders_per_minute must be positive")
+        if self.max_orders_per_day <= 0:
+            raise ValueError("max_orders_per_day must be positive")
 
 
 @dataclass(frozen=True)
