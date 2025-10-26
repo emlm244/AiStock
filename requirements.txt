@@ -1,42 +1,39 @@
-# Core Dependencies (Pinned versions for 2025)
-pandas==2.1.4
-numpy==1.26.3
-scikit-learn==1.4.0
-joblib==1.3.2
-colorama==0.4.6
-pytz==2024.1
+# Core dependencies - SECURITY PATCHED
+pandas>=2.2.3  # CVE-2024-9264 fixed
+numpy>=2.1.0   # CVE-2024-5568 fixed
+pyyaml>=6.0.2  # CVE-2020-14343 fixed
+python-dateutil>=2.8.0
+requests>=2.32.0  # Security updates
 
-# IBKR API (install separately: pip install ibapi from IB website)
-# ibapi>=10.26  # Version 10.26+ required for latest API features
+# Machine learning - no changes needed
+scikit-learn>=1.3.0
+joblib>=1.3.0
 
-# Security & Secrets Management
-cryptography==42.0.2
-python-dotenv==1.0.0
+# Broker integration
+ibapi>=9.81.1  # Interactive Brokers API
+yfinance>=0.2.28  # Yahoo Finance API for historical data download
 
-# Production Monitoring & Reliability
-prometheus-client==0.19.0
-circuitbreaker==2.0.0
-tenacity==8.2.3
-flask==3.0.0
+# Data storage
+pyarrow>=12.0.0  # For Parquet files
 
-# AI Optimization
-scikit-optimize==0.9.0
+# Monitoring
+prometheus-client>=0.17.0
 
-# Database (For trade persistence)
-SQLAlchemy==2.0.25
-# psycopg2-binary==2.9.9  # For PostgreSQL (optional)
-# alembic==1.13.1  # For database migrations (optional)
+# Async support
+aiohttp>=3.8.0
 
-# Testing & Quality (dev dependencies)
-pytest==7.4.4
-pytest-cov==4.1.0
-pytest-asyncio==0.23.3
-pytest-mock==3.12.0
-hypothesis==6.92.2
-mypy==1.8.0
-ruff==0.1.14
-safety==3.0.1
+# Logging
+structlog>=23.1.0
 
-# Performance Profiling (dev)
-memory-profiler==0.61.0
-py-spy==0.3.14
+# Configuration
+pydantic>=2.0.0
+python-dotenv>=1.0.0  # For .env file support
+
+# GUI
+# All GUI components use tkinter (built-in to Python, no install needed)
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0

@@ -1,0 +1,54 @@
+{
+  "_MODE": "FSD - Full Self-Driving AI Mode (Tesla-style autonomous trading)",
+  "_DESCRIPTION": "AI has full autonomy with only 2 hard constraints: max_capital and time_limit",
+
+  "mode": "fsd",
+
+  "fsd": {
+    "_HARD_CONSTRAINTS": "These 2 constraints CANNOT be violated by the AI",
+
+    "max_capital": 10000,
+    "_max_capital_note": "HARD CONSTRAINT: AI cannot deploy more than this amount",
+
+    "time_limit_minutes": 5,
+    "_time_limit_note": "HARD CONSTRAINT: AI must trade within 5-minute bars (30s, 1min, 5min, 30min, etc.)",
+
+    "_AI_LEARNING_PARAMETERS": "AI learns and adjusts these automatically",
+    "learning_rate": 0.001,
+    "discount_factor": 0.95,
+    "exploration_rate": 0.20,
+    "exploration_decay": 0.995,
+    "min_exploration_rate": 0.01,
+
+    "_MARKET_SCANNER": "AI scans stocks and picks opportunities",
+    "max_stocks_to_scan": 500,
+    "min_liquidity_volume": 100000,
+    "min_price": 1.0,
+    "max_price": 10000.0,
+
+    "_STATE_PERSISTENCE": "AI saves learning between sessions",
+    "state_save_path": "state/fsd/ai_state.json",
+    "experience_buffer_path": "state/fsd/experience_buffer.json",
+    "performance_history_path": "state/fsd/performance_history.json"
+  },
+
+  "symbols": ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
+  "_symbols_note": "Initial stock universe for AI to choose from (AI can learn which to trade)",
+
+  "broker": {
+    "backend": "ibkr",
+    "_ibkr_note": "Uses IBKR Trader Workstation (TWS) for live data and execution"
+  },
+
+  "_USAGE": {
+    "_note": "FSD Mode runs completely autonomously - AI makes ALL decisions",
+    "_run": "python scripts/fsd_mode.py configs/fsd_mode_example.json --session-duration 60",
+    "_note2": "AI will trade for 60 minutes, learning from every trade, then save state for next session"
+  },
+
+  "_FSD_vs_BOT": {
+    "_BOT_MODE": "All parameters are HARD constraints (supervised/headless autopilot)",
+    "_FSD_MODE": "Only max_capital and time_limit are hard constraints, AI decides everything else",
+    "_LEARNING": "FSD learns from EVERY trade (good or bad), BOT follows fixed rules"
+  }
+}

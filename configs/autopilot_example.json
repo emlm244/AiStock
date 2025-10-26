@@ -1,0 +1,64 @@
+{
+  "symbols": ["AAPL"],
+  "acquisition": {
+    "sources": [
+      {
+        "name": "local_drop",
+        "root": "data/provider",
+        "symbols": ["AAPL"],
+        "filename_template": "{symbol}.csv",
+        "bar_interval_minutes": 1
+      }
+    ],
+    "raw_lake_dir": "data/raw_lake",
+    "ingestion": {
+      "staging_dir": "data/staging",
+      "curated_dir": "data/curated",
+      "manifest_path": "state/ingestion/manifest.json",
+      "archive_processed": "state/ingestion/archive"
+    },
+    "metadata_log_path": "state/acquisition/log.jsonl"
+  },
+  "training": {
+    "lookback": 30,
+    "horizon": 1,
+    "learning_rate": 0.01,
+    "epochs": 200,
+    "model_path": "models/autopilot/model.json"
+  },
+  "calibration": {
+    "safety_margin": 0.15,
+    "output_path": "state/calibration/thresholds.json"
+  },
+  "engine": {
+    "risk": {
+      "max_position_fraction": 0.25,
+      "per_symbol_notional_cap": 200000,
+      "max_single_position_units": 1000000
+    },
+    "strategy": {
+      "short_window": 8,
+      "long_window": 21,
+      "exit_window": 10
+    }
+  },
+  "state_path": "state/autopilot/state.json",
+  "bar_interval_minutes": 1,
+  "promotion": {
+    "registry_dir": "models/archive",
+    "active_model_path": "models/active/model.json",
+    "manifest_path": "state/promotion/manifest.json",
+    "policy": {
+      "min_train_accuracy": 0.55,
+      "min_test_accuracy": 0.53,
+      "min_sharpe": 0.6,
+      "max_drawdown": 0.2,
+      "min_total_return": 0.02,
+      "min_trades": 20
+    }
+  },
+  "audit": {
+    "log_path": "state/audit/log.jsonl",
+    "state_root": "state/archive"
+  }
+}

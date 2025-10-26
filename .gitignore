@@ -90,7 +90,14 @@ models/**/*.h5
 models/**/*.joblib
 !models/.gitkeep
 
-# Credentials
+# Credentials and secrets
+.env.*
+!.env.example
+*.credentials.*
+credentials.py
+secrets.json
+secrets.yaml
+config/credentials.*
 
 # OS specific files
 .DS_Store
