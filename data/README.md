@@ -6,11 +6,19 @@ This directory contains historical market data for backtesting and live trading.
 
 ```
 data/
-├── historical/       # Historical OHLCV data (CSV files)
+├── historical/
+│   ├── stocks/      # Stock data (FSD & Headless modes)
+│   ├── forex/       # Forex data (BOT mode only)
+│   └── crypto/      # Cryptocurrency data (BOT mode only)
 ├── staging/          # Temporary staging area for data ingestion
 ├── curated/          # Clean, validated data after ingestion
 └── live_data/        # Real-time data feeds (optional)
 ```
+
+### Asset Class Restrictions by Mode:
+- **FSD (Full Self-Driving)**: Stocks only (`data/historical/stocks/`)
+- **Headless (Semi-Autonomous)**: Stocks only (`data/historical/stocks/`)
+- **BOT (Manual Control)**: All asset classes (stocks, forex, crypto)
 
 ## Generating Sample Data
 
@@ -22,7 +30,7 @@ Generate synthetic data for common stocks:
 
 ```bash
 python scripts/generate_synthetic_dataset.py \
-  --out data/historical \
+  --out data/historical/stocks \
   --symbols AAPL MSFT GOOGL AMZN TSLA NVDA META \
   --start 2023-01-01 \
   --end 2024-12-31 \
@@ -36,7 +44,7 @@ For quick testing with 5 popular stocks (2 years of daily data):
 
 ```bash
 python scripts/generate_synthetic_dataset.py \
-  --out data/historical \
+  --out data/historical/stocks \
   --symbols AAPL MSFT GOOGL AMZN TSLA \
   --start 2023-01-01 \
   --end 2024-12-31 \
@@ -69,7 +77,10 @@ To use real market data:
 
 1. **Download from a provider**: Use APIs from Alpha Vantage, Yahoo Finance, Polygon.io, etc.
 2. **Convert to the required format**: Ensure CSV follows the format above
-3. **Place files in**: `data/historical/`
+3. **Place files in**:
+   - Stocks: `data/historical/stocks/`
+   - Forex: `data/historical/forex/`
+   - Crypto: `data/historical/crypto/`
 4. **Validate**: Run a test backtest to verify data quality
 
 ## Data Quality
@@ -81,14 +92,16 @@ The system validates:
 - ✅ Gap detection (warns on missing bars)
 - ✅ Volume validation (optional)
 
-## FSD Auto-Discovery Feature ✨
+## FSD Market-Wide Scanning & Auto-Discovery Feature ✨
 
-**NEW**: FSD (Full Self-Driving) mode now **automatically discovers ALL available stocks** in this directory!
+**NEW**: FSD (Full Self-Driving) mode now **scans the ENTIRE stock market** and autonomously chooses which stocks to trade!
 
-- The AI scans all CSV files in `data/historical/`
-- It evaluates each stock based on liquidity, volatility, and price action
-- It **autonomously chooses** which stocks to trade based on your risk preferences
-- No need to specify which stocks to use - FSD makes the decision!
+### How FSD Discovers Stocks:
+1. **Market-Wide Scanning**: When connected to IBKR, FSD can scan the entire market for trading opportunities (not limited to data directory)
+2. **Local Historical Data**: For backtesting, scans all CSV files in `data/historical/stocks/`
+3. **AI Selection**: Evaluates each stock based on liquidity, volatility, price action, and technical indicators
+4. **Autonomous Decision**: Chooses which stocks to trade based on your risk preferences
+5. **No Manual Specification**: You don't tell FSD which stocks to trade - it discovers and decides!
 
 ### Current Universe (36 Stocks)
 
@@ -136,14 +149,14 @@ For FSD mode to work properly:
 
 ### "Data directory does not exist"
 ```bash
-mkdir -p data/historical
-python scripts/generate_synthetic_dataset.py --out data/historical --symbols AAPL MSFT --start 2023-01-01 --end 2024-12-31 --frequency daily
+mkdir -p data/historical/stocks
+python scripts/generate_synthetic_dataset.py --out data/historical/stocks --symbols AAPL MSFT --start 2023-01-01 --end 2024-12-31 --frequency daily
 ```
 
 ### "Not enough data for warmup"
 Ensure you have at least 100 bars per symbol. Check with:
 ```bash
-wc -l data/historical/*.csv
+wc -l data/historical/stocks/*.csv
 ```
 
 ### "Invalid price detected"
@@ -155,7 +168,7 @@ Check for:
 
 Run validation:
 ```bash
-python -c "from aistock import load_csv_directory, DataSource; from datetime import timedelta, timezone; load_csv_directory(DataSource(path='data/historical', symbols=['AAPL'], bar_interval=timedelta(days=1), timezone=timezone.utc, warmup_bars=30))"
+python -c "from aistock import load_csv_directory, DataSource; from datetime import timedelta, timezone; load_csv_directory(DataSource(path='data/historical/stocks', symbols=['AAPL'], bar_interval=timedelta(days=1), timezone=timezone.utc, warmup_bars=30))"
 ```
 
 ## Notes

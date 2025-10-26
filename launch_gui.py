@@ -2,54 +2,73 @@
 """
 AIStock Robot GUI Launcher
 
-This script asks the user whether they want:
-- Simple Mode (for beginners): Just capital, risk level, and START button
-- Advanced Mode (for power users): Full control center with all features
+Choose your trading mode:
+1. FSD (Full Self-Driving) - For beginners: AI handles everything
+2. Headless (Semi-Autonomous) - For advanced users: AI assists, you approve
+3. BOT (Manual Control) - For power users: Full manual control
 
-Default: Simple Mode (perfect for beginners!)
+Default: FSD Mode (perfect for beginners!)
 """
 
 import sys
 
 
 def main() -> None:
-    print("=" * 60)
-    print(" 🤖 AIStock Robot - GUI Launcher")
-    print("=" * 60)
+    print("=" * 70)
+    print(" 🤖 AIStock Robot - Mode Selection")
+    print("=" * 70)
     print()
-    print("Which interface do you want to use?")
+    print("Choose your trading mode:")
     print()
-    print("1. 🎯 SIMPLE MODE (Recommended for beginners)")
-    print("   • Perfect if you're new to trading")
-    print("   • Just answer 3 simple questions")
-    print("   • Click START and let the AI do everything!")
-    print("   • FSD (Full Self-Driving) mode enabled")
+    print("1. 🚗 FSD MODE (Full Self-Driving) - DEFAULT")
+    print("   ★ RECOMMENDED FOR BEGINNERS")
+    print("   • 100% AI-driven trading")
+    print("   • Just set capital + risk level, AI does everything")
+    print("   • AI chooses stocks, entry/exit, position sizes")
+    print("   • Learns from every trade, saves state between sessions")
+    print("   • Stocks only")
     print()
-    print("2. ⚙️  ADVANCED MODE (For power users)")
-    print("   • Full control over all settings")
-    print("   • Backtesting studio")
-    print("   • ML model training")
-    print("   • Scenario testing")
-    print("   • Live trading console with all options")
+    print("2. 🛫 HEADLESS MODE (Semi-Autonomous)")
+    print("   ★ FOR ADVANCED USERS")
+    print("   • AI suggests trades, you approve/reject")
+    print("   • Set strategy parameters, AI executes")
+    print("   • You control risk limits, AI enforces them")
+    print("   • Monitor AI suggestions, adjust as needed")
+    print("   • Stocks only")
     print()
-    print("=" * 60)
+    print("3. 🎮 BOT MODE (Manual Control)")
+    print("   ★ FOR POWER USERS")
+    print("   • Full manual control over everything")
+    print("   • Configure all indicators, strategies, parameters")
+    print("   • Backtesting studio, ML model training")
+    print("   • Multi-asset: Stocks + Forex + Crypto")
+    print("   • Advanced trading console with all options")
+    print()
+    print("=" * 70)
 
     while True:
-        choice = input("Enter your choice (1 or 2) [default: 1]: ").strip()
+        choice = input("Enter your choice (1, 2, or 3) [default: 1]: ").strip()
 
-        # Default to Simple Mode
+        # Default to FSD Mode
         if choice == "" or choice == "1":
-            print("\n✅ Launching SIMPLE MODE...\n")
+            print("\n✅ Launching FSD MODE (Full Self-Driving)...\n")
             from aistock.simple_gui import SimpleGUI
             SimpleGUI().run()
             break
         elif choice == "2":
-            print("\n✅ Launching ADVANCED MODE...\n")
+            print("\n✅ Launching HEADLESS MODE (Semi-Autonomous)...\n")
+            print("⚠️  Headless GUI coming soon! For now, launching FSD mode.\n")
+            # TODO: Create HeadlessGUI
+            from aistock.simple_gui import SimpleGUI
+            SimpleGUI().run()
+            break
+        elif choice == "3":
+            print("\n✅ Launching BOT MODE (Manual Control)...\n")
             from aistock.gui import TradingGUI
             TradingGUI().run()
             break
         else:
-            print("❌ Invalid choice. Please enter 1 or 2.\n")
+            print("❌ Invalid choice. Please enter 1, 2, or 3.\n")
 
 
 if __name__ == "__main__":

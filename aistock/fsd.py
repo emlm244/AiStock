@@ -168,7 +168,9 @@ class ConfidenceScorer:
         # ML model prediction (simple momentum for now)
         scores['ml_score'] = self._score_ml_prediction(bars)
 
-        # Weighted average
+        # Weighted average (ALL algorithms used)
+        # TODO: Dynamic weight adjustment based on algorithm performance
+        # For now, weights are static but Q-learning implicitly learns which signals to trust
         weights = {
             'technical_score': 0.30,
             'price_action_score': 0.25,

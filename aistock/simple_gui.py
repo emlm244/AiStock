@@ -119,11 +119,11 @@ class SimpleGUI:
         self.risk_level_var = tk.StringVar(value="conservative")
         self.investment_goal_var = tk.StringVar(value="steady_growth")
         self.max_loss_per_trade_var = tk.StringVar(value="5")  # percentage
-        self.trade_deadline_enabled_var = tk.BooleanVar(value=False)
-        self.trade_deadline_minutes_var = tk.StringVar(value="60")  # minutes
+        self.trade_deadline_enabled_var = tk.BooleanVar(value=True)  # Enabled by default
+        self.trade_deadline_minutes_var = tk.StringVar(value="60")  # Must trade within 60 min
 
         # Default configurations (hidden from user)
-        self.data_folder = "data/historical"  # Use historical data for warmup
+        self.data_folder = "data/historical/stocks"  # FSD & Headless: stocks only
         # FSD Auto-Discovery: Scan ALL available stocks, let AI choose best ones
         self.symbols = self._discover_available_symbols()
 
@@ -141,17 +141,31 @@ class SimpleGUI:
 
     def _discover_available_symbols(self) -> list[str]:
         """
-        FSD Auto-Discovery: Scan data directory for all available stocks.
+        FSD Market-Wide Stock Discovery.
 
-        The AI will autonomously choose which ones to trade based on:
+        Discovery modes:
+        1. IBKR Market Scanner (when connected): Scan ENTIRE stock market
+           - Uses IBKR's market scanner API
+           - Filters by liquidity, price range, volume
+           - Can discover ANY tradeable stock
+           - TODO: Implement IBKR scanner integration
+
+        2. Local Data Directory (fallback): Scan data/historical/stocks/
+           - Used for backtesting and when IBKR not connected
+           - Scans all CSV files in directory
+
+        The AI will autonomously choose which discovered stocks to trade based on:
         - User's risk preferences (Conservative/Moderate/Aggressive)
         - Liquidity (volume)
         - Price range
         - Volatility characteristics
+        - Technical indicator signals
 
         Returns:
-            List of all available stock symbols (e.g., ['AAPL', 'MSFT', ...])
+            List of all available/discovered stock symbols (e.g., ['AAPL', 'MSFT', ...])
         """
+        # TODO: Check if IBKR is connected, use market scanner if available
+        # For now, use local data directory discovery
         data_dir = Path(self.data_folder)
 
         if not data_dir.exists():
@@ -421,7 +435,7 @@ class SimpleGUI:
         deadline_entry_frame = tk.Frame(deadline_option2, bg="white")
         deadline_entry_frame.pack(anchor="w", padx=30, pady=(5, 5))
 
-        self.deadline_entry = ttk.Entry(deadline_entry_frame, textvariable=self.trade_deadline_minutes_var, font=self._font(14), width=8, justify=tk.CENTER, state=tk.DISABLED)
+        self.deadline_entry = ttk.Entry(deadline_entry_frame, textvariable=self.trade_deadline_minutes_var, font=self._font(14), width=8, justify=tk.CENTER, state=tk.NORMAL)
         self.deadline_entry.pack(side=tk.LEFT)
 
         tk.Label(deadline_entry_frame, text=" minutes", font=self._font(11), bg="white").pack(side=tk.LEFT, padx=(5, 0))
