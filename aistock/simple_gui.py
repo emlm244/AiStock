@@ -124,7 +124,8 @@ class SimpleGUI:
 
         # Default configurations (hidden from user)
         self.data_folder = "data/historical"  # Use historical data for warmup
-        self.symbols = ["AAPL", "MSFT", "GOOGL"]  # Multiple symbols for better learning
+        # FSD Auto-Discovery: Scan ALL available stocks, let AI choose best ones
+        self.symbols = self._discover_available_symbols()
 
         # Session state
         self.session: LiveTradingSession | None = None
@@ -137,6 +138,47 @@ class SimpleGUI:
         self.profit_var = tk.StringVar(value="$0.00")
         self.status_var = tk.StringVar(value="🤖 Ready to start")
         self.activity_text: tk.Text | None = None
+
+    def _discover_available_symbols(self) -> list[str]:
+        """
+        FSD Auto-Discovery: Scan data directory for all available stocks.
+
+        The AI will autonomously choose which ones to trade based on:
+        - User's risk preferences (Conservative/Moderate/Aggressive)
+        - Liquidity (volume)
+        - Price range
+        - Volatility characteristics
+
+        Returns:
+            List of all available stock symbols (e.g., ['AAPL', 'MSFT', ...])
+        """
+        data_dir = Path(self.data_folder)
+
+        if not data_dir.exists():
+            self.logger.warning("data_directory_not_found", extra={"path": str(data_dir)})
+            # Fallback to default symbols if directory doesn't exist
+            return ["AAPL", "MSFT", "GOOGL"]
+
+        # Scan for all CSV files in data directory
+        csv_files = list(data_dir.glob("*.csv"))
+
+        if not csv_files:
+            self.logger.warning("no_csv_files_found", extra={"path": str(data_dir)})
+            return ["AAPL", "MSFT", "GOOGL"]
+
+        # Extract symbol names from filenames (e.g., "AAPL.csv" -> "AAPL")
+        symbols = [f.stem for f in csv_files if f.stem != ".gitkeep"]
+
+        self.logger.info(
+            "fsd_auto_discovery_complete",
+            extra={
+                "symbols_found": len(symbols),
+                "symbols": symbols[:10],  # Log first 10 for brevity
+                "total_available": len(symbols)
+            }
+        )
+
+        return symbols
 
     def _run_first_time_setup_if_needed(self) -> None:
         """Run first-time setup wizard if needed."""

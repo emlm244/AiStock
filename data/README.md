@@ -81,20 +81,56 @@ The system validates:
 - ✅ Gap detection (warns on missing bars)
 - ✅ Volume validation (optional)
 
-## Recommended Symbols
+## FSD Auto-Discovery Feature ✨
 
-### US Equities (Large Cap)
-- **Tech**: AAPL, MSFT, GOOGL, AMZN, META, NVDA
-- **Finance**: JPM, BAC, GS, WFC
-- **Healthcare**: JNJ, UNH, PFE
-- **Consumer**: TSLA, NKE, DIS
+**NEW**: FSD (Full Self-Driving) mode now **automatically discovers ALL available stocks** in this directory!
+
+- The AI scans all CSV files in `data/historical/`
+- It evaluates each stock based on liquidity, volatility, and price action
+- It **autonomously chooses** which stocks to trade based on your risk preferences
+- No need to specify which stocks to use - FSD makes the decision!
+
+### Current Universe (36 Stocks)
+
+The default generated dataset includes:
+
+- **Tech (7)**: AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA
+- **Finance (5)**: JPM, BAC, GS, WFC, C
+- **Healthcare (5)**: JNJ, UNH, PFE, CVS, ABBV
+- **Energy (4)**: XOM, CVX, COP, SLB
+- **Media (3)**: DIS, NFLX, CMCSA
+- **Retail (4)**: WMT, TGT, COST, HD
+- **Industrial (4)**: BA, CAT, DE, MMM
+- **Consumer (4)**: KO, PEP, MCD, SBUX
+
+**Total**: 36 stocks across 8 sectors
+
+### How FSD Chooses Stocks
+
+Based on your risk preference:
+
+**Conservative:**
+- Selects large-cap, low-volatility stocks
+- Prefers stable sectors (Consumer, Healthcare)
+- Focuses on high-liquidity names
+
+**Moderate:**
+- Balanced mix of growth and stability
+- Diversified across sectors
+- Moderate volatility tolerance
+
+**Aggressive:**
+- May select higher-volatility stocks
+- Technology and growth-focused
+- Willing to trade smaller positions more frequently
 
 ### Minimum Requirements
 
 For FSD mode to work properly:
-- **Minimum symbols**: 3-5 stocks
+- **Minimum symbols**: 10+ stocks (more is better!)
 - **Minimum bars**: 100+ (preferably 365+ for daily data)
 - **Recommended timeframe**: 1-2 years of history
+- **Recommended universe**: 20-50 stocks across multiple sectors
 
 ## Troubleshooting
 
