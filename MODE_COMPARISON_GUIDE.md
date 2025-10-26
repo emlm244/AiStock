@@ -25,7 +25,9 @@ BOT (Manual Control)       ←  Power Users & Traders
 | **Position Sizing** | AI calculates | AI recommends | User sets |
 | **Risk Management** | AI adapts | User sets limits, AI enforces | User controls |
 | **Learning** | Learns from every trade | No learning | No learning |
+| **ML Integration** | Yes (auto-loads trained model) | Optional | Optional |
 | **State Persistence** | Saves & loads | Config-based | Config-based |
+| **Urgency Ramping** | Yes (deadline enforcement) | No | No |
 | **Can Skip Trades** | Yes, if confidence low | Yes, if conditions not met | User decides |
 | **Complexity** | ⭐ Simple | ⭐⭐⭐ Moderate | ⭐⭐⭐⭐⭐ Complex |
 
@@ -57,6 +59,9 @@ BOT (Manual Control)       ←  Power Users & Traders
 ### **Only 2 Hard Constraints**
 1. **Max Capital**: Cannot exceed (e.g., $200)
 2. **Time Deadline**: Must trade within timeframe (e.g., 60 minutes)
+   - **Urgency Ramping**: AI "stresses" as deadline approaches
+   - Lowers confidence threshold to ensure trade happens
+   - Example: At 90% through deadline, threshold drops by 72%
 
 ### **Learning Mechanism**
 ```
@@ -74,6 +79,26 @@ Session 2: Loads previous state, continues learning
            ↓
          Gets smarter over time!
 ```
+
+### **ML Integration** ✨
+```
+FSD uses a trained machine learning model for enhanced predictions:
+
+Historical Data  →  Train ML Model  →  models/ml_model.json
+                                              ↓
+FSD loads model on startup  →  Uses ML predictions (25% weight)
+                                              ↓
+Combines with: Technical (30%), Price Action (25%), Volume (20%)
+                                              ↓
+                           Total Confidence Score → Trade Decision
+```
+
+**To train/retrain ML model:**
+```bash
+python scripts/train_ml_model.py
+```
+
+Current model: 51.83% test accuracy on 25,200 samples (36 stocks)
 
 ### **Best For**
 - Beginners who don't know technical analysis
@@ -339,6 +364,15 @@ A: You can stop it anytime, or switch to Headless for more control.
 
 **Q: Can I use FSD and BOT together?**
 A: Not simultaneously. But you can run FSD for stocks, BOT for crypto separately.
+
+**Q: How do I train the ML model?**
+A: Run `python scripts/train_ml_model.py`. FSD automatically loads the trained model from `models/ml_model.json`.
+
+**Q: What if I don't have an ML model trained?**
+A: FSD will still work! It uses momentum-based fallback if no ML model is found. But training improves performance.
+
+**Q: Does the Time Deadline force bad trades?**
+A: No. FSD uses "urgency ramping" - it gradually lowers its confidence threshold. This means it makes trades it otherwise wouldn't, but still requires reasonable signals.
 
 ---
 
