@@ -1,16 +1,38 @@
-# AIStocker
+# AIStock Robot 🤖
 
-A Python-based automated trading system that connects to Interactive Brokers, aggregates tick data into bars, runs multiple trading strategies (including ML-based), and executes bracket orders with comprehensive risk management.
+A professional Python-based automated trading system with **3 intelligence modes**: FSD (Full Self-Driving AI), Supervised (AI-Assisted), and BOT (Manual Power User).
 
-## Features
+## 🎯 Intelligence Modes
 
-- **Multi-Strategy Trading**: Trend following, mean reversion, momentum, and machine learning strategies
-- **Live & Backtest**: Real-time trading with Interactive Brokers and backtesting capabilities
+### 1️⃣ FSD Mode (Full Self-Driving) - **RECOMMENDED**
+- 🤖 **AI makes ALL decisions** using reinforcement learning (Q-Learning)
+- 📚 **Learns from every trade** - gets smarter over time
+- 🎯 **Fully autonomous** - no parameter tuning required
+- 📈 **Stocks only** (optimal data quality)
+- **Best for**: Hands-off automated trading
+
+### 2️⃣ Supervised Mode (AI-Assisted)
+- 🔧 **AI optimizes parameters**, you choose instruments
+- 📊 Uses Bayesian optimization for risk/strategy tuning
+- ⚙️ **Semi-autonomous** - AI assistance with human control
+- 📈 **Stocks only**
+- **Best for**: Active traders who want AI help
+
+### 3️⃣ BOT Mode (Manual Power User)
+- 🎛️ **Full manual control** over all parameters
+- 📐 Uses rule-based strategies (MA, RSI, Momentum, ML)
+- 🌍 **All asset types**: stocks, crypto, AND forex
+- **Best for**: Experienced traders, strategy development
+
+## Core Features
+
+- **Reinforcement Learning**: Q-Learning agent that learns optimal trading policies
+- **Professional Backtesting**: Backtrader integration with professional infrastructure
+- **Live & Paper Trading**: Real-time trading with Interactive Brokers
 - **Risk Management**: Daily loss limits, drawdown halts, position sizing
 - **Bracket Orders**: Automatic stop-loss and take-profit orders
-- **Data Aggregation**: Build custom timeframe bars from tick data
 - **Adaptive Risk**: Volatility-based position sizing and stop-loss adjustment
-- **Automated ML Retraining**: Background model updates based on performance
+- **Live Trading Safety**: Explicit opt-in with port detection and confirmation
 
 ## Safety & Risk Controls
 
@@ -89,46 +111,80 @@ You should see your configuration without errors.
 
 ### Running the Trading Bot
 
-#### Interactive Mode (with prompts)
+#### Interactive Mode (RECOMMENDED for first-time users)
 
 ```bash
 python main.py
 ```
 
-Select option **1** to launch the trading bot. You will be prompted to:
-- Choose trading mode (Stock, Crypto, Forex)
-- Select instruments to trade
-- Enable/disable autonomous features
+You'll be prompted to select:
+1. **Intelligence Mode**: FSD (AI), Supervised (AI-assisted), or BOT (manual)
+2. **Asset Type**: Stocks (FSD/Supervised) or Stocks/Crypto/Forex (BOT)
+3. **Instruments**: Which symbols to trade
+4. **Live Trading**: Paper (default) or Live (requires explicit confirmation)
 
-#### Headless Mode (no prompts)
+#### Headless Mode (for automation)
 
-For running in production, CI, or Docker:
+**FSD Mode (Full Self-Driving AI)**:
+```bash
+python main.py --headless --intelligence-mode fsd --instruments "AAPL,MSFT,GOOGL"
+```
+
+**Supervised Mode (AI-Assisted)**:
+```bash
+python main.py --headless --intelligence-mode supervised --instruments "SPY,QQQ,IWM"
+```
+
+**BOT Mode (Manual Control)**:
+```bash
+# Stocks
+python main.py --headless --intelligence-mode bot --mode stock --instruments "AAPL,TSLA"
+
+# Crypto
+python main.py --headless --intelligence-mode bot --mode crypto --instruments "BTC/USD,ETH/USD"
+
+# Forex
+python main.py --headless --intelligence-mode bot --mode forex --instruments "EUR/USD,GBP/USD"
+```
+
+#### Legacy Headless Mode (backwards compatible)
+
+For backwards compatibility (defaults to BOT mode):
 
 ```bash
-# Basic headless run with crypto (default instruments)
-python main.py --headless --mode crypto
+# Basic headless run with crypto
+python main.py --headless --mode crypto --instruments "BTC/USD,ETH/USD"
 
-# Specify instruments
-python main.py --headless --mode stock --instruments "AAPL,MSFT,GOOGL"
-
-# Disable autonomous features
-python main.py --headless --mode forex --instruments "EUR/USD" --no-autonomous
-
-# Enable extended hours trading for stocks
+# Stock trading with extended hours
 python main.py --headless --mode stock --instruments "SPY" --extended-hours
 
-# Full control
-python main.py --headless --mode crypto --instruments "BTC/USD,ETH/USD" \
-  --autonomous --adaptive-risk --auto-retrain --dynamic-weighting
+# Disable autonomous features (BOT mode)
+python main.py --headless --mode forex --instruments "EUR/USD" --no-autonomous
 ```
+
+#### Live Trading (requires explicit opt-in)
+
+**⚠️ SAFETY**: Live trading is DISABLED by default. You MUST add `--live-trading` flag:
+
+```bash
+# Paper trading (default - no flag needed)
+python main.py --headless --intelligence-mode fsd --instruments "AAPL"
+
+# Live trading (requires explicit flag)
+python main.py --headless --intelligence-mode fsd --instruments "AAPL" --live-trading
+```
+
+In interactive mode, you'll be prompted to confirm live trading if detected.
 
 **Headless CLI Options:**
 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--headless` | Run without interactive prompts | False |
-| `--mode` | Trading mode: stock, crypto, forex | Required in headless |
+| `--intelligence-mode` | **FSD**, supervised, or bot | bot (safest) |
+| `--mode` | Asset type: stock, crypto, forex | BOT mode only |
 | `--instruments` | Comma-separated symbols | Mode defaults |
+| `--live-trading` | **Enable live trading** (explicit opt-in) | False (paper) |
 | `--autonomous` / `--no-autonomous` | Adaptive strategies/risk | True |
 | `--adaptive-risk` / `--no-adaptive-risk` | Volatility-based SL/TP | True |
 | `--auto-retrain` / `--no-auto-retrain` | Auto ML retraining | True |
@@ -229,21 +285,36 @@ All configuration is in `config/settings.py`. Key settings include:
 ## Project Structure
 
 ```
-AiStock/
-├── aggregator/         # Tick-to-bar data aggregation
-├── api/               # Interactive Brokers API wrapper
-├── config/            # Settings and credentials (env-based)
-├── data/              # Market data storage (excluded from git)
-├── indicators/        # Technical indicators (RSI, MACD, ATR, etc.)
-├── logs/              # Application logs (excluded from git)
-├── managers/          # Order, portfolio, risk, strategy managers
-├── models/            # Trained ML models (excluded from git)
-├── persistence/       # State management
-├── strategies/        # Trading strategy implementations
-├── utils/             # Utilities (logging, data utils, etc.)
-├── main.py            # Main entry point
-├── train_model.py     # ML model training script
-└── requirements.txt   # Python dependencies
+AIStock/
+├── aistock/           # 🆕 Backtrader integration + FSD engine
+│   ├── backtrader_integration.py  # Professional backtesting
+│   ├── fsd.py                      # 🤖 Q-Learning RL agent
+│   ├── config.py                   # Backtest configurations
+│   ├── data.py                     # Bar dataclass + loading
+│   ├── portfolio.py                # Portfolio tracking
+│   ├── performance.py              # Metrics (Sharpe, Sortino, etc.)
+│   ├── risk.py                     # Risk engine
+│   ├── strategy.py                 # Strategy suite
+│   └── logging.py                  # Structured logging
+│
+├── aggregator/        # Tick-to-bar data aggregation
+├── api/              # Interactive Brokers API wrapper
+├── config/           # Settings and credentials (env-based)
+├── data/             # Market data storage (excluded from git)
+├── indicators/       # Technical indicators (RSI, MACD, ATR, etc.)
+├── logs/             # Application logs (excluded from git)
+├── managers/         # Order, portfolio, risk, strategy managers
+├── models/           # Trained ML models (excluded from git)
+├── persistence/      # State management
+├── strategies/       # Trading strategy implementations
+├── tests/            # Test suite (pytest)
+├── utils/            # Utilities (logging, data utils, etc.)
+│
+├── .env.example      # 🆕 Environment template (COPY TO .env)
+├── main.py           # ✅ UPDATED - 3-mode selection
+├── backtest.py       # Legacy backtesting (will be deprecated)
+├── train_model.py    # ML model training script
+└── requirements.txt  # ✅ UPDATED - Added backtrader
 ```
 
 ## Environment Variables Reference

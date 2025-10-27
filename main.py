@@ -229,23 +229,88 @@ class TradingBot:
         # If args provided (headless mode), use them; else prompt
         headless = args is not None
 
-        # Trading Mode
-        if headless and args.mode:
-            mode_map = {'stock': 'stock', 'crypto': 'crypto', 'forex': 'forex'}
-            self.settings.TRADING_MODE = mode_map.get(args.mode.lower(), 'crypto')
+        print("\n" + "="*70)
+        print("  🤖 AISTOCKER - AI Trading System")
+        print("="*70)
+        
+        # ===== NEW: INTELLIGENCE MODE SELECTION (PRIMARY CHOICE) =====
+        if headless and hasattr(args, 'intelligence_mode'):
+            intelligence_mode = args.intelligence_mode.lower()
         elif not headless:
-            print("\n--- AIStocker Configuration ---")
+            print("\n📊 SELECT INTELLIGENCE MODE:")
+            print("="*70)
+            print("  1: FSD (Full Self-Driving) - RECOMMENDED")
+            print("     → AI makes ALL decisions using reinforcement learning")
+            print("     → Learns from every trade and adapts automatically")
+            print("     → For stocks only (regulatory/data quality)")
+            print("     → Best for: Hands-off automated trading")
+            print()
+            print("  2: SUPERVISED (Semi-Autonomous)")
+            print("     → AI optimizes parameters, you control instruments")
+            print("     → Uses Bayesian optimization for risk/strategy tuning")
+            print("     → For stocks only")
+            print("     → Best for: Active traders who want AI assistance")
+            print()
+            print("  3: BOT (Manual Power User)")
+            print("     → Full manual control over all parameters")
+            print("     → Uses rule-based strategies (MA, RSI, Momentum, ML)")
+            print("     → For stocks, crypto, AND forex")
+            print("     → Best for: Experienced traders, strategy development")
+            print("="*70)
+            
             while True:
-                print("Select Trading Mode:")
-                print("  1: Stock")
-                print("  2: Crypto")
-                print("  3: Forex")
                 choice = input("Enter choice [1, 2, or 3]: ").strip()
-                if choice == '1': self.settings.TRADING_MODE = 'stock'; break
-                elif choice == '2': self.settings.TRADING_MODE = 'crypto'; break
-                elif choice == '3': self.settings.TRADING_MODE = 'forex'; break
-                else: print("Invalid input.")
-        self.logger.info(f"Trading Mode set to: {self.settings.TRADING_MODE}")
+                if choice == '1':
+                    intelligence_mode = 'fsd'
+                    break
+                elif choice == '2':
+                    intelligence_mode = 'supervised'
+                    break
+                elif choice == '3':
+                    intelligence_mode = 'bot'
+                    break
+                else:
+                    print("Invalid input. Please enter 1, 2, or 3.")
+        else:
+            # Headless without intelligence mode specified - default to BOT (safest)
+            intelligence_mode = 'bot'
+        
+        self.settings.INTELLIGENCE_MODE = intelligence_mode
+        self.logger.info(f"Intelligence Mode set to: {intelligence_mode.upper()}")
+        
+        # ===== ENFORCE ASSET TYPE RESTRICTIONS BASED ON INTELLIGENCE MODE =====
+        if intelligence_mode == 'fsd':
+            # FSD: STOCKS ONLY (as per requirements)
+            self.settings.TRADING_MODE = 'stock'
+            self.logger.info("FSD mode: Trading mode forced to STOCK (FSD is stocks-only)")
+            print("\n✓ FSD Mode: Trading STOCKS only (optimal data quality & regulation)")
+        
+        elif intelligence_mode == 'supervised':
+            # SUPERVISED: STOCKS ONLY (as per requirements)
+            self.settings.TRADING_MODE = 'stock'
+            self.logger.info("Supervised mode: Trading mode forced to STOCK")
+            print("\n✓ Supervised Mode: Trading STOCKS only")
+        
+        elif intelligence_mode == 'bot':
+            # BOT: ALL ASSET TYPES ALLOWED
+            if headless and args.mode:
+                mode_map = {'stock': 'stock', 'crypto': 'crypto', 'forex': 'forex'}
+                self.settings.TRADING_MODE = mode_map.get(args.mode.lower(), 'crypto')
+            elif not headless:
+                print("\n--- Asset Type Selection (BOT Mode) ---")
+                while True:
+                    print("Select Asset Type:")
+                    print("  1: Stock")
+                    print("  2: Crypto")
+                    print("  3: Forex")
+                    choice = input("Enter choice [1, 2, or 3]: ").strip()
+                    if choice == '1': self.settings.TRADING_MODE = 'stock'; break
+                    elif choice == '2': self.settings.TRADING_MODE = 'crypto'; break
+                    elif choice == '3': self.settings.TRADING_MODE = 'forex'; break
+                    else: print("Invalid input.")
+            self.logger.info(f"BOT Mode: Asset type set to {self.settings.TRADING_MODE}")
+        
+        self.logger.info(f"Final Trading Mode: {self.settings.TRADING_MODE}")
 
         # Default instruments per mode
         default_instruments_map = {
@@ -349,6 +414,53 @@ class TradingBot:
              return False # Indicate failure
         self.logger.info(f"Validated Trading Instruments: {self.settings.TRADE_INSTRUMENTS}")
 
+        # ===== LIVE TRADING SAFETY CONFIRMATION =====
+        if headless and hasattr(args, 'live_trading'):
+            self.settings.LIVE_TRADING = args.live_trading
+        elif not headless:
+            # Check if connected to live port (heuristic)
+            tws_port = int(os.getenv('IBKR_TWS_PORT', '7497'))
+            likely_live = tws_port in [7496, 4001]  # Live TWS or Gateway ports
+            
+            if likely_live:
+                print("\n" + "="*70)
+                print("⚠️  WARNING: DETECTED POTENTIAL LIVE TRADING CONNECTION")
+                print("="*70)
+                print(f"Port {tws_port} is typically used for LIVE trading.")
+                print("Paper trading ports: 7497 (TWS) or 4002 (Gateway)")
+                print("Live trading ports: 7496 (TWS) or 4001 (Gateway)")
+                print()
+                print("RISKS:")
+                print("  • Real money will be used")
+                print("  • Losses can exceed capital")
+                print("  • No undo for executed trades")
+                print("="*70)
+                
+                while True:
+                    confirm = input("\nType 'I ACCEPT THE RISK' to enable live trading: ").strip()
+                    if confirm == 'I ACCEPT THE RISK':
+                        self.settings.LIVE_TRADING = True
+                        self.logger.warning("LIVE TRADING ENABLED by user confirmation")
+                        print("\n✓ Live trading ENABLED")
+                        break
+                    else:
+                        print("Live trading NOT confirmed. Using paper trading mode.")
+                        self.settings.LIVE_TRADING = False
+                        self.logger.info("Live trading disabled - defaulting to paper mode")
+                        break
+            else:
+                # Likely paper trading port
+                self.settings.LIVE_TRADING = False
+                print(f"\n✓ Paper trading mode (port {tws_port})")
+                self.logger.info(f"Paper trading mode detected (port {tws_port})")
+        
+        # Store intelligence mode
+        if intelligence_mode in ['fsd', 'supervised']:
+            # These modes have built-in optimization
+            self.settings.AUTONOMOUS_MODE = True
+            self.settings.ENABLE_ADAPTIVE_RISK = True
+            self.settings.ENABLE_DYNAMIC_STRATEGY_WEIGHTING = True
+        
         return True
 
     # --- Callbacks & Error Handling ---
@@ -1290,24 +1402,42 @@ Examples:
   # Interactive mode (prompts for config)
   python main.py
 
-  # Headless mode with defaults
-  python main.py --headless --mode crypto --instruments "BTC/USD,ETH/USD"
+  # FSD mode (Full Self-Driving AI) - RECOMMENDED
+  python main.py --headless --intelligence-mode fsd --instruments "AAPL,MSFT"
+
+  # Supervised mode (AI-assisted)
+  python main.py --headless --intelligence-mode supervised --instruments "SPY,QQQ"
+
+  # BOT mode (manual control)
+  python main.py --headless --intelligence-mode bot --mode crypto --instruments "BTC/USD,ETH/USD"
 
   # Train ML model
   python main.py --train
 
-  # Headless with all options
-  python main.py --headless --mode stock --instruments "AAPL,MSFT" --no-autonomous --extended-hours
+  # Legacy headless (defaults to BOT mode)
+  python main.py --headless --mode stock --instruments "AAPL,MSFT" --no-autonomous
         '''
     )
     parser.add_argument('--headless', action='store_true',
                         help='Run in headless mode (no interactive prompts)')
     parser.add_argument('--train', action='store_true',
                         help='Train ML model and exit')
+    
+    # NEW: Intelligence mode selection
+    parser.add_argument('--intelligence-mode', type=str, choices=['fsd', 'supervised', 'bot'],
+                        help='Intelligence mode: fsd (Full Self-Driving), supervised (AI-assisted), bot (manual)')
+    
+    # Asset type (only for BOT mode)
     parser.add_argument('--mode', type=str, choices=['stock', 'crypto', 'forex'],
-                        help='Trading mode (stock, crypto, forex)')
+                        help='Asset type (stock, crypto, forex) - only for BOT mode')
     parser.add_argument('--instruments', type=str,
                         help='Comma-separated list of instruments (e.g., "BTC/USD,ETH/USD")')
+    
+    # Live trading safeguard
+    parser.add_argument('--live-trading', action='store_true', default=False,
+                        help='ENABLE LIVE TRADING (requires explicit opt-in, defaults to paper)')
+    
+    # Autonomous features (applies to Supervised mode)
     parser.add_argument('--autonomous', dest='autonomous', action='store_true', default=True,
                         help='Enable autonomous mode (default: True)')
     parser.add_argument('--no-autonomous', dest='autonomous', action='store_false',

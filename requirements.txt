@@ -22,6 +22,9 @@ flask==3.0.0
 # AI Optimization
 scikit-optimize==0.9.0
 
+# Backtesting Framework
+backtrader>=1.9.78.123
+
 # Database (For trade persistence)
 SQLAlchemy==2.0.25
 # psycopg2-binary==2.9.9  # For PostgreSQL (optional)

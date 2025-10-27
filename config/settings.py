@@ -7,8 +7,19 @@ class Settings:
     # User Configurable Parameters (via Prompt or Defaults)
     # ==================================================
     # These are defaults; many will be overridden by user prompts in main.py
+    
+    # Intelligence Mode (NEW - Primary selection)
+    # Options: 'fsd' (Full Self-Driving), 'supervised' (AI-assisted), 'bot' (manual)
+    INTELLIGENCE_MODE = 'bot'  # Default to BOT (safest)
+    
+    # Asset Type
     TRADING_MODE = 'crypto' # Options: 'stock', 'crypto', 'forex'
     TRADE_INSTRUMENTS = ['ETH/USD', 'BTC/USD'] # List of symbols to trade
+    
+    # Live Trading Safety
+    LIVE_TRADING = False  # MUST be explicitly enabled for live trading
+    
+    # Autonomous Features (for Supervised mode)
     AUTONOMOUS_MODE = True  # Master switch for enhanced adaptation
     ENABLE_ADAPTIVE_RISK = True # Allow SL/TP to adapt to volatility? (Requires AUTONOMOUS_MODE)
     ENABLE_AUTO_RETRAINING = True # Allow automated ML retraining? (Requires AUTONOMOUS_MODE)
