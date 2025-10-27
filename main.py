@@ -204,6 +204,8 @@ class TradingBot:
         self.last_regime_check_time = defaultdict(lambda: datetime.min.replace(tzinfo=pytz.utc))
         # {symbol: bool} - Track trading pause state per symbol
         self.symbol_trading_paused = defaultdict(bool)
+        # {symbol: str} - Track pause reason per symbol
+        self.pause_reason = defaultdict(str)
 
         self.running = False
         self.main_thread = None
@@ -840,9 +842,11 @@ class TradingBot:
             currently_paused = self.symbol_trading_paused.get(symbol, False)
             if should_pause and not currently_paused:
                 self.symbol_trading_paused[symbol] = True
+                self.pause_reason[symbol] = pause_reason
                 self.logger.info(f"Pausing trading evaluation for {symbol}. Reason: {pause_reason}")
             elif not should_pause and currently_paused:
                 self.symbol_trading_paused[symbol] = False
+                self.pause_reason[symbol] = ""
                 self.logger.info(f"Resuming trading evaluation for {symbol}.")
 
         return should_pause
