@@ -1,18 +1,17 @@
 # tests/test_aggregator.py
 """Tests for data aggregation (tick to bar conversion)."""
 
-import pytest
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import pytz
-import queue
-import time
-import threading
-from unittest.mock import Mock, MagicMock
-
-import sys
 import os
+import queue
+import sys
+import threading
+from datetime import datetime, timedelta
+from unittest.mock import Mock
+
+import pandas as pd
+import pytest
+import pytz
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aggregator.data_aggregator import DataAggregator
@@ -42,7 +41,7 @@ def aggregator(mock_api, mock_logger):
 def test_aggregator_initialization(aggregator):
     """Test aggregator initializes with correct state."""
     assert aggregator.bar_size == timedelta(seconds=30)
-    assert aggregator.running == False
+    assert not aggregator.running
     assert len(aggregator.subscribed_symbols) == 0
 
 
@@ -62,10 +61,10 @@ def test_bar_size_validation():
     api = Mock()
     logger = Mock()
 
-    with pytest.raises(ValueError, match="Bar size must be a positive timedelta"):
+    with pytest.raises(ValueError, match='Bar size must be a positive timedelta'):
         DataAggregator(api, timedelta(seconds=-1), logger)
 
-    with pytest.raises(ValueError, match="Bar size must be a positive timedelta"):
+    with pytest.raises(ValueError, match='Bar size must be a positive timedelta'):
         DataAggregator(api, timedelta(seconds=0), logger)
 
 
@@ -82,8 +81,20 @@ def test_bar_completion_edge_case():
 
     ticks = [
         {'symbol': 'TEST', 'time_utc': base_time, 'price': 100.0, 'size': 10, 'tick_type': 'LAST'},
-        {'symbol': 'TEST', 'time_utc': base_time + timedelta(seconds=30), 'price': 101.0, 'size': 20, 'tick_type': 'LAST'},
-        {'symbol': 'TEST', 'time_utc': base_time + timedelta(minutes=1), 'price': 102.0, 'size': 15, 'tick_type': 'LAST'},  # New bar
+        {
+            'symbol': 'TEST',
+            'time_utc': base_time + timedelta(seconds=30),
+            'price': 101.0,
+            'size': 20,
+            'tick_type': 'LAST',
+        },
+        {
+            'symbol': 'TEST',
+            'time_utc': base_time + timedelta(minutes=1),
+            'price': 102.0,
+            'size': 15,
+            'tick_type': 'LAST',
+        },  # New bar
     ]
 
     for tick in ticks:

@@ -12,9 +12,10 @@ Provides HTTP endpoints for monitoring bot health and metrics:
 import logging
 import threading
 from datetime import datetime
-from typing import Optional, Dict, Any
-from flask import Flask, jsonify, Response
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from typing import Any, Optional
+
+from flask import Flask, Response, jsonify
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 
 class HealthCheckServer:
@@ -24,12 +25,7 @@ class HealthCheckServer:
     Runs in a background thread to avoid blocking the main trading loop
     """
 
-    def __init__(
-        self,
-        port: int = 9090,
-        host: str = '0.0.0.0',
-        logger: Optional[logging.Logger] = None
-    ):
+    def __init__(self, port: int = 9090, host: str = '0.0.0.0', logger: Optional[logging.Logger] = None):
         self.port = port
         self.host = host
         self.logger = logger or logging.getLogger(__name__)
@@ -61,10 +57,7 @@ class HealthCheckServer:
             """Health check endpoint - returns simple status"""
             status = self._determine_health_status()
 
-            response = {
-                'status': status,
-                'timestamp': datetime.now().isoformat()
-            }
+            response = {'status': status, 'timestamp': datetime.now().isoformat()}
 
             # Set HTTP status code based on health
             http_code = 200 if status == 'healthy' else (503 if status == 'unhealthy' else 500)
@@ -75,21 +68,15 @@ class HealthCheckServer:
         def metrics():
             """Prometheus metrics endpoint"""
             if self.metrics_collector is None:
-                return Response(
-                    "# Metrics collector not initialized\n",
-                    mimetype=CONTENT_TYPE_LATEST
-                )
+                return Response('# Metrics collector not initialized\n', mimetype=CONTENT_TYPE_LATEST)
 
             try:
                 # Generate Prometheus format metrics
                 metrics_output = generate_latest()
                 return Response(metrics_output, mimetype=CONTENT_TYPE_LATEST)
             except Exception as e:
-                self.logger.error(f"Error generating metrics: {e}")
-                return Response(
-                    f"# Error generating metrics: {e}\n",
-                    mimetype=CONTENT_TYPE_LATEST
-                ), 500
+                self.logger.error(f'Error generating metrics: {e}')
+                return Response(f'# Error generating metrics: {e}\n', mimetype=CONTENT_TYPE_LATEST), 500
 
         @self.app.route('/status', methods=['GET'])
         def status():
@@ -98,11 +85,8 @@ class HealthCheckServer:
                 detailed_status = self._get_detailed_status()
                 return jsonify(detailed_status), 200
             except Exception as e:
-                self.logger.error(f"Error getting detailed status: {e}")
-                return jsonify({
-                    'error': str(e),
-                    'timestamp': datetime.now().isoformat()
-                }), 500
+                self.logger.error(f'Error getting detailed status: {e}')
+                return jsonify({'error': str(e), 'timestamp': datetime.now().isoformat()}), 500
 
         @self.app.route('/ping', methods=['GET'])
         def ping():
@@ -136,7 +120,7 @@ class HealthCheckServer:
         # Healthy: All systems operational
         return 'healthy'
 
-    def _get_detailed_status(self) -> Dict[str, Any]:
+    def _get_detailed_status(self) -> dict[str, Any]:
         """Get comprehensive status information"""
         status = {
             'health_status': self._determine_health_status(),
@@ -150,7 +134,7 @@ class HealthCheckServer:
             },
             'trading': {
                 'halted': self.trading_halted,
-            }
+            },
         }
 
         # Add bot-specific info if available
@@ -184,7 +168,7 @@ class HealthCheckServer:
                     }
 
             except Exception as e:
-                self.logger.error(f"Error getting bot details: {e}")
+                self.logger.error(f'Error getting bot details: {e}')
                 status['bot']['error'] = str(e)
 
         return status
@@ -201,7 +185,7 @@ class HealthCheckServer:
         self,
         bot_running: Optional[bool] = None,
         api_connected: Optional[bool] = None,
-        trading_halted: Optional[bool] = None
+        trading_halted: Optional[bool] = None,
     ):
         """Update health status flags"""
         if bot_running is not None:
@@ -219,31 +203,25 @@ class HealthCheckServer:
     def start(self):
         """Start the health check server in a background thread"""
         if self.is_running:
-            self.logger.warning("Health check server already running")
+            self.logger.warning('Health check server already running')
             return
 
         def run_server():
             try:
-                self.logger.info(f"Starting health check server on {self.host}:{self.port}")
+                self.logger.info(f'Starting health check server on {self.host}:{self.port}')
                 # Disable Flask dev server reload to avoid threading issues
-                self.app.run(
-                    host=self.host,
-                    port=self.port,
-                    debug=False,
-                    use_reloader=False,
-                    threaded=True
-                )
+                self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False, threaded=True)
             except Exception as e:
-                self.logger.error(f"Health check server error: {e}", exc_info=True)
+                self.logger.error(f'Health check server error: {e}', exc_info=True)
 
-        self.server_thread = threading.Thread(target=run_server, daemon=True, name="HealthCheckServer")
+        self.server_thread = threading.Thread(target=run_server, daemon=True, name='HealthCheckServer')
         self.server_thread.start()
         self.is_running = True
 
-        self.logger.info(f"Health check server started at http://{self.host}:{self.port}")
-        self.logger.info(f"  - Health: http://{self.host}:{self.port}/health")
-        self.logger.info(f"  - Metrics: http://{self.host}:{self.port}/metrics")
-        self.logger.info(f"  - Status: http://{self.host}:{self.port}/status")
+        self.logger.info(f'Health check server started at http://{self.host}:{self.port}')
+        self.logger.info(f'  - Health: http://{self.host}:{self.port}/health')
+        self.logger.info(f'  - Metrics: http://{self.host}:{self.port}/metrics')
+        self.logger.info(f'  - Status: http://{self.host}:{self.port}/status')
 
     def stop(self):
         """Stop the health check server"""
@@ -251,7 +229,7 @@ class HealthCheckServer:
             return
 
         self.is_running = False
-        self.logger.info("Health check server stopped")
+        self.logger.info('Health check server stopped')
 
     def heartbeat(self):
         """Update last heartbeat timestamp"""

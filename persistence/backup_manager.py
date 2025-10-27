@@ -10,14 +10,13 @@ Features:
 - Restore capability
 """
 
+import hashlib
+import json
 import logging
 import os
 import shutil
-import hashlib
-import json
 from datetime import datetime
-from typing import List, Optional, Tuple
-from pathlib import Path
+from typing import Optional
 
 
 class BackupManager:
@@ -32,7 +31,7 @@ class BackupManager:
         state_file_path: str,
         backup_dir: Optional[str] = None,
         max_backups: int = 10,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
     ):
         self.state_file_path = state_file_path
         self.max_backups = max_backups
@@ -56,10 +55,10 @@ class BackupManager:
         """Load backup metadata"""
         if os.path.exists(self.metadata_file):
             try:
-                with open(self.metadata_file, 'r') as f:
+                with open(self.metadata_file) as f:
                     return json.load(f)
             except Exception as e:
-                self.logger.error(f"Error loading backup metadata: {e}")
+                self.logger.error(f'Error loading backup metadata: {e}')
 
         return {'backups': []}
 
@@ -69,25 +68,25 @@ class BackupManager:
             with open(self.metadata_file, 'w') as f:
                 json.dump(self.metadata, f, indent=2, default=str)
         except Exception as e:
-            self.logger.error(f"Error saving backup metadata: {e}")
+            self.logger.error(f'Error saving backup metadata: {e}')
 
     def _calculate_checksum(self, file_path: str) -> str:
         """Calculate SHA256 checksum of a file"""
         sha256_hash = hashlib.sha256()
 
         try:
-            with open(file_path, "rb") as f:
+            with open(file_path, 'rb') as f:
                 # Read file in chunks to handle large files
-                for byte_block in iter(lambda: f.read(4096), b""):
+                for byte_block in iter(lambda: f.read(4096), b''):
                     sha256_hash.update(byte_block)
 
             return sha256_hash.hexdigest()
 
         except Exception as e:
-            self.logger.error(f"Error calculating checksum: {e}")
-            return ""
+            self.logger.error(f'Error calculating checksum: {e}')
+            return ''
 
-    def create_backup(self, reason: str = "") -> Optional[str]:
+    def create_backup(self, reason: str = '') -> Optional[str]:
         """
         Create a new backup of the state file
 
@@ -98,13 +97,13 @@ class BackupManager:
             Path to the backup file, or None if failed
         """
         if not os.path.exists(self.state_file_path):
-            self.logger.warning(f"State file not found: {self.state_file_path}")
+            self.logger.warning(f'State file not found: {self.state_file_path}')
             return None
 
         try:
             # Generate backup filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_filename = f"state_backup_{timestamp}.json"
+            backup_filename = f'state_backup_{timestamp}.json'
             backup_path = os.path.join(self.backup_dir, backup_filename)
 
             # Copy state file to backup
@@ -123,7 +122,7 @@ class BackupManager:
                 'timestamp': datetime.now().isoformat(),
                 'checksum': checksum,
                 'size_bytes': file_size,
-                'reason': reason
+                'reason': reason,
             }
 
             self.metadata['backups'].append(backup_info)
@@ -133,14 +132,13 @@ class BackupManager:
             self._cleanup_old_backups()
 
             self.logger.info(
-                f"Backup created: {backup_filename} "
-                f"(size: {file_size} bytes, checksum: {checksum[:16]}...)"
+                f'Backup created: {backup_filename} (size: {file_size} bytes, checksum: {checksum[:16]}...)'
             )
 
             return backup_path
 
         except Exception as e:
-            self.logger.error(f"Failed to create backup: {e}", exc_info=True)
+            self.logger.error(f'Failed to create backup: {e}', exc_info=True)
             return None
 
     def _cleanup_old_backups(self):
@@ -149,43 +147,36 @@ class BackupManager:
             return
 
         # Sort by timestamp (oldest first)
-        sorted_backups = sorted(
-            self.metadata['backups'],
-            key=lambda x: x['timestamp']
-        )
+        sorted_backups = sorted(self.metadata['backups'], key=lambda x: x['timestamp'])
 
         # Remove oldest backups
-        to_remove = sorted_backups[:-self.max_backups]
+        to_remove = sorted_backups[: -self.max_backups]
 
         for backup in to_remove:
             try:
                 # Remove file
                 if os.path.exists(backup['path']):
                     os.remove(backup['path'])
-                    self.logger.info(f"Removed old backup: {backup['filename']}")
+                    self.logger.info(f'Removed old backup: {backup["filename"]}')
 
                 # Remove from metadata
                 self.metadata['backups'].remove(backup)
 
             except Exception as e:
-                self.logger.error(f"Error removing old backup {backup['filename']}: {e}")
+                self.logger.error(f'Error removing old backup {backup["filename"]}: {e}')
 
         self._save_metadata()
 
-    def list_backups(self) -> List[dict]:
+    def list_backups(self) -> list[dict]:
         """
         List all available backups
 
         Returns:
             List of backup info dictionaries, sorted by timestamp (newest first)
         """
-        return sorted(
-            self.metadata['backups'],
-            key=lambda x: x['timestamp'],
-            reverse=True
-        )
+        return sorted(self.metadata['backups'], key=lambda x: x['timestamp'], reverse=True)
 
-    def verify_backup(self, backup_path: str) -> Tuple[bool, str]:
+    def verify_backup(self, backup_path: str) -> tuple[bool, str]:
         """
         Verify backup integrity using checksum
 
@@ -196,7 +187,7 @@ class BackupManager:
             Tuple of (is_valid, message)
         """
         if not os.path.exists(backup_path):
-            return False, f"Backup file not found: {backup_path}"
+            return False, f'Backup file not found: {backup_path}'
 
         # Find backup in metadata
         backup_info = None
@@ -206,16 +197,16 @@ class BackupManager:
                 break
 
         if backup_info is None:
-            return False, "Backup not found in metadata"
+            return False, 'Backup not found in metadata'
 
         # Verify checksum
         current_checksum = self._calculate_checksum(backup_path)
         expected_checksum = backup_info['checksum']
 
         if current_checksum != expected_checksum:
-            return False, f"Checksum mismatch. Expected: {expected_checksum}, Got: {current_checksum}"
+            return False, f'Checksum mismatch. Expected: {expected_checksum}, Got: {current_checksum}'
 
-        return True, "Backup integrity verified"
+        return True, 'Backup integrity verified'
 
     def restore_backup(self, backup_path: str, verify: bool = True) -> bool:
         """
@@ -229,7 +220,7 @@ class BackupManager:
             True if restore successful, False otherwise
         """
         if not os.path.exists(backup_path):
-            self.logger.error(f"Backup file not found: {backup_path}")
+            self.logger.error(f'Backup file not found: {backup_path}')
             return False
 
         try:
@@ -237,21 +228,21 @@ class BackupManager:
             if verify:
                 is_valid, msg = self.verify_backup(backup_path)
                 if not is_valid:
-                    self.logger.error(f"Backup verification failed: {msg}")
+                    self.logger.error(f'Backup verification failed: {msg}')
                     return False
 
             # Create a backup of current state before restoring
             if os.path.exists(self.state_file_path):
-                self.create_backup(reason="Pre-restore backup")
+                self.create_backup(reason='Pre-restore backup')
 
             # Restore from backup
             shutil.copy2(backup_path, self.state_file_path)
 
-            self.logger.info(f"State restored from backup: {backup_path}")
+            self.logger.info(f'State restored from backup: {backup_path}')
             return True
 
         except Exception as e:
-            self.logger.error(f"Failed to restore backup: {e}", exc_info=True)
+            self.logger.error(f'Failed to restore backup: {e}', exc_info=True)
             return False
 
     def get_latest_backup(self) -> Optional[dict]:
@@ -276,10 +267,10 @@ class BackupManager:
         latest_backup = self.get_latest_backup()
 
         if latest_backup is None:
-            self.logger.error("No backups available for auto-restore")
+            self.logger.error('No backups available for auto-restore')
             return False
 
-        self.logger.info(f"Auto-restoring from latest backup: {latest_backup['filename']}")
+        self.logger.info(f'Auto-restoring from latest backup: {latest_backup["filename"]}')
         return self.restore_backup(latest_backup['path'], verify=True)
 
     def get_total_backup_size(self) -> int:
@@ -294,7 +285,7 @@ class BackupManager:
                     os.remove(backup['path'])
                 self.metadata['backups'].remove(backup)
             except Exception as e:
-                self.logger.error(f"Error removing backup {backup['filename']}: {e}")
+                self.logger.error(f'Error removing backup {backup["filename"]}: {e}')
 
         self._save_metadata()
-        self.logger.warning("All backups removed")
+        self.logger.warning('All backups removed')

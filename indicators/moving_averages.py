@@ -1,9 +1,9 @@
 # indicators/moving_averages.py
 import pandas as pd
-import numpy as np
+
 
 def calculate_sma(data, period):
-    """ Calculates Simple Moving Average (SMA). """
+    """Calculates Simple Moving Average (SMA)."""
     if 'close' not in data.columns:
         raise ValueError("DataFrame must contain 'close' column.")
     if len(data) < period:
@@ -12,8 +12,9 @@ def calculate_sma(data, period):
     sma = data['close'].rolling(window=period, min_periods=period).mean()
     return sma
 
+
 def calculate_ema(data, period):
-    """ Calculates Exponential Moving Average (EMA). """
+    """Calculates Exponential Moving Average (EMA)."""
     if 'close' not in data.columns:
         raise ValueError("DataFrame must contain 'close' column.")
     if len(data) < period:

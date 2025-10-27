@@ -8,26 +8,28 @@ select strategies, and adjust position sizing based on market conditions.
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any, Optional
+
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-import json
 
 try:
     from skopt import gp_minimize
-    from skopt.space import Real, Integer
+    from skopt.space import Integer, Real
+
     BAYESIAN_OPTIMIZATION_AVAILABLE = True
 except ImportError:
     BAYESIAN_OPTIMIZATION_AVAILABLE = False
-    logging.warning("scikit-optimize not available. Install with: pip install scikit-optimize")
+    logging.warning('scikit-optimize not available. Install with: pip install scikit-optimize')
 
 
 @dataclass
 class OptimizationResult:
     """Result from an optimization run"""
-    optimized_params: Dict[str, Any]
+
+    optimized_params: dict[str, Any]
     score: float
     timestamp: datetime
     iteration_count: int
@@ -47,7 +49,7 @@ class AutonomousOptimizer:
     def __init__(self, settings, logger=None, error_logger=None):
         self.settings = settings
         self.logger = logger or logging.getLogger(__name__)
-        self.error_logger = error_logger or logging.getLogger(f"{__name__}.error")
+        self.error_logger = error_logger or logging.getLogger(f'{__name__}.error')
 
         # Track optimization history
         self.optimization_history = []
@@ -63,42 +65,48 @@ class AutonomousOptimizer:
         self.current_best_params = None
         self.current_best_score = -np.inf
 
-    def _define_search_space(self) -> Dict[str, Tuple[float, float]]:
+    def _define_search_space(self) -> dict[str, tuple[float, float]]:
         """Define the search space for Bayesian optimization"""
         bounds = {}
 
         # Get bounds from settings if available
         if hasattr(self.settings, 'AUTO_OPTIMIZE_BOUNDS'):
             auto_bounds = self.settings.AUTO_OPTIMIZE_BOUNDS
-            bounds.update({
-                'risk_per_trade': (
-                    auto_bounds.get('risk_per_trade_min', 0.005),
-                    auto_bounds.get('risk_per_trade_max', 0.02)
-                ),
-                'stop_loss_atr_multiplier': (
-                    auto_bounds.get('stop_loss_atr_min', 1.0),
-                    auto_bounds.get('stop_loss_atr_max', 4.0)
-                ),
-                'take_profit_rr_ratio': (
-                    auto_bounds.get('take_profit_rr_min', 1.5),
-                    auto_bounds.get('take_profit_rr_max', 4.0)
-                ),
-            })
+            bounds.update(
+                {
+                    'risk_per_trade': (
+                        auto_bounds.get('risk_per_trade_min', 0.005),
+                        auto_bounds.get('risk_per_trade_max', 0.02),
+                    ),
+                    'stop_loss_atr_multiplier': (
+                        auto_bounds.get('stop_loss_atr_min', 1.0),
+                        auto_bounds.get('stop_loss_atr_max', 4.0),
+                    ),
+                    'take_profit_rr_ratio': (
+                        auto_bounds.get('take_profit_rr_min', 1.5),
+                        auto_bounds.get('take_profit_rr_max', 4.0),
+                    ),
+                }
+            )
         else:
             # Default bounds if not specified
-            bounds.update({
-                'risk_per_trade': (0.005, 0.02),  # 0.5% to 2%
-                'stop_loss_atr_multiplier': (1.0, 4.0),
-                'take_profit_rr_ratio': (1.5, 4.0),
-            })
+            bounds.update(
+                {
+                    'risk_per_trade': (0.005, 0.02),  # 0.5% to 2%
+                    'stop_loss_atr_multiplier': (1.0, 4.0),
+                    'take_profit_rr_ratio': (1.5, 4.0),
+                }
+            )
 
         # Indicator parameters
-        bounds.update({
-            'rsi_period': (5, 30),
-            'ma_short_period': (5, 30),
-            'ma_long_period': (15, 100),
-            'atr_period': (10, 20),
-        })
+        bounds.update(
+            {
+                'rsi_period': (5, 30),
+                'ma_short_period': (5, 30),
+                'ma_long_period': (15, 100),
+                'atr_period': (10, 20),
+            }
+        )
 
         return bounds
 
@@ -122,10 +130,10 @@ class AutonomousOptimizer:
 
     def optimize_parameters(
         self,
-        recent_performance: Dict[str, Any],
+        recent_performance: dict[str, Any],
         market_data: pd.DataFrame,
-        trade_history: List[Dict],
-        lookback_days: int = 7
+        trade_history: list[dict],
+        lookback_days: int = 7,
     ) -> Optional[OptimizationResult]:
         """
         Optimize all trading parameters using Bayesian optimization
@@ -140,21 +148,18 @@ class AutonomousOptimizer:
             OptimizationResult or None if optimization failed
         """
         if not BAYESIAN_OPTIMIZATION_AVAILABLE:
-            self.logger.warning("Bayesian optimization not available. Using heuristic fallback.")
+            self.logger.warning('Bayesian optimization not available. Using heuristic fallback.')
             return self._heuristic_optimization(recent_performance, trade_history)
 
         try:
-            self.logger.info("Starting Bayesian parameter optimization...")
+            self.logger.info('Starting Bayesian parameter optimization...')
 
             # Filter recent trades
             cutoff_date = datetime.now() - timedelta(days=lookback_days)
-            recent_trades = [
-                t for t in trade_history
-                if t.get('timestamp', datetime.min) >= cutoff_date
-            ]
+            recent_trades = [t for t in trade_history if t.get('timestamp', datetime.min) >= cutoff_date]
 
             if len(recent_trades) < 10:
-                self.logger.warning(f"Only {len(recent_trades)} trades available. Need at least 10 for optimization.")
+                self.logger.warning(f'Only {len(recent_trades)} trades available. Need at least 10 for optimization.')
                 return None
 
             # Define objective function
@@ -165,31 +170,22 @@ class AutonomousOptimizer:
 
             # Create search space for skopt
             search_space = [
-                Real(bounds[0], bounds[1], name=param_name)
-                for param_name, bounds in self.parameter_bounds.items()
+                Real(bounds[0], bounds[1], name=param_name) for param_name, bounds in self.parameter_bounds.items()
             ]
 
             # Run Bayesian optimization
             n_calls = getattr(self.settings, 'OPTIMIZATION_N_CALLS', 20)
-            result = gp_minimize(
-                objective,
-                search_space,
-                n_calls=n_calls,
-                random_state=42,
-                verbose=False
-            )
+            result = gp_minimize(objective, search_space, n_calls=n_calls, random_state=42, verbose=False)
 
             # Extract optimized parameters
             optimized_params = dict(zip(self.parameter_bounds.keys(), result.x))
             optimized_score = -result.fun  # Convert back to positive
 
             # Calculate improvement
-            baseline_score = self._evaluate_parameters(
-                self._get_current_params(),
-                market_data,
-                recent_trades
+            baseline_score = self._evaluate_parameters(self._get_current_params(), market_data, recent_trades)
+            improvement_pct = (
+                ((optimized_score - baseline_score) / abs(baseline_score)) * 100 if baseline_score != 0 else 0
             )
-            improvement_pct = ((optimized_score - baseline_score) / abs(baseline_score)) * 100 if baseline_score != 0 else 0
 
             # Create result
             opt_result = OptimizationResult(
@@ -197,7 +193,7 @@ class AutonomousOptimizer:
                 score=optimized_score,
                 timestamp=datetime.now(),
                 iteration_count=n_calls,
-                improvement_pct=improvement_pct
+                improvement_pct=improvement_pct,
             )
 
             # Update tracking
@@ -210,21 +206,17 @@ class AutonomousOptimizer:
                 self.current_best_score = optimized_score
 
             self.logger.info(
-                f"Optimization complete. Score: {optimized_score:.4f}, "
-                f"Improvement: {improvement_pct:.2f}%"
+                f'Optimization complete. Score: {optimized_score:.4f}, Improvement: {improvement_pct:.2f}%'
             )
 
             return opt_result
 
         except Exception as e:
-            self.error_logger.error(f"Parameter optimization failed: {e}", exc_info=True)
+            self.error_logger.error(f'Parameter optimization failed: {e}', exc_info=True)
             return None
 
     def _evaluate_parameters(
-        self,
-        params: Dict[str, Any],
-        market_data: pd.DataFrame,
-        trade_history: List[Dict]
+        self, params: dict[str, Any], market_data: pd.DataFrame, trade_history: list[dict]
     ) -> float:
         """
         Evaluate a parameter set based on performance metrics
@@ -251,23 +243,23 @@ class AutonomousOptimizer:
             # Max drawdown (simplified)
             cumulative = np.cumsum(pnls)
             running_max = np.maximum.accumulate(cumulative)
-            drawdown = (cumulative - running_max)
+            drawdown = cumulative - running_max
             max_drawdown = np.min(drawdown) if len(drawdown) > 0 else 0
 
             # Composite score (weighted combination)
             score = (
-                sharpe * 0.4 +          # 40% weight on risk-adjusted returns
-                win_rate * 0.3 +         # 30% weight on win rate
-                -abs(max_drawdown) * 0.3 # 30% penalty for drawdown
+                sharpe * 0.4  # 40% weight on risk-adjusted returns
+                + win_rate * 0.3  # 30% weight on win rate
+                + -abs(max_drawdown) * 0.3  # 30% penalty for drawdown
             )
 
             return score
 
         except Exception as e:
-            self.error_logger.error(f"Parameter evaluation failed: {e}")
+            self.error_logger.error(f'Parameter evaluation failed: {e}')
             return 0.0
 
-    def _get_current_params(self) -> Dict[str, Any]:
+    def _get_current_params(self) -> dict[str, Any]:
         """Get current parameter values from settings"""
         return {
             'risk_per_trade': getattr(self.settings, 'RISK_PER_TRADE', 0.01),
@@ -280,12 +272,10 @@ class AutonomousOptimizer:
         }
 
     def _heuristic_optimization(
-        self,
-        recent_performance: Dict[str, Any],
-        trade_history: List[Dict]
+        self, recent_performance: dict[str, Any], trade_history: list[dict]
     ) -> Optional[OptimizationResult]:
         """Fallback heuristic optimization when Bayesian opt not available"""
-        self.logger.info("Using heuristic parameter optimization...")
+        self.logger.info('Using heuristic parameter optimization...')
 
         try:
             current_params = self._get_current_params()
@@ -299,14 +289,12 @@ class AutonomousOptimizer:
             if win_rate > 0.6 and sharpe > 1.0:
                 # Good performance, can increase risk slightly
                 optimized_params['risk_per_trade'] = min(
-                    current_params['risk_per_trade'] * 1.1,
-                    self.parameter_bounds['risk_per_trade'][1]
+                    current_params['risk_per_trade'] * 1.1, self.parameter_bounds['risk_per_trade'][1]
                 )
             elif win_rate < 0.4 or sharpe < 0:
                 # Poor performance, reduce risk
                 optimized_params['risk_per_trade'] = max(
-                    current_params['risk_per_trade'] * 0.9,
-                    self.parameter_bounds['risk_per_trade'][0]
+                    current_params['risk_per_trade'] * 0.9, self.parameter_bounds['risk_per_trade'][0]
                 )
 
             score = self._evaluate_parameters(optimized_params, pd.DataFrame(), trade_history)
@@ -316,7 +304,7 @@ class AutonomousOptimizer:
                 score=score,
                 timestamp=datetime.now(),
                 iteration_count=1,
-                improvement_pct=0.0
+                improvement_pct=0.0,
             )
 
             self.last_optimization_time = datetime.now()
@@ -325,14 +313,10 @@ class AutonomousOptimizer:
             return result
 
         except Exception as e:
-            self.error_logger.error(f"Heuristic optimization failed: {e}")
+            self.error_logger.error(f'Heuristic optimization failed: {e}')
             return None
 
-    def select_strategies(
-        self,
-        market_regime: str,
-        strategy_performance: Dict[str, Dict[str, float]]
-    ) -> List[str]:
+    def select_strategies(self, market_regime: str, strategy_performance: dict[str, dict[str, float]]) -> list[str]:
         """
         Select which strategies to enable based on market regime and performance
 
@@ -370,24 +354,20 @@ class AutonomousOptimizer:
         # Always enable ML if available and performing well
         if 'machine_learning' in strategy_performance:
             ml_perf = strategy_performance['machine_learning']
-            if ml_perf.get('win_rate', 0) >= 0.5:
-                if 'machine_learning' not in enabled_strategies:
-                    enabled_strategies.append('machine_learning')
+            if ml_perf.get('win_rate', 0) >= 0.5 and 'machine_learning' not in enabled_strategies:
+                enabled_strategies.append('machine_learning')
 
         # Ensure at least one strategy is enabled
         if not enabled_strategies:
             enabled_strategies = ['trend_following']  # Safe default
 
         self.last_strategy_selection_time = datetime.now()
-        self.logger.info(f"Selected strategies for {market_regime} regime: {enabled_strategies}")
+        self.logger.info(f'Selected strategies for {market_regime} regime: {enabled_strategies}')
 
         return enabled_strategies
 
     def adjust_position_sizing(
-        self,
-        recent_trades: List[Dict],
-        current_volatility: float,
-        current_drawdown: float
+        self, recent_trades: list[dict], current_volatility: float, current_drawdown: float
     ) -> float:
         """
         Adjust position sizing using Kelly Criterion with safety factor
@@ -438,14 +418,14 @@ class AutonomousOptimizer:
 
             self.last_position_sizing_update = datetime.now()
             self.logger.info(
-                f"Position sizing adjusted: {new_risk:.4f} "
-                f"(Kelly: {kelly_fraction:.4f}, Vol factor: {volatility_factor:.2f})"
+                f'Position sizing adjusted: {new_risk:.4f} '
+                f'(Kelly: {kelly_fraction:.4f}, Vol factor: {volatility_factor:.2f})'
             )
 
             return new_risk
 
         except Exception as e:
-            self.error_logger.error(f"Position sizing adjustment failed: {e}")
+            self.error_logger.error(f'Position sizing adjustment failed: {e}')
             return self.settings.RISK_PER_TRADE
 
     def increment_trade_counter(self):

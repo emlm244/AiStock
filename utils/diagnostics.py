@@ -8,19 +8,17 @@ all prerequisites are met and provides beginner-friendly guidance.
 """
 
 import os
-import sys
 import platform
-import subprocess
-from pathlib import Path
-from typing import List, Dict, Tuple, Any
-from datetime import datetime
 import socket
+import sys
+from datetime import datetime
+from pathlib import Path
 
 
 class DiagnosticCheck:
     """Represents a single diagnostic check result"""
 
-    def __init__(self, name: str, passed: bool, message: str, suggestion: str = ""):
+    def __init__(self, name: str, passed: bool, message: str, suggestion: str = ''):
         self.name = name
         self.passed = passed
         self.message = message
@@ -28,8 +26,8 @@ class DiagnosticCheck:
         self.timestamp = datetime.now()
 
     def __repr__(self):
-        status = "✓ PASS" if self.passed else "✗ FAIL"
-        return f"{status}: {self.name} - {self.message}"
+        status = '✓ PASS' if self.passed else '✗ FAIL'
+        return f'{status}: {self.name} - {self.message}'
 
 
 class SystemDiagnostics:
@@ -37,9 +35,9 @@ class SystemDiagnostics:
 
     def __init__(self, logger=None):
         self.logger = logger
-        self.checks: List[DiagnosticCheck] = []
+        self.checks: list[DiagnosticCheck] = []
 
-    def run_all_checks(self, settings=None) -> Tuple[bool, List[DiagnosticCheck]]:
+    def run_all_checks(self, settings=None) -> tuple[bool, list[DiagnosticCheck]]:
         """
         Run all diagnostic checks
 
@@ -81,16 +79,14 @@ class SystemDiagnostics:
 
         if version.major >= min_major and version.minor >= min_minor:
             return DiagnosticCheck(
-                "Python Version",
-                True,
-                f"Python {version.major}.{version.minor}.{version.micro} is compatible"
+                'Python Version', True, f'Python {version.major}.{version.minor}.{version.micro} is compatible'
             )
         else:
             return DiagnosticCheck(
-                "Python Version",
+                'Python Version',
                 False,
-                f"Python {version.major}.{version.minor} is too old (minimum: {min_major}.{min_minor})",
-                f"Install Python {min_major}.{min_minor} or newer from python.org"
+                f'Python {version.major}.{version.minor} is too old (minimum: {min_major}.{min_minor})',
+                f'Install Python {min_major}.{min_minor} or newer from python.org',
             )
 
     def _check_operating_system(self) -> DiagnosticCheck:
@@ -101,17 +97,13 @@ class SystemDiagnostics:
         supported_os = ['Windows', 'Linux', 'Darwin']  # Darwin = macOS
 
         if os_name in supported_os:
-            return DiagnosticCheck(
-                "Operating System",
-                True,
-                f"{os_name} {os_version} is supported"
-            )
+            return DiagnosticCheck('Operating System', True, f'{os_name} {os_version} is supported')
         else:
             return DiagnosticCheck(
-                "Operating System",
+                'Operating System',
                 False,
-                f"{os_name} may not be fully supported",
-                "Tested on Windows, Linux, and macOS. Other systems may have issues."
+                f'{os_name} may not be fully supported',
+                'Tested on Windows, Linux, and macOS. Other systems may have issues.',
             )
 
     def _check_disk_space(self) -> DiagnosticCheck:
@@ -119,11 +111,10 @@ class SystemDiagnostics:
         try:
             if platform.system() == 'Windows':
                 import ctypes
+
                 free_bytes = ctypes.c_ulonglong(0)
                 ctypes.windll.kernel32.GetDiskFreeSpaceExW(
-                    ctypes.c_wchar_p(os.getcwd()),
-                    None, None,
-                    ctypes.pointer(free_bytes)
+                    ctypes.c_wchar_p(os.getcwd()), None, None, ctypes.pointer(free_bytes)
                 )
                 free_gb = free_bytes.value / (1024**3)
             else:
@@ -133,24 +124,20 @@ class SystemDiagnostics:
             min_required_gb = 1.0  # Minimum 1GB free
 
             if free_gb >= min_required_gb:
-                return DiagnosticCheck(
-                    "Disk Space",
-                    True,
-                    f"{free_gb:.2f} GB available (sufficient)"
-                )
+                return DiagnosticCheck('Disk Space', True, f'{free_gb:.2f} GB available (sufficient)')
             else:
                 return DiagnosticCheck(
-                    "Disk Space",
+                    'Disk Space',
                     False,
-                    f"Only {free_gb:.2f} GB available (minimum: {min_required_gb} GB)",
-                    "Free up disk space before running the bot"
+                    f'Only {free_gb:.2f} GB available (minimum: {min_required_gb} GB)',
+                    'Free up disk space before running the bot',
                 )
 
         except Exception as e:
             return DiagnosticCheck(
-                "Disk Space",
+                'Disk Space',
                 True,  # Don't fail on check error
-                f"Could not check disk space: {e}"
+                f'Could not check disk space: {e}',
             )
 
     def _check_memory(self) -> DiagnosticCheck:
@@ -158,17 +145,18 @@ class SystemDiagnostics:
         try:
             if platform.system() == 'Windows':
                 import ctypes
+
                 class MEMORYSTATUSEX(ctypes.Structure):
                     _fields_ = [
-                        ("dwLength", ctypes.c_ulong),
-                        ("dwMemoryLoad", ctypes.c_ulong),
-                        ("ullTotalPhys", ctypes.c_ulonglong),
-                        ("ullAvailPhys", ctypes.c_ulonglong),
-                        ("ullTotalPageFile", ctypes.c_ulonglong),
-                        ("ullAvailPageFile", ctypes.c_ulonglong),
-                        ("ullTotalVirtual", ctypes.c_ulonglong),
-                        ("ullAvailVirtual", ctypes.c_ulonglong),
-                        ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+                        ('dwLength', ctypes.c_ulong),
+                        ('dwMemoryLoad', ctypes.c_ulong),
+                        ('ullTotalPhys', ctypes.c_ulonglong),
+                        ('ullAvailPhys', ctypes.c_ulonglong),
+                        ('ullTotalPageFile', ctypes.c_ulonglong),
+                        ('ullAvailPageFile', ctypes.c_ulonglong),
+                        ('ullTotalVirtual', ctypes.c_ulonglong),
+                        ('ullAvailVirtual', ctypes.c_ulonglong),
+                        ('sullAvailExtendedVirtual', ctypes.c_ulonglong),
                     ]
 
                 stat = MEMORYSTATUSEX()
@@ -179,35 +167,28 @@ class SystemDiagnostics:
                 # Linux/macOS - try psutil
                 try:
                     import psutil
+
                     available_mb = psutil.virtual_memory().available / (1024**2)
                 except ImportError:
-                    return DiagnosticCheck(
-                        "Memory",
-                        True,
-                        "Could not check memory (psutil not installed)"
-                    )
+                    return DiagnosticCheck('Memory', True, 'Could not check memory (psutil not installed)')
 
             min_required_mb = 512  # Minimum 512MB
 
             if available_mb >= min_required_mb:
-                return DiagnosticCheck(
-                    "Memory",
-                    True,
-                    f"{available_mb:.0f} MB available (sufficient)"
-                )
+                return DiagnosticCheck('Memory', True, f'{available_mb:.0f} MB available (sufficient)')
             else:
                 return DiagnosticCheck(
-                    "Memory",
+                    'Memory',
                     False,
-                    f"Only {available_mb:.0f} MB available (minimum: {min_required_mb} MB)",
-                    "Close other applications to free up memory"
+                    f'Only {available_mb:.0f} MB available (minimum: {min_required_mb} MB)',
+                    'Close other applications to free up memory',
                 )
 
         except Exception as e:
             return DiagnosticCheck(
-                "Memory",
+                'Memory',
                 True,  # Don't fail on check error
-                f"Could not check memory: {e}"
+                f'Could not check memory: {e}',
             )
 
     def _check_required_packages(self) -> DiagnosticCheck:
@@ -220,7 +201,7 @@ class SystemDiagnostics:
             'tenacity',
             'scikit-learn',
             'flask',
-            'prometheus_client'
+            'prometheus_client',
         ]
 
         missing = []
@@ -231,17 +212,13 @@ class SystemDiagnostics:
                 missing.append(package)
 
         if not missing:
-            return DiagnosticCheck(
-                "Required Packages",
-                True,
-                "All required packages are installed"
-            )
+            return DiagnosticCheck('Required Packages', True, 'All required packages are installed')
         else:
             return DiagnosticCheck(
-                "Required Packages",
+                'Required Packages',
                 False,
-                f"Missing packages: {', '.join(missing)}",
-                f"Install missing packages: pip install {' '.join(missing)}"
+                f'Missing packages: {", ".join(missing)}',
+                f'Install missing packages: pip install {" ".join(missing)}',
             )
 
     def _check_required_files(self) -> DiagnosticCheck:
@@ -257,28 +234,18 @@ class SystemDiagnostics:
                 missing.append(file_path)
 
         if not missing:
-            return DiagnosticCheck(
-                "Required Files",
-                True,
-                "All required configuration files exist"
-            )
+            return DiagnosticCheck('Required Files', True, 'All required configuration files exist')
         else:
             return DiagnosticCheck(
-                "Required Files",
+                'Required Files',
                 False,
-                f"Missing files: {', '.join(missing)}",
-                "Create missing configuration files. Check CLAUDE.md for guidance."
+                f'Missing files: {", ".join(missing)}',
+                'Create missing configuration files. Check CLAUDE.md for guidance.',
             )
 
     def _check_directory_permissions(self) -> DiagnosticCheck:
         """Check if required directories have proper permissions"""
-        critical_dirs = [
-            'logs',
-            'logs/error_logs',
-            'logs/trade_logs',
-            'data',
-            'models'
-        ]
+        critical_dirs = ['logs', 'logs/error_logs', 'logs/trade_logs', 'data', 'models']
 
         permission_errors = []
 
@@ -290,7 +257,7 @@ class SystemDiagnostics:
                 try:
                     path.mkdir(parents=True, exist_ok=True)
                 except Exception as e:
-                    permission_errors.append(f"{dir_path}: Cannot create - {e}")
+                    permission_errors.append(f'{dir_path}: Cannot create - {e}')
                     continue
 
             # Test write permission
@@ -299,20 +266,16 @@ class SystemDiagnostics:
                 test_file.touch()
                 test_file.unlink()
             except Exception as e:
-                permission_errors.append(f"{dir_path}: Not writable - {e}")
+                permission_errors.append(f'{dir_path}: Not writable - {e}')
 
         if not permission_errors:
-            return DiagnosticCheck(
-                "Directory Permissions",
-                True,
-                "All directories have proper write permissions"
-            )
+            return DiagnosticCheck('Directory Permissions', True, 'All directories have proper write permissions')
         else:
             return DiagnosticCheck(
-                "Directory Permissions",
+                'Directory Permissions',
                 False,
-                "Some directories have permission issues",
-                "Fix permissions: " + "; ".join(permission_errors)
+                'Some directories have permission issues',
+                'Fix permissions: ' + '; '.join(permission_errors),
             )
 
     def _check_tws_connection(self, settings) -> DiagnosticCheck:
@@ -321,10 +284,10 @@ class SystemDiagnostics:
             from config.credentials import IBKR
         except ImportError:
             return DiagnosticCheck(
-                "TWS Connection",
+                'TWS Connection',
                 False,
-                "Cannot import IBKR credentials",
-                "Create config/credentials.py with IBKR configuration"
+                'Cannot import IBKR credentials',
+                'Create config/credentials.py with IBKR configuration',
             )
 
         host = IBKR.get('TWS_HOST', '127.0.0.1')
@@ -337,29 +300,27 @@ class SystemDiagnostics:
             sock.close()
 
             if result == 0:
-                port_type = "Paper Trading" if port in [7497, 4002] else "Live Trading"
+                port_type = 'Paper Trading' if port in [7497, 4002] else 'Live Trading'
                 return DiagnosticCheck(
-                    "TWS Connection",
-                    True,
-                    f"TWS/Gateway is accessible at {host}:{port} ({port_type})"
+                    'TWS Connection', True, f'TWS/Gateway is accessible at {host}:{port} ({port_type})'
                 )
             else:
                 return DiagnosticCheck(
-                    "TWS Connection",
+                    'TWS Connection',
                     False,
-                    f"Cannot connect to TWS/Gateway at {host}:{port}",
-                    "1. Start TWS or IB Gateway\n"
-                    "   2. Enable API: File > Global Configuration > API > Settings\n"
+                    f'Cannot connect to TWS/Gateway at {host}:{port}',
+                    '1. Start TWS or IB Gateway\n'
+                    '   2. Enable API: File > Global Configuration > API > Settings\n'
                     "   3. Check 'Enable ActiveX and Socket Clients'\n"
-                    f"   4. Verify port {port} is correct for your setup"
+                    f'   4. Verify port {port} is correct for your setup',
                 )
 
         except Exception as e:
             return DiagnosticCheck(
-                "TWS Connection",
+                'TWS Connection',
                 False,
-                f"Error checking TWS connection: {e}",
-                "Verify TWS/Gateway is running and network settings are correct"
+                f'Error checking TWS connection: {e}',
+                'Verify TWS/Gateway is running and network settings are correct',
             )
 
     def _check_internet_connection(self) -> DiagnosticCheck:
@@ -377,19 +338,15 @@ class SystemDiagnostics:
                 sock.close()
 
                 if result == 0:
-                    return DiagnosticCheck(
-                        "Internet Connection",
-                        True,
-                        "Internet connection is available"
-                    )
-            except:
+                    return DiagnosticCheck('Internet Connection', True, 'Internet connection is available')
+            except Exception:
                 continue
 
         return DiagnosticCheck(
-            "Internet Connection",
+            'Internet Connection',
             False,
-            "No internet connection detected",
-            "Check your network connection. Internet access is required for market data."
+            'No internet connection detected',
+            'Check your network connection. Internet access is required for market data.',
         )
 
     def _check_credentials(self) -> DiagnosticCheck:
@@ -398,28 +355,24 @@ class SystemDiagnostics:
             from config.credentials import IBKR
         except ImportError:
             return DiagnosticCheck(
-                "Credentials",
+                'Credentials',
                 False,
-                "Cannot import IBKR credentials",
-                "Create config/credentials.py with IBKR configuration"
+                'Cannot import IBKR credentials',
+                'Create config/credentials.py with IBKR configuration',
             )
 
         account_id = IBKR.get('ACCOUNT_ID')
 
         if not account_id or account_id == 'YOUR_ACCOUNT_ID':
             return DiagnosticCheck(
-                "Credentials",
+                'Credentials',
                 False,
-                "IBKR Account ID is not configured",
-                "Set your Interactive Brokers account ID in config/credentials.py\n"
-                "   Find it in TWS: Account > Account Info"
+                'IBKR Account ID is not configured',
+                'Set your Interactive Brokers account ID in config/credentials.py\n'
+                '   Find it in TWS: Account > Account Info',
             )
 
-        return DiagnosticCheck(
-            "Credentials",
-            True,
-            f"Account ID configured: {account_id[:3]}...{account_id[-3:]}"
-        )
+        return DiagnosticCheck('Credentials', True, f'Account ID configured: {account_id[:3]}...{account_id[-3:]}')
 
     def _check_critical_settings(self, settings) -> DiagnosticCheck:
         """Check critical trading settings"""
@@ -428,65 +381,61 @@ class SystemDiagnostics:
         # Check risk per trade
         risk_per_trade = getattr(settings, 'RISK_PER_TRADE', None)
         if risk_per_trade is None or risk_per_trade <= 0:
-            issues.append("RISK_PER_TRADE not set or invalid")
+            issues.append('RISK_PER_TRADE not set or invalid')
         elif risk_per_trade > 0.05:
-            issues.append(f"RISK_PER_TRADE ({risk_per_trade:.1%}) is very high")
+            issues.append(f'RISK_PER_TRADE ({risk_per_trade:.1%}) is very high')
 
         # Check max daily loss
         max_daily_loss = getattr(settings, 'MAX_DAILY_LOSS', None)
         if max_daily_loss is None or max_daily_loss <= 0:
-            issues.append("MAX_DAILY_LOSS not set or invalid")
+            issues.append('MAX_DAILY_LOSS not set or invalid')
 
         # Check instruments
         instruments = getattr(settings, 'TRADE_INSTRUMENTS', [])
         if not instruments:
-            issues.append("No trading instruments configured")
+            issues.append('No trading instruments configured')
 
         if issues:
             return DiagnosticCheck(
-                "Critical Settings",
+                'Critical Settings',
                 False,
-                f"Configuration issues: {'; '.join(issues)}",
-                "Review and fix settings in config/settings.py"
+                f'Configuration issues: {"; ".join(issues)}',
+                'Review and fix settings in config/settings.py',
             )
 
-        return DiagnosticCheck(
-            "Critical Settings",
-            True,
-            "All critical settings are configured"
-        )
+        return DiagnosticCheck('Critical Settings', True, 'All critical settings are configured')
 
-    def print_report(self, checks: List[DiagnosticCheck] = None):
+    def print_report(self, checks: list[DiagnosticCheck] = None):
         """Print a formatted diagnostic report"""
         if checks is None:
             checks = self.checks
 
-        print("\n" + "="*70)
-        print(" SYSTEM DIAGNOSTICS REPORT")
-        print("="*70 + "\n")
+        print('\n' + '=' * 70)
+        print(' SYSTEM DIAGNOSTICS REPORT')
+        print('=' * 70 + '\n')
 
         passed_count = sum(1 for c in checks if c.passed)
         total_count = len(checks)
 
         for check in checks:
-            status_icon = "✓" if check.passed else "✗"
-            status_color = "\033[92m" if check.passed else "\033[91m"
-            reset_color = "\033[0m"
+            status_icon = '✓' if check.passed else '✗'
+            status_color = '\033[92m' if check.passed else '\033[91m'
+            reset_color = '\033[0m'
 
-            print(f"{status_color}{status_icon}{reset_color} {check.name:.<40} {check.message}")
+            print(f'{status_color}{status_icon}{reset_color} {check.name:.<40} {check.message}')
 
             if not check.passed and check.suggestion:
-                print(f"  💡 {check.suggestion}\n")
+                print(f'  💡 {check.suggestion}\n')
 
-        print("\n" + "-"*70)
-        print(f"Result: {passed_count}/{total_count} checks passed")
+        print('\n' + '-' * 70)
+        print(f'Result: {passed_count}/{total_count} checks passed')
 
         if passed_count == total_count:
-            print("\n✓ All checks passed! System is ready to run.")
+            print('\n✓ All checks passed! System is ready to run.')
         else:
-            print(f"\n✗ {total_count - passed_count} check(s) failed. Please fix the issues above before running.")
+            print(f'\n✗ {total_count - passed_count} check(s) failed. Please fix the issues above before running.')
 
-        print("="*70 + "\n")
+        print('=' * 70 + '\n')
 
         return passed_count == total_count
 

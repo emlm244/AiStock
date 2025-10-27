@@ -1,6 +1,7 @@
 # indicators/oscillators.py
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 def calculate_rsi(data, period=14):
     """
@@ -10,7 +11,7 @@ def calculate_rsi(data, period=14):
     """
     if 'close' not in data.columns:
         raise ValueError("DataFrame must contain 'close' column.")
-    if len(data) < period + 1: # Need at least period+1 for diff and initial smoothing
+    if len(data) < period + 1:  # Need at least period+1 for diff and initial smoothing
         return pd.Series(index=data.index, dtype=float)
 
     delta = data['close'].diff()
@@ -20,20 +21,21 @@ def calculate_rsi(data, period=14):
 
     # Use Wilder's smoothing (alpha = 1 / period) for average gain/loss
     # Adjust=False starts the recursive calculation immediately
-    avg_gain = gain.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
-    avg_loss = loss.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
+    avg_gain = gain.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
+    avg_loss = loss.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
 
     # Calculate RS
     rs = avg_gain / avg_loss
     # Handle division by zero where avg_loss is 0
-    rs = rs.replace([np.inf], np.nan).fillna(100) # If avg_loss is 0, RSI is 100
+    rs = rs.replace([np.inf], np.nan).fillna(100)  # If avg_loss is 0, RSI is 100
 
     rsi = 100.0 - (100.0 / (1.0 + rs))
 
     # Handle cases where avg_loss was zero initially, causing NaNs in rs -> rsi
-    rsi.fillna(100, inplace=True) # If avg_gain is > 0 and avg_loss is 0
+    rsi.fillna(100, inplace=True)  # If avg_gain is > 0 and avg_loss is 0
 
     return rsi
+
 
 def calculate_macd(data, fast_period=12, slow_period=26, signal_period=9):
     """
@@ -41,7 +43,7 @@ def calculate_macd(data, fast_period=12, slow_period=26, signal_period=9):
     """
     if 'close' not in data.columns:
         raise ValueError("DataFrame must contain 'close' column.")
-    if len(data) < slow_period: # Need enough data for the slowest EMA
+    if len(data) < slow_period:  # Need enough data for the slowest EMA
         nan_series = pd.Series(index=data.index, dtype=float)
         return nan_series, nan_series, nan_series
 

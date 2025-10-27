@@ -1,18 +1,19 @@
 # tests/test_risk_manager.py
 """Tests for risk management and halt conditions."""
 
-import pytest
-import sys
 import os
-from datetime import datetime, date
-import pytz
+import sys
+from datetime import datetime, timedelta
 from unittest.mock import Mock
+
+import pytest
+import pytz
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from managers.risk_manager import RiskManager
-from managers.portfolio_manager import PortfolioManager
 from config.settings import Settings
+from managers.portfolio_manager import PortfolioManager
+from managers.risk_manager import RiskManager
 
 
 @pytest.fixture
@@ -52,8 +53,8 @@ def test_daily_loss_limit_triggers_halt(risk_manager, portfolio_manager, setting
 
     risk_manager.check_portfolio_risk({})
 
-    assert risk_manager.is_trading_halted() == True
-    assert "daily loss" in risk_manager.get_halt_reason().lower()
+    assert risk_manager.is_trading_halted()
+    assert 'daily loss' in risk_manager.get_halt_reason().lower()
 
 
 def test_daily_loss_within_limit_no_halt(risk_manager, portfolio_manager):
@@ -64,7 +65,7 @@ def test_daily_loss_within_limit_no_halt(risk_manager, portfolio_manager):
 
     risk_manager.check_portfolio_risk({})
 
-    assert risk_manager.is_trading_halted() == False
+    assert not risk_manager.is_trading_halted()
 
 
 def test_max_drawdown_triggers_halt(risk_manager, portfolio_manager, settings):
@@ -76,8 +77,8 @@ def test_max_drawdown_triggers_halt(risk_manager, portfolio_manager, settings):
 
     risk_manager.check_portfolio_risk({})
 
-    assert risk_manager.is_trading_halted() == True
-    assert risk_manager._halted_by_drawdown == True
+    assert risk_manager.is_trading_halted()
+    assert risk_manager._halted_by_drawdown
 
 
 def test_drawdown_recovery_resumes_trading(risk_manager, portfolio_manager, settings):
@@ -87,15 +88,15 @@ def test_drawdown_recovery_resumes_trading(risk_manager, portfolio_manager, sett
     portfolio_manager.total_equity = 8800.0
     portfolio_manager.daily_pnl = -1200.0
     risk_manager.check_portfolio_risk({})
-    assert risk_manager.is_trading_halted() == True
+    assert risk_manager.is_trading_halted()
 
     # Recover to 7% drawdown (below 80% of 10% limit = 8%)
     portfolio_manager.total_equity = 9300.0
     portfolio_manager.daily_pnl = -700.0
     risk_manager.check_portfolio_risk({})
 
-    assert risk_manager.is_trading_halted() == False
-    assert risk_manager._halted_by_drawdown == False
+    assert not risk_manager.is_trading_halted()
+    assert not risk_manager._halted_by_drawdown
 
 
 def test_daily_reset_clears_daily_loss_halt(risk_manager, portfolio_manager, settings):
@@ -104,8 +105,8 @@ def test_daily_reset_clears_daily_loss_halt(risk_manager, portfolio_manager, set
     portfolio_manager.daily_pnl = -600.0
     portfolio_manager.total_equity = 9400.0
     risk_manager.check_portfolio_risk({})
-    assert risk_manager.is_trading_halted() == True
-    assert risk_manager._halted_by_drawdown == False
+    assert risk_manager.is_trading_halted()
+    assert not risk_manager._halted_by_drawdown
 
     # Simulate new day
     tz = pytz.timezone(settings.TIMEZONE)
@@ -118,7 +119,7 @@ def test_daily_reset_clears_daily_loss_halt(risk_manager, portfolio_manager, set
     # Check should reset halt
     risk_manager.check_portfolio_risk({})
 
-    assert risk_manager.is_trading_halted() == False
+    assert not risk_manager.is_trading_halted()
 
 
 def test_pre_trade_risk_checks():
@@ -133,12 +134,12 @@ def test_pre_trade_risk_checks():
 
     # Test position size within limits
     result = rm.check_pre_trade_risk('TEST', 'BUY', 10, 100.0, available_funds=5000.0)
-    assert result == True
+    assert result
 
     # Test position size exceeding max single position
     result = rm.check_pre_trade_risk('TEST', 'BUY', 30, 100.0, available_funds=5000.0)
     # Should fail if position value (30*100=3000) exceeds 25% of equity (2500)
-    assert result == False
+    assert not result
 
 
 def test_halt_persists_across_checks(risk_manager, portfolio_manager):
@@ -146,8 +147,8 @@ def test_halt_persists_across_checks(risk_manager, portfolio_manager):
     # Trigger halt
     portfolio_manager.daily_pnl = -600.0
     risk_manager.check_portfolio_risk({})
-    assert risk_manager.is_trading_halted() == True
+    assert risk_manager.is_trading_halted()
 
     # Run check again without changing conditions
     risk_manager.check_portfolio_risk({})
-    assert risk_manager.is_trading_halted() == True
+    assert risk_manager.is_trading_halted()

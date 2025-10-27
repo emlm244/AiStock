@@ -9,15 +9,16 @@ Enforces the two-mode system:
 """
 
 import logging
-from typing import Tuple, Any, List
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 
 class TradingMode(Enum):
     """Trading mode types"""
-    AUTONOMOUS = "autonomous"
-    EXPERT = "expert"
+
+    AUTONOMOUS = 'autonomous'
+    EXPERT = 'expert'
 
 
 class ModeManager:
@@ -66,7 +67,7 @@ class ModeManager:
         # Track parameter changes
         self.parameter_change_history = []
 
-        self.logger.info(f"Mode Manager initialized in {self.current_mode.value} mode")
+        self.logger.info(f'Mode Manager initialized in {self.current_mode.value} mode')
 
     def _determine_mode(self) -> TradingMode:
         """Determine current trading mode from settings"""
@@ -105,12 +106,7 @@ class ModeManager:
 
         return False
 
-    def validate_parameter_change(
-        self,
-        param_name: str,
-        new_value: Any,
-        reason: str = ""
-    ) -> Tuple[bool, str]:
+    def validate_parameter_change(self, param_name: str, new_value: Any, reason: str = '') -> tuple[bool, str]:
         """
         Validate if a parameter change is allowed and safe
 
@@ -133,9 +129,9 @@ class ModeManager:
             return False, validation_msg
 
         # All checks passed
-        return True, "Parameter change validated"
+        return True, 'Parameter change validated'
 
-    def _validate_value_bounds(self, param_name: str, value: Any) -> Tuple[bool, str]:
+    def _validate_value_bounds(self, param_name: str, value: Any) -> tuple[bool, str]:
         """Validate that a parameter value is within acceptable bounds"""
 
         # Define bounds for key parameters
@@ -158,35 +154,29 @@ class ModeManager:
             try:
                 numeric_value = float(value)
                 if numeric_value < min_val or numeric_value > max_val:
-                    return False, f"Value {value} outside acceptable range [{min_val}, {max_val}]"
+                    return False, f'Value {value} outside acceptable range [{min_val}, {max_val}]'
             except (ValueError, TypeError):
-                return False, f"Invalid numeric value: {value}"
+                return False, f'Invalid numeric value: {value}'
 
         # Special validation for dict parameters
         if param_name == 'MOVING_AVERAGE_PERIODS':
             if not isinstance(value, dict):
-                return False, "MOVING_AVERAGE_PERIODS must be a dictionary"
+                return False, 'MOVING_AVERAGE_PERIODS must be a dictionary'
             if 'short_term' not in value or 'long_term' not in value:
                 return False, "MOVING_AVERAGE_PERIODS must have 'short_term' and 'long_term' keys"
             if value['short_term'] >= value['long_term']:
-                return False, "Short-term MA period must be less than long-term"
+                return False, 'Short-term MA period must be less than long-term'
 
         if param_name == 'ENABLED_STRATEGIES':
             if not isinstance(value, dict):
-                return False, "ENABLED_STRATEGIES must be a dictionary"
+                return False, 'ENABLED_STRATEGIES must be a dictionary'
             # Ensure at least one strategy is enabled
             if not any(value.values()):
-                return False, "At least one strategy must be enabled"
+                return False, 'At least one strategy must be enabled'
 
-        return True, "Value is within acceptable bounds"
+        return True, 'Value is within acceptable bounds'
 
-    def apply_parameter_change(
-        self,
-        param_name: str,
-        new_value: Any,
-        changed_by: str = "AI",
-        reason: str = ""
-    ) -> bool:
+    def apply_parameter_change(self, param_name: str, new_value: Any, changed_by: str = 'AI', reason: str = '') -> bool:
         """
         Apply a parameter change if validation passes
 
@@ -203,7 +193,7 @@ class ModeManager:
         is_valid, msg = self.validate_parameter_change(param_name, new_value, reason)
 
         if not is_valid:
-            self.logger.warning(f"Parameter change rejected: {msg}")
+            self.logger.warning(f'Parameter change rejected: {msg}')
             return False
 
         # Get old value for logging
@@ -221,27 +211,23 @@ class ModeManager:
                 'new_value': new_value,
                 'changed_by': changed_by,
                 'reason': reason,
-                'mode': self.current_mode.value
+                'mode': self.current_mode.value,
             }
             self.parameter_change_history.append(change_record)
 
             self.logger.info(
-                f"Parameter changed: {param_name} = {new_value} "
-                f"(was {old_value}) by {changed_by}. Reason: {reason}"
+                f'Parameter changed: {param_name} = {new_value} (was {old_value}) by {changed_by}. Reason: {reason}'
             )
 
             return True
 
         except Exception as e:
-            self.logger.error(f"Failed to apply parameter change: {e}")
+            self.logger.error(f'Failed to apply parameter change: {e}')
             return False
 
     def apply_parameter_batch(
-        self,
-        param_updates: dict,
-        changed_by: str = "AI",
-        reason: str = ""
-    ) -> Tuple[int, int, List[str]]:
+        self, param_updates: dict, changed_by: str = 'AI', reason: str = ''
+    ) -> tuple[int, int, list[str]]:
         """
         Apply a batch of parameter changes
 
@@ -265,13 +251,12 @@ class ModeManager:
                 failed_params.append(param_name)
 
         self.logger.info(
-            f"Batch parameter update: {success_count} succeeded, "
-            f"{failed_count} failed. Failed params: {failed_params}"
+            f'Batch parameter update: {success_count} succeeded, {failed_count} failed. Failed params: {failed_params}'
         )
 
         return success_count, failed_count, failed_params
 
-    def get_modifiable_parameters(self) -> List[str]:
+    def get_modifiable_parameters(self) -> list[str]:
         """Get list of parameters that can be modified in current mode"""
         if self.current_mode == TradingMode.EXPERT:
             return []
@@ -279,11 +264,11 @@ class ModeManager:
             return list(self.MODIFIABLE_IN_AUTONOMOUS)
         return []
 
-    def get_parameter_change_history(self, limit: int = 100) -> List[dict]:
+    def get_parameter_change_history(self, limit: int = 100) -> list[dict]:
         """Get recent parameter change history"""
         return self.parameter_change_history[-limit:]
 
-    def set_mode(self, new_mode: TradingMode, reason: str = "") -> bool:
+    def set_mode(self, new_mode: TradingMode, reason: str = '') -> bool:
         """
         Change the trading mode (use with caution)
 
@@ -297,15 +282,12 @@ class ModeManager:
         old_mode = self.current_mode
 
         if old_mode == new_mode:
-            self.logger.info(f"Already in {new_mode.value} mode")
+            self.logger.info(f'Already in {new_mode.value} mode')
             return True
 
         self.current_mode = new_mode
 
-        self.logger.warning(
-            f"Trading mode changed from {old_mode.value} to {new_mode.value}. "
-            f"Reason: {reason}"
-        )
+        self.logger.warning(f'Trading mode changed from {old_mode.value} to {new_mode.value}. Reason: {reason}')
 
         # Update settings
         self.settings.TRADING_MODE_TYPE = new_mode.value

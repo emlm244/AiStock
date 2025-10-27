@@ -4,14 +4,13 @@ Backtesting runner that reuses the same feature and indicator pipeline as live t
 Ensures backtest results reflect production behavior by sharing code paths.
 """
 
-import sys
-import os
-import pandas as pd
-import numpy as np
 import argparse
-from datetime import datetime, timedelta
-import pytz
-from typing import Dict, List, Tuple
+import os
+import sys
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
 
 # Ensure project root in path
 try:
@@ -25,14 +24,11 @@ except NameError:
 
 # Import live components (same as live trading)
 from config.settings import Settings
-from utils.logger import setup_logger
-from managers.strategy_manager import StrategyManager
 from managers.portfolio_manager import PortfolioManager
 from managers.risk_manager import RiskManager
+from managers.strategy_manager import StrategyManager
+from utils.logger import setup_logger
 from utils.market_analyzer import MarketRegimeDetector
-from indicators.volatility import calculate_atr
-from utils.data_utils import calculate_position_size
-from contract_utils import get_min_tick, get_min_trade_size, round_price, round_quantity
 
 
 class BacktestEngine:
@@ -54,11 +50,11 @@ class BacktestEngine:
         )
 
         # Backtest-specific state
-        self.trades: List[Dict] = []
-        self.equity_curve: List[Dict] = []
-        self.current_positions: Dict[str, float] = {}  # {symbol: quantity}
+        self.trades: list[dict] = []
+        self.equity_curve: list[dict] = []
+        self.current_positions: dict[str, float] = {}  # {symbol: quantity}
 
-    def load_data(self, data_dir: str, symbols: List[str]) -> Dict[str, pd.DataFrame]:
+    def load_data(self, data_dir: str, symbols: list[str]) -> dict[str, pd.DataFrame]:
         """
         Load historical data from CSV files.
         Expected format: timestamp (index), open, high, low, close, volume
@@ -67,10 +63,10 @@ class BacktestEngine:
         for symbol in symbols:
             # Sanitize filename
             safe_symbol = symbol.replace('/', '_').replace('\\', '_')
-            file_path = os.path.join(data_dir, f"{safe_symbol}.csv")
+            file_path = os.path.join(data_dir, f'{safe_symbol}.csv')
 
             if not os.path.exists(file_path):
-                self.logger.warning(f"Data file not found for {symbol}: {file_path}")
+                self.logger.warning(f'Data file not found for {symbol}: {file_path}')
                 continue
 
             try:
@@ -84,7 +80,7 @@ class BacktestEngine:
                 # Validate required columns
                 required_cols = ['open', 'high', 'low', 'close', 'volume']
                 if not all(col in df.columns for col in required_cols):
-                    self.error_logger.error(f"Missing required columns in {file_path}: {df.columns}")
+                    self.error_logger.error(f'Missing required columns in {file_path}: {df.columns}')
                     continue
 
                 # Clean data
@@ -93,13 +89,13 @@ class BacktestEngine:
                 df = df.dropna(subset=required_cols)
 
                 data[symbol] = df
-                self.logger.info(f"Loaded {len(df)} bars for {symbol} from {file_path}")
+                self.logger.info(f'Loaded {len(df)} bars for {symbol} from {file_path}')
             except Exception as e:
-                self.error_logger.error(f"Failed to load data for {symbol} from {file_path}: {e}", exc_info=True)
+                self.error_logger.error(f'Failed to load data for {symbol} from {file_path}: {e}', exc_info=True)
 
         return data
 
-    def run(self, data: Dict[str, pd.DataFrame], start_date=None, end_date=None) -> Dict:
+    def run(self, data: dict[str, pd.DataFrame], start_date=None, end_date=None) -> dict:
         """
         Run backtest on historical data.
 
@@ -112,7 +108,7 @@ class BacktestEngine:
             Dict with backtest results and statistics
         """
         if not data:
-            self.logger.error("No data provided for backtest")
+            self.logger.error('No data provided for backtest')
             return {}
 
         # Filter data by date range if specified
@@ -131,7 +127,7 @@ class BacktestEngine:
             all_timestamps.update(df.index)
         timeline = sorted(all_timestamps)
 
-        self.logger.info(f"Running backtest from {timeline[0]} to {timeline[-1]} ({len(timeline)} bars)")
+        self.logger.info(f'Running backtest from {timeline[0]} to {timeline[-1]} ({len(timeline)} bars)')
 
         # Get minimum data points required
         min_data_points = self.strategy_manager.get_min_data_points()
@@ -171,15 +167,13 @@ class BacktestEngine:
 
             # Record equity at this timestamp
             equity = self.portfolio_manager.get_total_equity()
-            self.equity_curve.append({
-                'timestamp': current_time,
-                'equity': equity,
-                'drawdown': self.portfolio_manager.get_current_drawdown()
-            })
+            self.equity_curve.append(
+                {'timestamp': current_time, 'equity': equity, 'drawdown': self.portfolio_manager.get_current_drawdown()}
+            )
 
             # Progress logging
             if i % 1000 == 0:
-                self.logger.info(f"Processed {i}/{len(timeline)} bars. Equity: {equity:.2f}")
+                self.logger.info(f'Processed {i}/{len(timeline)} bars. Equity: {equity:.2f}')
 
         # Calculate final statistics
         results = self._calculate_statistics()
@@ -231,7 +225,7 @@ class BacktestEngine:
         trade_direction = 1 if action == 'BUY' else -1
         commission = quantity * self.settings.ESTIMATED_COMMISSION_PER_SHARE
         slippage = quantity * self.settings.ESTIMATED_SLIPPAGE_PER_SHARE
-        total_cost = (quantity * entry_price) + commission + slippage
+        (quantity * entry_price) + commission + slippage
 
         # Update position
         new_position = current_position + (trade_direction * quantity)
@@ -243,13 +237,11 @@ class BacktestEngine:
             # Simplified PnL calculation
             avg_entry = self.portfolio_manager.get_avg_entry_price(symbol) or entry_price
             pnl = (entry_price - avg_entry) * quantity * (-1 if current_position < 0 else 1)
-            pnl -= (commission + slippage)
+            pnl -= commission + slippage
             self.portfolio_manager.update_trade_pnl(symbol, pnl)
 
         # Update portfolio
-        self.portfolio_manager.update_position(
-            symbol, new_position, entry_price, executed_qty=quantity
-        )
+        self.portfolio_manager.update_position(symbol, new_position, entry_price, executed_qty=quantity)
 
         # Record trade
         trade_record = {
@@ -260,13 +252,13 @@ class BacktestEngine:
             'price': entry_price,
             'pnl': pnl,
             'position_after': new_position,
-            'equity': self.portfolio_manager.get_total_equity()
+            'equity': self.portfolio_manager.get_total_equity(),
         }
         self.trades.append(trade_record)
 
-        self.logger.debug(f"Trade: {action} {quantity:.4f} {symbol} @ {entry_price:.2f}, PnL: {pnl:.2f}")
+        self.logger.debug(f'Trade: {action} {quantity:.4f} {symbol} @ {entry_price:.2f}, PnL: {pnl:.2f}')
 
-    def _calculate_statistics(self) -> Dict:
+    def _calculate_statistics(self) -> dict:
         """Calculate backtest performance statistics."""
         if not self.equity_curve:
             return {}
@@ -297,7 +289,11 @@ class BacktestEngine:
         win_rate = len(winning_trades) / num_trades if num_trades > 0 else 0.0
         avg_win = winning_trades['pnl'].mean() if len(winning_trades) > 0 else 0.0
         avg_loss = losing_trades['pnl'].mean() if len(losing_trades) > 0 else 0.0
-        profit_factor = abs(winning_trades['pnl'].sum() / losing_trades['pnl'].sum()) if len(losing_trades) > 0 and losing_trades['pnl'].sum() != 0 else 0.0
+        profit_factor = (
+            abs(winning_trades['pnl'].sum() / losing_trades['pnl'].sum())
+            if len(losing_trades) > 0 and losing_trades['pnl'].sum() != 0
+            else 0.0
+        )
 
         stats = {
             'initial_equity': initial_equity,
@@ -314,33 +310,33 @@ class BacktestEngine:
             'avg_loss': avg_loss,
             'profit_factor': profit_factor,
             'trades': trades_df,
-            'equity_curve': equity_df
+            'equity_curve': equity_df,
         }
 
         return stats
 
-    def print_results(self, results: Dict):
+    def print_results(self, results: dict):
         """Print backtest results to console."""
         if not results:
-            print("No results to display")
+            print('No results to display')
             return
 
-        print("\n" + "="*60)
-        print("BACKTEST RESULTS")
-        print("="*60)
-        print(f"Initial Equity:    ${results['initial_equity']:,.2f}")
-        print(f"Final Equity:      ${results['final_equity']:,.2f}")
-        print(f"Total Return:      {results['total_return_pct']:.2f}%")
-        print(f"Sharpe Ratio:      {results['sharpe_ratio']:.2f}")
-        print(f"Max Drawdown:      {results['max_drawdown_pct']:.2f}%")
-        print(f"\nNumber of Trades:  {results['num_trades']}")
-        print(f"Win Rate:          {results['win_rate_pct']:.2f}%")
-        print(f"Avg Win:           ${results['avg_win']:.2f}")
-        print(f"Avg Loss:          ${results['avg_loss']:.2f}")
-        print(f"Profit Factor:     {results['profit_factor']:.2f}")
-        print("="*60 + "\n")
+        print('\n' + '=' * 60)
+        print('BACKTEST RESULTS')
+        print('=' * 60)
+        print(f'Initial Equity:    ${results["initial_equity"]:,.2f}')
+        print(f'Final Equity:      ${results["final_equity"]:,.2f}')
+        print(f'Total Return:      {results["total_return_pct"]:.2f}%')
+        print(f'Sharpe Ratio:      {results["sharpe_ratio"]:.2f}')
+        print(f'Max Drawdown:      {results["max_drawdown_pct"]:.2f}%')
+        print(f'\nNumber of Trades:  {results["num_trades"]}')
+        print(f'Win Rate:          {results["win_rate_pct"]:.2f}%')
+        print(f'Avg Win:           ${results["avg_win"]:.2f}')
+        print(f'Avg Loss:          ${results["avg_loss"]:.2f}')
+        print(f'Profit Factor:     {results["profit_factor"]:.2f}')
+        print('=' * 60 + '\n')
 
-    def save_results(self, results: Dict, output_dir: str = 'data/backtest_results'):
+    def save_results(self, results: dict, output_dir: str = 'data/backtest_results'):
         """Save backtest results to files."""
         os.makedirs(output_dir, exist_ok=True)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -349,36 +345,38 @@ class BacktestEngine:
         if 'trades' in results and not results['trades'].empty:
             trades_file = os.path.join(output_dir, f'trades_{timestamp}.csv')
             results['trades'].to_csv(trades_file, index=False)
-            self.logger.info(f"Saved trades to {trades_file}")
+            self.logger.info(f'Saved trades to {trades_file}')
 
         # Save equity curve
         if 'equity_curve' in results and not results['equity_curve'].empty:
             equity_file = os.path.join(output_dir, f'equity_curve_{timestamp}.csv')
             results['equity_curve'].to_csv(equity_file, index=True)
-            self.logger.info(f"Saved equity curve to {equity_file}")
+            self.logger.info(f'Saved equity curve to {equity_file}')
 
         # Save summary stats
         summary = {k: v for k, v in results.items() if k not in ['trades', 'equity_curve']}
         summary_file = os.path.join(output_dir, f'summary_{timestamp}.txt')
         with open(summary_file, 'w') as f:
             for key, value in summary.items():
-                f.write(f"{key}: {value}\n")
-        self.logger.info(f"Saved summary to {summary_file}")
+                f.write(f'{key}: {value}\n')
+        self.logger.info(f'Saved summary to {summary_file}')
 
 
 def main():
     """Main entry point for backtesting."""
     parser = argparse.ArgumentParser(description='Run backtest on historical data')
-    parser.add_argument('--data-dir', type=str, default='data/live_data',
-                        help='Directory containing historical CSV files')
-    parser.add_argument('--symbols', type=str, required=True,
-                        help='Comma-separated list of symbols to backtest (e.g., "BTC/USD,ETH/USD")')
-    parser.add_argument('--start-date', type=str, default=None,
-                        help='Start date (YYYY-MM-DD)')
-    parser.add_argument('--end-date', type=str, default=None,
-                        help='End date (YYYY-MM-DD)')
-    parser.add_argument('--output-dir', type=str, default='data/backtest_results',
-                        help='Directory to save results')
+    parser.add_argument(
+        '--data-dir', type=str, default='data/live_data', help='Directory containing historical CSV files'
+    )
+    parser.add_argument(
+        '--symbols',
+        type=str,
+        required=True,
+        help='Comma-separated list of symbols to backtest (e.g., "BTC/USD,ETH/USD")',
+    )
+    parser.add_argument('--start-date', type=str, default=None, help='Start date (YYYY-MM-DD)')
+    parser.add_argument('--end-date', type=str, default=None, help='End date (YYYY-MM-DD)')
+    parser.add_argument('--output-dir', type=str, default='data/backtest_results', help='Directory to save results')
 
     args = parser.parse_args()
 
@@ -397,26 +395,26 @@ def main():
     engine = BacktestEngine(settings, logger)
 
     # Load data
-    logger.info(f"Loading data for symbols: {symbols} from {args.data_dir}")
+    logger.info(f'Loading data for symbols: {symbols} from {args.data_dir}')
     data = engine.load_data(args.data_dir, symbols)
 
     if not data:
-        logger.error("No data loaded. Exiting.")
+        logger.error('No data loaded. Exiting.')
         return 1
 
     # Run backtest
-    logger.info("Starting backtest...")
+    logger.info('Starting backtest...')
     results = engine.run(data, start_date=args.start_date, end_date=args.end_date)
 
     if not results:
-        logger.error("Backtest failed to produce results")
+        logger.error('Backtest failed to produce results')
         return 1
 
     # Display and save results
     engine.print_results(results)
     engine.save_results(results, args.output_dir)
 
-    logger.info("Backtest complete")
+    logger.info('Backtest complete')
     return 0
 
 

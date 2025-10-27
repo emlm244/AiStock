@@ -1,18 +1,19 @@
 # tests/test_indicators.py
 """Tests for technical indicators."""
 
-import pytest
-import pandas as pd
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
+import pandas as pd
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from indicators.oscillators import calculate_rsi, calculate_macd
-from indicators.moving_averages import calculate_sma, calculate_ema
-from indicators.volatility import calculate_atr
+from indicators.moving_averages import calculate_ema, calculate_sma
+from indicators.oscillators import calculate_macd, calculate_rsi
 from indicators.trend import calculate_adx
+from indicators.volatility import calculate_atr
 
 
 @pytest.fixture
@@ -25,13 +26,10 @@ def sample_ohlc_data():
     low = close - np.random.rand(100) * 2
     open_ = close + np.random.randn(100)
 
-    return pd.DataFrame({
-        'open': open_,
-        'high': high,
-        'low': low,
-        'close': close,
-        'volume': np.random.randint(1000, 10000, 100)
-    }, index=dates)
+    return pd.DataFrame(
+        {'open': open_, 'high': high, 'low': low, 'close': close, 'volume': np.random.randint(1000, 10000, 100)},
+        index=dates,
+    )
 
 
 def test_rsi_calculation(sample_ohlc_data):
@@ -55,11 +53,7 @@ def test_macd_calculation(sample_ohlc_data):
     assert isinstance(hist, pd.Series)
     assert len(macd) == len(sample_ohlc_data)
     # Histogram should be macd - signal
-    np.testing.assert_array_almost_equal(
-        hist.dropna().values,
-        (macd - signal).dropna().values,
-        decimal=5
-    )
+    np.testing.assert_array_almost_equal(hist.dropna().values, (macd - signal).dropna().values, decimal=5)
 
 
 def test_sma_calculation(sample_ohlc_data):
@@ -112,13 +106,15 @@ def test_adx_calculation(sample_ohlc_data):
 
 def test_indicator_with_insufficient_data():
     """Test indicators handle insufficient data gracefully."""
-    small_data = pd.DataFrame({
-        'close': [100, 101, 102],
-        'high': [101, 102, 103],
-        'low': [99, 100, 101],
-        'open': [100, 101, 102],
-        'volume': [1000, 1000, 1000]
-    })
+    small_data = pd.DataFrame(
+        {
+            'close': [100, 101, 102],
+            'high': [101, 102, 103],
+            'low': [99, 100, 101],
+            'open': [100, 101, 102],
+            'volume': [1000, 1000, 1000],
+        }
+    )
 
     # RSI with period 14 on only 3 data points
     rsi = calculate_rsi(small_data, period=14)
@@ -127,13 +123,15 @@ def test_indicator_with_insufficient_data():
 
 def test_indicator_with_nan_values():
     """Test indicators handle NaN values in input data."""
-    data_with_nan = pd.DataFrame({
-        'close': [100, 101, np.nan, 103, 104],
-        'high': [101, 102, np.nan, 104, 105],
-        'low': [99, 100, np.nan, 102, 103],
-        'open': [100, 101, np.nan, 103, 104],
-        'volume': [1000, 1000, np.nan, 1000, 1000]
-    })
+    data_with_nan = pd.DataFrame(
+        {
+            'close': [100, 101, np.nan, 103, 104],
+            'high': [101, 102, np.nan, 104, 105],
+            'low': [99, 100, np.nan, 102, 103],
+            'open': [100, 101, np.nan, 103, 104],
+            'volume': [1000, 1000, np.nan, 1000, 1000],
+        }
+    )
 
     # Should handle NaN gracefully
     rsi = calculate_rsi(data_with_nan, period=3)

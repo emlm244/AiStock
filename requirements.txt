@@ -1,42 +1,56 @@
-# Core Dependencies (Pinned versions for 2025)
-pandas==2.1.4
-numpy==1.26.3
-scikit-learn==1.4.0
-joblib==1.3.2
-colorama==0.4.6
-pytz==2024.1
+# AIStock Robot Trading System - Production Dependencies
+# Last Updated: 2025-10-27
+# Python 3.9+ required
 
-# IBKR API (install separately: pip install ibapi from IB website)
-# ibapi>=10.26  # Version 10.26+ required for latest API features
+# =============================================================================
+# Core Data Processing & Scientific Computing
+# =============================================================================
+pandas==2.1.4              # BSD-3-Clause
+numpy==1.26.3              # BSD-3-Clause
+scikit-learn==1.4.0        # BSD-3-Clause
+joblib==1.3.2              # BSD-3-Clause
 
+# =============================================================================
+# Date/Time & Timezone Handling
+# =============================================================================
+pytz==2024.1               # MIT
+
+# =============================================================================
+# Interactive Brokers API
+# =============================================================================
+# ibapi>=10.26
+# NOTE: ibapi must be installed separately from IB website or via:
+# pip install ibapi --no-deps
+# Download from: https://interactivebrokers.github.io/
+
+# =============================================================================
 # Security & Secrets Management
-cryptography==42.0.2
-python-dotenv==1.0.0
+# =============================================================================
+cryptography==42.0.2       # Apache-2.0 / BSD
+python-dotenv==1.0.0       # BSD-3-Clause
 
-# Production Monitoring & Reliability
-prometheus-client==0.19.0
-circuitbreaker==2.0.0
-tenacity==8.2.3
-flask==3.0.0
+# =============================================================================
+# Production Reliability & Monitoring
+# =============================================================================
+prometheus-client==0.19.0  # Apache-2.0
+circuitbreaker==2.0.0      # BSD-3-Clause
+tenacity==8.2.3            # Apache-2.0
+flask==3.0.0               # BSD-3-Clause
+werkzeug==3.0.1            # BSD-3-Clause (flask dependency)
 
-# AI Optimization
-scikit-optimize==0.9.0
+# =============================================================================
+# AI Optimization (Optional - for autonomous mode)
+# =============================================================================
+scikit-optimize==0.9.0     # BSD-3-Clause
 
-# Database (For trade persistence)
-SQLAlchemy==2.0.25
-# psycopg2-binary==2.9.9  # For PostgreSQL (optional)
-# alembic==1.13.1  # For database migrations (optional)
+# =============================================================================
+# Database Support (Optional)
+# =============================================================================
+SQLAlchemy==2.0.25         # MIT
+# psycopg2-binary==2.9.9   # LGPL (PostgreSQL adapter - uncomment if needed)
+# alembic==1.13.1          # MIT (migrations - uncomment if needed)
 
-# Testing & Quality (dev dependencies)
-pytest==7.4.4
-pytest-cov==4.1.0
-pytest-asyncio==0.23.3
-pytest-mock==3.12.0
-hypothesis==6.92.2
-mypy==1.8.0
-ruff==0.1.14
-safety==3.0.1
-
-# Performance Profiling (dev)
-memory-profiler==0.61.0
-py-spy==0.3.14
+# =============================================================================
+# Terminal UI
+# =============================================================================
+colorama==0.4.6            # BSD-3-Clause

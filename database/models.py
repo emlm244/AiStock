@@ -9,18 +9,20 @@ SQLAlchemy models for storing:
 - Parameter change history
 """
 
+import logging
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Boolean, JSON, Text
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, Integer, String, Text, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-import logging
+from sqlalchemy.orm import Session, sessionmaker
 
 Base = declarative_base()
 
 
 class Trade(Base):
     """Trade execution record"""
+
     __tablename__ = 'trades'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -43,11 +45,12 @@ class Trade(Base):
     notes = Column(Text, nullable=True)
 
     def __repr__(self):
-        return f"<Trade(id={self.id}, symbol={self.symbol}, action={self.action}, pnl={self.pnl})>"
+        return f'<Trade(id={self.id}, symbol={self.symbol}, action={self.action}, pnl={self.pnl})>'
 
 
 class PerformanceMetric(Base):
     """Daily/periodic performance metrics"""
+
     __tablename__ = 'performance_metrics'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -67,11 +70,12 @@ class PerformanceMetric(Base):
     open_positions = Column(Integer, nullable=False, default=0)
 
     def __repr__(self):
-        return f"<PerformanceMetric(date={self.date}, equity={self.total_equity}, sharpe={self.sharpe_ratio})>"
+        return f'<PerformanceMetric(date={self.date}, equity={self.total_equity}, sharpe={self.sharpe_ratio})>'
 
 
 class ParameterHistory(Base):
     """History of parameter changes (for audit trail)"""
+
     __tablename__ = 'parameter_history'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -84,11 +88,12 @@ class ParameterHistory(Base):
     mode = Column(String(20), nullable=True)  # autonomous, expert
 
     def __repr__(self):
-        return f"<ParameterHistory(param={self.parameter_name}, changed_by={self.changed_by})>"
+        return f'<ParameterHistory(param={self.parameter_name}, changed_by={self.changed_by})>'
 
 
 class OptimizationRun(Base):
     """Record of AI optimization runs"""
+
     __tablename__ = 'optimization_runs'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -104,7 +109,7 @@ class OptimizationRun(Base):
     error_message = Column(Text, nullable=True)
 
     def __repr__(self):
-        return f"<OptimizationRun(type={self.optimization_type}, improvement={self.improvement_pct}%)>"
+        return f'<OptimizationRun(type={self.optimization_type}, improvement={self.improvement_pct}%)>'
 
 
 class DatabaseManager:
@@ -112,11 +117,7 @@ class DatabaseManager:
     Database manager for persisting trades and performance data
     """
 
-    def __init__(
-        self,
-        db_url: str = 'sqlite:///data/trading_bot.db',
-        logger: Optional[logging.Logger] = None
-    ):
+    def __init__(self, db_url: str = 'sqlite:///data/trading_bot.db', logger: Optional[logging.Logger] = None):
         self.db_url = db_url
         self.logger = logger or logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ class DatabaseManager:
         # Session factory
         self.SessionLocal = sessionmaker(bind=self.engine)
 
-        self.logger.info(f"Database initialized: {db_url}")
+        self.logger.info(f'Database initialized: {db_url}')
 
     def get_session(self) -> Session:
         """Get a new database session"""
@@ -164,18 +165,18 @@ class DatabaseManager:
                 status=trade_data.get('status', 'open'),
                 exit_timestamp=trade_data.get('exit_timestamp'),
                 hold_time_seconds=trade_data.get('hold_time_seconds'),
-                notes=trade_data.get('notes')
+                notes=trade_data.get('notes'),
             )
 
             session.add(trade)
             session.commit()
 
-            self.logger.debug(f"Trade recorded: {trade}")
+            self.logger.debug(f'Trade recorded: {trade}')
             return True
 
         except Exception as e:
             session.rollback()
-            self.logger.error(f"Error recording trade: {e}", exc_info=True)
+            self.logger.error(f'Error recording trade: {e}', exc_info=True)
             return False
 
         finally:
@@ -199,18 +200,18 @@ class DatabaseManager:
                 avg_win=perf_data.get('avg_win'),
                 avg_loss=perf_data.get('avg_loss'),
                 profit_factor=perf_data.get('profit_factor'),
-                open_positions=perf_data.get('open_positions', 0)
+                open_positions=perf_data.get('open_positions', 0),
             )
 
             session.add(metric)
             session.commit()
 
-            self.logger.debug(f"Performance metric recorded: {metric}")
+            self.logger.debug(f'Performance metric recorded: {metric}')
             return True
 
         except Exception as e:
             session.rollback()
-            self.logger.error(f"Error recording performance: {e}", exc_info=True)
+            self.logger.error(f'Error recording performance: {e}', exc_info=True)
             return False
 
         finally:
@@ -227,7 +228,7 @@ class DatabaseManager:
                 new_value=str(change_data['new_value']),
                 changed_by=change_data.get('changed_by', 'System'),
                 reason=change_data.get('reason'),
-                mode=change_data.get('mode')
+                mode=change_data.get('mode'),
             )
 
             session.add(param_change)
@@ -237,7 +238,7 @@ class DatabaseManager:
 
         except Exception as e:
             session.rollback()
-            self.logger.error(f"Error recording parameter change: {e}", exc_info=True)
+            self.logger.error(f'Error recording parameter change: {e}', exc_info=True)
             return False
 
         finally:
@@ -257,7 +258,7 @@ class DatabaseManager:
                 improvement_pct=opt_data.get('improvement_pct'),
                 iteration_count=opt_data.get('iteration_count'),
                 success=opt_data.get('success', True),
-                error_message=opt_data.get('error_message')
+                error_message=opt_data.get('error_message'),
             )
 
             session.add(opt_run)
@@ -267,7 +268,7 @@ class DatabaseManager:
 
         except Exception as e:
             session.rollback()
-            self.logger.error(f"Error recording optimization: {e}", exc_info=True)
+            self.logger.error(f'Error recording optimization: {e}', exc_info=True)
             return False
 
         finally:

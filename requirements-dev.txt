@@ -1,36 +1,45 @@
-# Development Dependencies (extends requirements.txt)
+# AIStock Robot - Development & Testing Dependencies
+# Extends requirements.txt
 -r requirements.txt
 
-# Testing
-pytest==7.4.4
-pytest-cov==4.1.0
-pytest-benchmark==4.0.0
-pytest-xdist==3.5.0
-pytest-mock==3.12.0
-pytest-asyncio==0.23.3
-hypothesis==6.92.2
-locust==2.20.0
+# =============================================================================
+# Testing Framework
+# =============================================================================
+pytest==7.4.4              # MIT
+pytest-cov==4.1.0          # MIT
+pytest-benchmark==4.0.0    # BSD
+pytest-xdist==3.5.0        # MIT (parallel testing)
+pytest-mock==3.12.0        # MIT
+pytest-asyncio==0.23.3     # Apache-2.0
+hypothesis==6.92.2         # MPL-2.0 (property-based testing)
+locust==2.20.0             # MIT (load testing)
 
+# =============================================================================
 # Code Quality & Linting
-ruff==0.1.14
-black==24.1.1
-isort==5.13.2
-flake8==7.0.0
-pylint==3.0.3
-mypy==1.8.0
+# =============================================================================
+ruff==0.1.14               # MIT (fast Python linter/formatter)
+mypy==1.8.0                # MIT (static type checking)
 
+# =============================================================================
 # Security Scanning
-bandit==1.7.6
-safety==3.0.1
+# =============================================================================
+bandit==1.7.6              # Apache-2.0 (security linter)
+safety==3.0.1              # MIT (dependency vulnerability scanner)
 
+# =============================================================================
 # Documentation
-sphinx==7.2.6
-sphinx-rtd-theme==2.0.0
-sphinxcontrib-mermaid==0.9.2
+# =============================================================================
+sphinx==7.2.6              # BSD
+sphinx-rtd-theme==2.0.0    # MIT
+sphinxcontrib-mermaid==0.9.2  # BSD
 
-# Pre-commit hooks
-pre-commit==3.6.0
+# =============================================================================
+# Pre-commit Hooks
+# =============================================================================
+pre-commit==3.6.0          # MIT
 
+# =============================================================================
 # Performance Profiling
-memory-profiler==0.61.0
-py-spy==0.3.14
+# =============================================================================
+memory-profiler==0.61.0    # BSD
+py-spy==0.3.14             # MIT (sampling profiler)

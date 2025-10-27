@@ -1,16 +1,17 @@
 # tests/test_orders.py
 """Tests for order assembly and bracket order creation."""
 
-import pytest
-import sys
 import os
-from unittest.mock import Mock, MagicMock
+import sys
+from unittest.mock import Mock
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from config.settings import Settings
 from managers.order_manager import OrderManager
 from managers.portfolio_manager import PortfolioManager
-from config.settings import Settings
 
 
 @pytest.fixture
@@ -56,7 +57,7 @@ def test_bracket_order_creation(order_manager, mock_api):
         entry_price=100.0,
         stop_loss_price=95.0,
         take_profit_price=110.0,
-        strategy_name='test_strategy'
+        strategy_name='test_strategy',
     )
 
     assert parent_id is not None
@@ -77,7 +78,7 @@ def test_bracket_order_sell_direction(order_manager, mock_api):
         entry_price=100.0,
         stop_loss_price=105.0,  # SL above for short
         take_profit_price=90.0,  # TP below for short
-        strategy_name='short_test'
+        strategy_name='short_test',
     )
 
     assert parent_id is not None
@@ -95,7 +96,7 @@ def test_invalid_bracket_order_parameters(order_manager):
         entry_price=100.0,
         stop_loss_price=105.0,  # Invalid: above entry
         take_profit_price=110.0,
-        strategy_name='invalid_test'
+        strategy_name='invalid_test',
     )
 
     # Should return None or fail gracefully
@@ -112,7 +113,7 @@ def test_order_tracking(order_manager):
         entry_price=100.0,
         stop_loss_price=95.0,
         take_profit_price=110.0,
-        strategy_name='tracking_test'
+        strategy_name='tracking_test',
     )
 
     # Check that parent order is tracked
@@ -132,7 +133,7 @@ def test_zero_quantity_rejection(order_manager):
         entry_price=100.0,
         stop_loss_price=95.0,
         take_profit_price=110.0,
-        strategy_name='zero_qty'
+        strategy_name='zero_qty',
     )
 
     assert result[0] is None
@@ -147,7 +148,7 @@ def test_negative_prices_rejection(order_manager):
         entry_price=-100.0,  # Invalid
         stop_loss_price=95.0,
         take_profit_price=110.0,
-        strategy_name='negative_price'
+        strategy_name='negative_price',
     )
 
     assert result[0] is None

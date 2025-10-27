@@ -4,6 +4,7 @@
 
 import os
 
+
 def _get_env_int(key, default):
     """Get integer from environment variable with fallback."""
     val = os.getenv(key)
@@ -12,7 +13,8 @@ def _get_env_int(key, default):
     try:
         return int(val)
     except ValueError:
-        raise ValueError(f"Environment variable {key} must be an integer, got: {val}")
+        raise ValueError(f'Environment variable {key} must be an integer, got: {val}')
+
 
 # IBKR Configuration - loaded from environment variables
 IBKR = {
@@ -25,9 +27,11 @@ IBKR = {
 # --- Validation ---
 if not IBKR['ACCOUNT_ID']:
     raise ValueError(
-        "CRITICAL: IBKR_ACCOUNT_ID environment variable is required. "
-        "Set it in your .env file or export it. See .env.example for reference."
+        'CRITICAL: IBKR_ACCOUNT_ID environment variable is required. '
+        'Set it in your .env file or export it. See .env.example for reference.'
     )
 
 if IBKR['TWS_PORT'] not in [7496, 7497, 4001, 4002]:
-    print(f"WARNING: IBKR_TWS_PORT ({IBKR['TWS_PORT']}) is not a standard port (7496, 7497, 4001, 4002). Verify it is correct.")
+    print(
+        f'WARNING: IBKR_TWS_PORT ({IBKR["TWS_PORT"]}) is not a standard port (7496, 7497, 4001, 4002). Verify it is correct.'
+    )

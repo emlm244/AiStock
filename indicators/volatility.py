@@ -1,6 +1,7 @@
 # indicators/volatility.py
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 
 def calculate_atr(data, period=14):
     """
@@ -15,8 +16,8 @@ def calculate_atr(data, period=14):
     """
     if not all(col in data.columns for col in ['high', 'low', 'close']):
         raise ValueError("DataFrame must contain 'high', 'low', and 'close' columns for ATR calculation.")
-    if len(data) < period + 1: # Need period+1 for shift and initial smoothing
-        return pd.Series(index=data.index, dtype=float) # Return NaNs
+    if len(data) < period + 1:  # Need period+1 for shift and initial smoothing
+        return pd.Series(index=data.index, dtype=float)  # Return NaNs
 
     df = data.copy()
 
@@ -33,6 +34,7 @@ def calculate_atr(data, period=14):
     atr = df['tr'].ewm(alpha=alpha, adjust=False, min_periods=period).mean()
 
     return atr
+
 
 def calculate_bollinger_bands(data, period=20, std_dev=2.0):
     """
@@ -65,6 +67,7 @@ def calculate_bollinger_bands(data, period=20, std_dev=2.0):
 
     return middle_band, upper_band, lower_band
 
+
 def calculate_bollinger_bands_width(data, period=20, std_dev=2.0):
     """
     Calculates the width of the Bollinger Bands ((Upper - Lower) / Middle).
@@ -81,7 +84,7 @@ def calculate_bollinger_bands_width(data, period=20, std_dev=2.0):
 
     # Avoid division by zero or NaN issues if middle_band is 0 or NaN
     # Replace NaN or zero in middle_band temporarily for division
-    safe_middle_band = middle_band.replace(0, np.nan) # Avoid division by zero
+    safe_middle_band = middle_band.replace(0, np.nan)  # Avoid division by zero
     bb_width = (upper_band - lower_band) / safe_middle_band
 
     # Replace any infinities resulting from division by near-zero std dev with NaN

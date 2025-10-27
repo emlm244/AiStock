@@ -12,7 +12,7 @@ All other parameters are set to safe defaults and optimized by AI.
 """
 
 from dataclasses import dataclass, field
-from typing import List
+
 from config.settings import Settings
 
 
@@ -29,31 +29,31 @@ class AutonomousConfig:
 
     max_capital: float
     timeframe: str
-    symbols: List[str]
+    symbols: list[str]
 
     # Optional: Asset type (auto-detected from symbols if not provided)
-    asset_type: str = field(default="crypto")
+    asset_type: str = field(default='crypto')
 
     def __post_init__(self):
         """Validate and auto-detect asset type"""
         if not self.symbols:
-            raise ValueError("At least one symbol must be provided")
+            raise ValueError('At least one symbol must be provided')
 
         # Auto-detect asset type from symbols
-        if self.asset_type == "crypto":
+        if self.asset_type == 'crypto':
             # Check if symbols look like crypto
             for symbol in self.symbols:
                 if 'BTC' in symbol or 'ETH' in symbol or 'USDT' in symbol:
-                    self.asset_type = "crypto"
+                    self.asset_type = 'crypto'
                     break
                 elif '/' in symbol and 'USD' in symbol:
                     # Could be crypto (BTC/USD) or forex (EUR/USD)
                     if any(crypto in symbol for crypto in ['BTC', 'ETH', 'SOL', 'ADA']):
-                        self.asset_type = "crypto"
+                        self.asset_type = 'crypto'
                     else:
-                        self.asset_type = "forex"
+                        self.asset_type = 'forex'
                 else:
-                    self.asset_type = "stock"
+                    self.asset_type = 'stock'
 
     def to_full_settings(self) -> Settings:
         """
@@ -70,7 +70,7 @@ class AutonomousConfig:
         settings.TRADING_MODE = self.asset_type
 
         # Set autonomous mode
-        settings.TRADING_MODE_TYPE = "autonomous"
+        settings.TRADING_MODE_TYPE = 'autonomous'
         settings.AUTONOMOUS_MODE = True
         settings.ENABLE_ADAPTIVE_RISK = True
         settings.ENABLE_AUTO_RETRAINING = True
@@ -93,15 +93,11 @@ class AutonomousConfig:
         settings.ATR_PERIOD = 14  # Will be optimized
 
         settings.MOVING_AVERAGE_PERIODS = {
-            'short_term': 9,   # Will be optimized
-            'long_term': 21    # Will be optimized
+            'short_term': 9,  # Will be optimized
+            'long_term': 21,  # Will be optimized
         }
 
-        settings.MACD_SETTINGS = {
-            'fast_period': 12,
-            'slow_period': 26,
-            'signal_period': 9
-        }
+        settings.MACD_SETTINGS = {'fast_period': 12, 'slow_period': 26, 'signal_period': 9}
 
         # Strategy Settings
         settings.ENABLED_STRATEGIES = {
@@ -126,8 +122,8 @@ class AutonomousConfig:
 
         # Define optimization bounds
         settings.AUTO_OPTIMIZE_BOUNDS = {
-            'risk_per_trade_min': 0.005,   # 0.5%
-            'risk_per_trade_max': 0.02,    # 2%
+            'risk_per_trade_min': 0.005,  # 0.5%
+            'risk_per_trade_max': 0.02,  # 2%
             'stop_loss_atr_min': 1.0,
             'stop_loss_atr_max': 4.0,
             'take_profit_rr_min': 1.5,
@@ -150,67 +146,63 @@ class AutonomousConfig:
         Returns:
             AutonomousConfig instance
         """
-        print("\n" + "="*60)
-        print("  AUTONOMOUS MODE - SIMPLIFIED CONFIGURATION")
-        print("="*60)
-        print("\nThe AI will optimize all strategy parameters automatically.")
-        print("You only need to provide 3 inputs:\n")
+        print('\n' + '=' * 60)
+        print('  AUTONOMOUS MODE - SIMPLIFIED CONFIGURATION')
+        print('=' * 60)
+        print('\nThe AI will optimize all strategy parameters automatically.')
+        print('You only need to provide 3 inputs:\n')
 
         # Get capital
         while True:
             try:
-                capital_input = input("1. Max Capital to trade with (e.g., 10000): $")
+                capital_input = input('1. Max Capital to trade with (e.g., 10000): $')
                 max_capital = float(capital_input)
                 if max_capital <= 0:
-                    print("   Error: Capital must be positive")
+                    print('   Error: Capital must be positive')
                     continue
                 break
             except ValueError:
-                print("   Error: Please enter a valid number")
+                print('   Error: Please enter a valid number')
 
         # Get timeframe
-        print("\n2. Trading Timeframe:")
+        print('\n2. Trading Timeframe:')
         print("   Examples: '1 sec', '30 secs', '1 min', '5 mins', '1 hour'")
-        timeframe = input("   Enter timeframe: ").strip()
+        timeframe = input('   Enter timeframe: ').strip()
 
         # Get symbols
-        print("\n3. Symbols to trade (comma-separated):")
-        print("   Examples:")
-        print("   - Crypto: BTC/USD, ETH/USD")
-        print("   - Stocks: AAPL, TSLA, GOOGL")
-        print("   - Forex: EUR/USD, GBP/USD")
-        symbols_input = input("   Enter symbols: ").strip()
+        print('\n3. Symbols to trade (comma-separated):')
+        print('   Examples:')
+        print('   - Crypto: BTC/USD, ETH/USD')
+        print('   - Stocks: AAPL, TSLA, GOOGL')
+        print('   - Forex: EUR/USD, GBP/USD')
+        symbols_input = input('   Enter symbols: ').strip()
         symbols = [s.strip() for s in symbols_input.split(',')]
 
         # Create config
-        config = cls(
-            max_capital=max_capital,
-            timeframe=timeframe,
-            symbols=symbols
-        )
+        config = cls(max_capital=max_capital, timeframe=timeframe, symbols=symbols)
 
         # Show summary
-        print("\n" + "="*60)
-        print("  CONFIGURATION SUMMARY")
-        print("="*60)
-        print(f"  Capital:   ${config.max_capital:,.2f}")
-        print(f"  Timeframe: {config.timeframe}")
-        print(f"  Symbols:   {', '.join(config.symbols)}")
-        print(f"  Asset Type: {config.asset_type}")
-        print("\n  AI will optimize:")
-        print("  - Risk per trade (0.5% - 2%)")
-        print("  - Stop loss levels")
-        print("  - Take profit levels")
-        print("  - Technical indicator periods")
-        print("  - Strategy selection")
-        print("  - Position sizing")
-        print("="*60)
+        print('\n' + '=' * 60)
+        print('  CONFIGURATION SUMMARY')
+        print('=' * 60)
+        print(f'  Capital:   ${config.max_capital:,.2f}')
+        print(f'  Timeframe: {config.timeframe}')
+        print(f'  Symbols:   {", ".join(config.symbols)}')
+        print(f'  Asset Type: {config.asset_type}')
+        print('\n  AI will optimize:')
+        print('  - Risk per trade (0.5% - 2%)')
+        print('  - Stop loss levels')
+        print('  - Take profit levels')
+        print('  - Technical indicator periods')
+        print('  - Strategy selection')
+        print('  - Position sizing')
+        print('=' * 60)
 
         # Confirm
-        confirm = input("\nProceed with this configuration? (y/n): ").strip().lower()
+        confirm = input('\nProceed with this configuration? (y/n): ').strip().lower()
         if confirm != 'y':
-            print("Configuration cancelled. Please run setup again.")
-            raise ValueError("User cancelled configuration")
+            print('Configuration cancelled. Please run setup again.')
+            raise ValueError('User cancelled configuration')
 
         return config
 
@@ -220,7 +212,7 @@ class AutonomousConfig:
             'max_capital': self.max_capital,
             'timeframe': self.timeframe,
             'symbols': self.symbols,
-            'asset_type': self.asset_type
+            'asset_type': self.asset_type,
         }
 
     @classmethod
@@ -230,5 +222,5 @@ class AutonomousConfig:
             max_capital=data['max_capital'],
             timeframe=data['timeframe'],
             symbols=data['symbols'],
-            asset_type=data.get('asset_type', 'crypto')
+            asset_type=data.get('asset_type', 'crypto'),
         )
