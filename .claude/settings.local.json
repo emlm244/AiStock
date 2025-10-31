@@ -53,7 +53,8 @@
       "Bash(done)",
       "Bash(test:*)",
       "Bash(awk:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []
