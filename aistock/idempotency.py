@@ -12,7 +12,7 @@ import threading
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
 class OrderIdempotencyTracker:
@@ -24,10 +24,10 @@ class OrderIdempotencyTracker:
 
     _SCHEMA_VERSION = 2
 
-    def __init__(self, storage_path: str = "state/submitted_orders.json"):
+    def __init__(self, storage_path: str = 'state/submitted_orders.json'):
         self.storage_path = storage_path
         self._lock = threading.Lock()
-        self._submitted_ids: Dict[str, int] = {}
+        self._submitted_ids: dict[str, int] = {}
         self._load_from_disk()
 
     # ------------------------------------------------------------------
@@ -37,16 +37,16 @@ class OrderIdempotencyTracker:
         if not path.exists():
             return
 
-        with path.open("r") as handle:
-            data = json.load(handle)
+        with path.open('r') as handle:
+            data: Any = json.load(handle)
 
-        submitted_payload = data.get("submitted_ids", [])
+        submitted_payload: Any = data.get('submitted_ids', [])
         with self._lock:
             self._submitted_ids.clear()
             if submitted_payload and isinstance(submitted_payload[0], dict):
                 for entry in submitted_payload:
-                    cid = entry.get("id")
-                    timestamp_ms = entry.get("timestamp_ms")
+                    cid = entry.get('id')
+                    timestamp_ms = entry.get('timestamp_ms')
                     if isinstance(cid, str) and isinstance(timestamp_ms, int):
                         self._submitted_ids[cid] = timestamp_ms
             else:
@@ -60,30 +60,30 @@ class OrderIdempotencyTracker:
         path = Path(self.storage_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         serialisable = [
-            {"id": cid, "timestamp_ms": ts}
+            {'id': cid, 'timestamp_ms': ts}
             for cid, ts in sorted(self._submitted_ids.items(), key=lambda item: (item[1], item[0]))
         ]
-        payload: Dict[str, Any] = {
-            "version": self._SCHEMA_VERSION,
-            "submitted_ids": serialisable,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+        payload: dict[str, Any] = {
+            'version': self._SCHEMA_VERSION,
+            'submitted_ids': serialisable,
+            'last_updated': datetime.now(timezone.utc).isoformat(),
         }
-        with path.open("w") as handle:
+        with path.open('w') as handle:
             json.dump(payload, handle, indent=2)
 
     # ------------------------------------------------------------------
     @staticmethod
     def _normalise_quantity(quantity: Decimal | float | int | str | None) -> str:
         if quantity is None:
-            return "0"
+            return '0'
         if isinstance(quantity, Decimal):
             value = quantity
         else:
             try:
                 value = Decimal(str(quantity))
             except InvalidOperation:
-                value = Decimal("0")
-        return format(value.normalize() if value != 0 else value, "f")
+                value = Decimal('0')
+        return format(value.normalize() if value != 0 else value, 'f')
 
     @staticmethod
     def _extract_timestamp_ms(client_order_id: str) -> int:
@@ -91,7 +91,7 @@ class OrderIdempotencyTracker:
         Parse the millisecond timestamp embedded in the client order ID.
         Defaults to 0 if the format is unexpected.
         """
-        parts = client_order_id.split("_")
+        parts = client_order_id.split('_')
         if len(parts) >= 2 and parts[1].isdigit():
             return int(parts[1])
         return 0
@@ -110,9 +110,9 @@ class OrderIdempotencyTracker:
         """
         ts_unix_ms = int(timestamp.timestamp() * 1000)
         qty_str = self._normalise_quantity(quantity)
-        payload = f"{symbol.upper()}|{ts_unix_ms}|{qty_str}"
-        digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:12]
-        return f"{symbol.upper()}_{ts_unix_ms}_{digest}"
+        payload = f'{symbol.upper()}|{ts_unix_ms}|{qty_str}'
+        digest = hashlib.sha1(payload.encode('utf-8')).hexdigest()[:12]
+        return f'{symbol.upper()}_{ts_unix_ms}_{digest}'
 
     def is_duplicate(self, client_order_id: str) -> bool:
         """Check if this client order ID has already been submitted."""

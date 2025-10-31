@@ -40,5 +40,5 @@ class CalendarTests(unittest.TestCase):
         self.assertEqual(next_day.weekday(), 0)  # Monday
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

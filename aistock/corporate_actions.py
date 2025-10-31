@@ -1,7 +1,10 @@
 """
 Corporate actions tracking for accurate historical backtests.
 
-P1 Enhancement: Handle splits, dividends, and other corporate actions.
+⚠️ NOTE: This module is currently NOT integrated into the FSD trading system.
+It provides utilities for tracking splits/dividends but requires manual integration.
+Corporate action adjustments would need to be applied during data ingestion.
+Retained for future enhancement.
 """
 
 from __future__ import annotations
@@ -16,10 +19,11 @@ from pathlib import Path
 
 class ActionType(str, Enum):
     """Type of corporate action."""
-    SPLIT = "split"
-    DIVIDEND = "dividend"
-    SPIN_OFF = "spin_off"
-    MERGER = "merger"
+
+    SPLIT = 'split'
+    DIVIDEND = 'dividend'
+    SPIN_OFF = 'spin_off'
+    MERGER = 'merger'
 
 
 @dataclass(frozen=True)
@@ -35,19 +39,20 @@ class CorporateAction:
         amount: For dividends (per share amount)
         description: Human-readable description
     """
+
     symbol: str
     ex_date: date
     action_type: ActionType
     ratio: Decimal | None = None  # For splits
     amount: Decimal | None = None  # For dividends
-    description: str = ""
+    description: str = ''
 
     def __post_init__(self):
         """Validate action parameters."""
         if self.action_type == ActionType.SPLIT and self.ratio is None:
-            raise ValueError(f"Split action requires ratio, got {self}")
+            raise ValueError(f'Split action requires ratio, got {self}')
         if self.action_type == ActionType.DIVIDEND and self.amount is None:
-            raise ValueError(f"Dividend action requires amount, got {self}")
+            raise ValueError(f'Dividend action requires amount, got {self}')
 
 
 class CorporateActionTracker:
@@ -77,7 +82,9 @@ class CorporateActionTracker:
         # Keep sorted by ex_date
         self._actions[action.symbol].sort(key=lambda a: a.ex_date)
 
-    def get_actions(self, symbol: str, start_date: date | None = None, end_date: date | None = None) -> list[CorporateAction]:
+    def get_actions(
+        self, symbol: str, start_date: date | None = None, end_date: date | None = None
+    ) -> list[CorporateAction]:
         """
         Get corporate actions for a symbol within a date range.
 
@@ -158,20 +165,22 @@ class CorporateActionTracker:
         output = Path(path)
         output.parent.mkdir(parents=True, exist_ok=True)
 
-        with output.open("w", newline="") as f:
+        with output.open('w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(["symbol", "ex_date", "action_type", "ratio", "amount", "description"])
+            writer.writerow(['symbol', 'ex_date', 'action_type', 'ratio', 'amount', 'description'])
 
-            for symbol, actions in sorted(self._actions.items()):
+            for _symbol, actions in sorted(self._actions.items()):
                 for action in actions:
-                    writer.writerow([
-                        action.symbol,
-                        action.ex_date.isoformat(),
-                        action.action_type.value,
-                        str(action.ratio) if action.ratio else "",
-                        str(action.amount) if action.amount else "",
-                        action.description,
-                    ])
+                    writer.writerow(
+                        [
+                            action.symbol,
+                            action.ex_date.isoformat(),
+                            action.action_type.value,
+                            str(action.ratio) if action.ratio else '',
+                            str(action.amount) if action.amount else '',
+                            action.description,
+                        ]
+                    )
 
     @staticmethod
     def load_from_csv(path: str) -> CorporateActionTracker:
@@ -187,16 +196,16 @@ class CorporateActionTracker:
         if not csv_path.exists():
             return tracker  # Empty tracker
 
-        with csv_path.open("r", newline="") as f:
+        with csv_path.open('r', newline='') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 action = CorporateAction(
-                    symbol=row["symbol"],
-                    ex_date=date.fromisoformat(row["ex_date"]),
-                    action_type=ActionType(row["action_type"]),
-                    ratio=Decimal(row["ratio"]) if row.get("ratio") else None,
-                    amount=Decimal(row["amount"]) if row.get("amount") else None,
-                    description=row.get("description", ""),
+                    symbol=row['symbol'],
+                    ex_date=date.fromisoformat(row['ex_date']),
+                    action_type=ActionType(row['action_type']),
+                    ratio=Decimal(row['ratio']) if row.get('ratio') else None,
+                    amount=Decimal(row['amount']) if row.get('amount') else None,
+                    description=row.get('description', ''),
                 )
                 tracker.add_action(action)
 
@@ -204,7 +213,7 @@ class CorporateActionTracker:
 
 
 # Convenience functions
-def create_split(symbol: str, ex_date: date, ratio: Decimal, description: str = "") -> CorporateAction:
+def create_split(symbol: str, ex_date: date, ratio: Decimal, description: str = '') -> CorporateAction:
     """
     Create a stock split action.
 
@@ -218,7 +227,7 @@ def create_split(symbol: str, ex_date: date, ratio: Decimal, description: str = 
         >>> split = create_split("AAPL", date(2024, 6, 10), Decimal("4.0"), "4-for-1 stock split")
     """
     if not description:
-        description = f"{ratio}:1 split"
+        description = f'{ratio}:1 split'
     return CorporateAction(
         symbol=symbol,
         ex_date=ex_date,
@@ -228,7 +237,7 @@ def create_split(symbol: str, ex_date: date, ratio: Decimal, description: str = 
     )
 
 
-def create_dividend(symbol: str, ex_date: date, amount: Decimal, description: str = "") -> CorporateAction:
+def create_dividend(symbol: str, ex_date: date, amount: Decimal, description: str = '') -> CorporateAction:
     """
     Create a dividend action.
 
@@ -242,7 +251,7 @@ def create_dividend(symbol: str, ex_date: date, amount: Decimal, description: st
         >>> div = create_dividend("MSFT", date(2024, 2, 15), Decimal("0.75"), "Q1 2024 dividend")
     """
     if not description:
-        description = f"${amount} dividend"
+        description = f'${amount} dividend'
     return CorporateAction(
         symbol=symbol,
         ex_date=ex_date,

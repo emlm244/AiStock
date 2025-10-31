@@ -1,219 +1,186 @@
 """
-Deterministic backtesting engine.
+Custom Trading Engine for AIStock Robot (FSD Mode).
+
+This is our own custom trading engine that replaces BackTrader.
+It provides a simple, focused engine specifically designed for FSD mode.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-
-from .brokers.paper import PaperBroker
-from .calendar import is_trading_time
-from .config import BacktestConfig
-from .data import Bar, DataFeed, load_csv_directory
-from .execution import Order, OrderSide, OrderType
-from .logging import configure_logger
-from .performance import compute_drawdown, compute_returns, sharpe_ratio, sortino_ratio, trade_performance
-from .portfolio import Portfolio
-from .risk import RiskEngine, RiskViolation
-from .sizing import target_quantity
-from .strategy import StrategyContext, default_strategy_suite
-from .universe import UniverseSelector, UniverseSelectionResult
+from typing import Any
 
 
 @dataclass
 class Trade:
-    symbol: str
+    """
+    Record of an executed trade.
+    """
+
     timestamp: datetime
+    symbol: str
     quantity: Decimal
     price: Decimal
     realised_pnl: Decimal
     equity: Decimal
-    order_id: int
-    strategy: str
+    order_id: str = ''
+    strategy: str = 'FSD'
 
 
 @dataclass
 class BacktestResult:
-    trades: list[Trade]
-    equity_curve: list[tuple[datetime, Decimal]]
-    metrics: dict[str, float]
-    max_drawdown: Decimal
+    """
+    Result of a backtest run.
+    """
+
     total_return: Decimal
+    max_drawdown: Decimal
     win_rate: float
+    trades: list[Trade]
+    metrics: dict[str, Any]
+    equity_curve: list[tuple[datetime, float]]
 
-
-@dataclass
-class BacktestRunner:
-    config: BacktestConfig
-
-    def run(self, override_data: dict[str, list[Bar]] | None = None) -> BacktestResult:
-        self.config.validate()
-        data_source = self.config.data
-        selection: UniverseSelectionResult | None = None
-
-        if not data_source.symbols and override_data is None:
-            if not self.config.universe:
-                raise ValueError(
-                    "Backtest requires DataSource.symbols or a UniverseConfig for automatic selection."
-                )
-            selector = UniverseSelector(data_source, self.config.engine.data_quality)
-            selection = selector.select(self.config.universe)
-            if not selection.symbols:
-                raise ValueError("Universe selector did not return any tradable symbols.")
-            data_source = replace(data_source, symbols=tuple(selection.symbols))
-
-        raw_data = override_data or load_csv_directory(data_source, self.config.engine.data_quality)
-        feed = DataFeed(
-            bars_by_symbol=raw_data,
-            bar_interval=self.config.data.bar_interval,
-            warmup_bars=self.config.data.warmup_bars,
-            fill_missing=self.config.engine.data_quality.fill_missing_with_last,
-        )
-
-        portfolio = Portfolio(cash=Decimal(str(self.config.engine.initial_equity)))
-        risk = RiskEngine(self.config.engine.risk, portfolio, self.config.data.bar_interval)
-        logger = configure_logger("Backtest", level="INFO", structured=True)
-
-        if selection:
-            logger.info(
-                "universe_selected",
-                extra={
-                    "symbols": selection.symbols,
-                    "scores": selection.scores,
-                },
-            )
-
-        strategy_suite = default_strategy_suite(self.config.engine.strategy)
-
-        history: dict[str, list] = {symbol: [] for symbol in raw_data}
-        last_prices: dict[str, Decimal] = {
-            symbol: bars[0].close for symbol, bars in raw_data.items() if bars
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            'total_return': float(self.total_return),
+            'max_drawdown': float(self.max_drawdown),
+            'win_rate': self.win_rate,
+            'num_trades': len(self.trades),
+            'metrics': self.metrics,
         }
 
-        trades: list[Trade] = []
-        equity_curve: list[tuple[datetime, Decimal]] = []
 
-        commission = Decimal(str(self.config.engine.commission_per_trade))
+class TradingEngine:
+    """
+    Custom trading engine for executing FSD strategies.
 
-        def handle_fill(report):
-            signed_qty = report.quantity if report.side == OrderSide.BUY else -report.quantity
-            fill_price = report.price
-            realised = portfolio.apply_fill(report.symbol, signed_qty, fill_price, commission, report.timestamp)
-            last_prices[report.symbol] = fill_price
-            equity_now = portfolio.total_equity(last_prices)
-            risk.register_trade(realised, commission, report.timestamp, equity_now, last_prices)
-            trades.append(
-                Trade(
-                    symbol=report.symbol,
-                    timestamp=report.timestamp,
-                    quantity=signed_qty,
-                    price=fill_price,
-                    realised_pnl=realised,
-                    equity=equity_now,
-                    order_id=report.order_id,
-                    strategy="Blended",
-                )
-            )
-            logger.info(
-                "fill",
-                extra={
-                    "order_id": report.order_id,
-                    "symbol": report.symbol,
-                    "qty": float(signed_qty),
-                    "price": float(fill_price),
-                    "equity": float(equity_now),
-                },
-            )
+    This engine:
+    - Processes market data bars
+    - Executes trades based on FSD decisions
+    - Tracks portfolio state
+    - Calculates performance metrics
+    """
 
-        broker = PaperBroker(self.config.execution)
-        broker.set_fill_handler(handle_fill)
+    def __init__(self, initial_cash: Decimal):
+        self.initial_cash = initial_cash
+        self.cash = initial_cash
+        self.positions: dict[str, Decimal] = {}
+        self.trades: list[Trade] = []
+        self.equity_curve: list[tuple[datetime, float]] = []
 
-        try:
-            broker.start()
+    def execute_trade(self, symbol: str, quantity: Decimal, price: Decimal, timestamp: datetime) -> Trade:
+        """
+        Execute a trade and update portfolio state.
 
-            for timestamp, symbol, bar in feed.iter_stream():
-                # P0 Fix: Skip bars outside trading hours if calendar enforcement is enabled
-                if self.config.data.enforce_trading_hours and not is_trading_time(
-                    timestamp,
-                    exchange=self.config.data.exchange,
-                    allow_extended_hours=self.config.data.allow_extended_hours,
-                ):
-                    logger.debug(
-                        "skip_non_trading_hour",
-                        extra={"timestamp": timestamp.isoformat(), "symbol": symbol},
-                    )
-                    continue
+        Args:
+            symbol: Trading symbol
+            quantity: Quantity to trade (positive = buy, negative = sell)
+            price: Execution price
+            timestamp: Trade timestamp
 
-                history[symbol].append(bar)
-                last_prices[symbol] = bar.close
-                context = StrategyContext(symbol=symbol, history=history[symbol])
-                target = strategy_suite.blended_target(context)
-                equity = portfolio.total_equity(last_prices)
-                risk._ensure_reset(timestamp, equity)
+        Returns:
+            Trade record
+        """
+        # Calculate cost
+        cost = quantity * price
 
-                current_position = portfolio.position(symbol)
-                desired_quantity = target_quantity(
-                    target.target_weight,
-                    Decimal(str(equity)),
-                    bar.close,
-                    self.config.engine.risk,
-                    target.confidence,
-                )
+        # Update cash
+        self.cash -= cost
 
-                delta = desired_quantity - current_position.quantity
-                if abs(delta) < Decimal("1e-6"):
-                    equity_curve.append((timestamp, equity))
-                    continue
+        # Update position
+        current_position = self.positions.get(symbol, Decimal('0'))
+        new_position = current_position + quantity
+        self.positions[symbol] = new_position
 
-                try:
-                    risk.check_pre_trade(symbol, delta, bar.close, equity, last_prices)
-                except RiskViolation as err:
-                    logger.warning("risk_violation", extra={"reason": str(err), "symbol": symbol})
-                    equity_curve.append((timestamp, equity))
-                    continue
+        # Calculate realized P&L (simplified)
+        realised_pnl = Decimal('0')
+        if (current_position > 0 and quantity < 0) or (current_position < 0 and quantity > 0):
+            # Closing or reducing position - realize P&L
+            closed_qty = min(abs(quantity), abs(current_position))
+            realised_pnl = closed_qty * price if current_position > 0 else -closed_qty * price
 
-                side = OrderSide.BUY if delta > 0 else OrderSide.SELL
-                order = Order(
-                    symbol=symbol,
-                    quantity=abs(delta),
-                    side=side,
-                    order_type=OrderType.MARKET,
-                    submit_time=timestamp,
-                )
-                broker.submit(order)
-                broker.process_bar(bar, timestamp)
-                equity_curve.append((timestamp, portfolio.total_equity(last_prices)))
+        # Calculate current equity
+        equity = self.calculate_equity({symbol: price})
 
-            if equity_curve:
-                final_equity = equity_curve[-1][1]
-                total_return = (final_equity / Decimal(str(self.config.engine.initial_equity))) - Decimal("1")
-            else:
-                total_return = Decimal("0")
+        # Create trade record
+        trade = Trade(
+            timestamp=timestamp,
+            symbol=symbol,
+            quantity=quantity,
+            price=price,
+            realised_pnl=realised_pnl,
+            equity=equity,
+            order_id=f'T{len(self.trades) + 1:06d}',
+            strategy='FSD',
+        )
 
-            returns = compute_returns(equity_curve)
-            metrics = {
-                "sharpe": sharpe_ratio(returns),
-                "sortino": sortino_ratio(returns),
+        self.trades.append(trade)
+        self.equity_curve.append((timestamp, float(equity)))
+
+        return trade
+
+    def calculate_equity(self, current_prices: dict[str, Decimal]) -> Decimal:
+        """
+        Calculate current portfolio equity.
+
+        Args:
+            current_prices: Current market prices for all symbols
+
+        Returns:
+            Total equity value
+        """
+        equity = self.cash
+
+        for symbol, quantity in self.positions.items():
+            if symbol in current_prices:
+                equity += quantity * current_prices[symbol]
+
+        return equity
+
+    def get_performance_metrics(self) -> dict[str, Any]:
+        """
+        Calculate performance metrics.
+
+        Returns:
+            Dictionary of performance metrics
+        """
+        if not self.trades:
+            return {
+                'total_trades': 0,
+                'win_rate': 0.0,
+                'total_return': 0.0,
+                'max_drawdown': 0.0,
             }
-            perf = trade_performance([trade.realised_pnl for trade in trades])
-            metrics.update(
-                {
-                    "expectancy": perf.expectancy,
-                    "average_win": perf.average_win,
-                    "average_loss": perf.average_loss,
-                    "total_trades": perf.total_trades,
-                }
-            )
 
-            return BacktestResult(
-                trades=trades,
-                equity_curve=equity_curve,
-                metrics=metrics,
-                max_drawdown=compute_drawdown(equity_curve),
-                total_return=total_return,
-                win_rate=perf.win_rate,
-            )
-        finally:
-            broker.stop()
+        # Calculate returns
+        final_equity = float(self.equity_curve[-1][1]) if self.equity_curve else float(self.initial_cash)
+        total_return = (final_equity - float(self.initial_cash)) / float(self.initial_cash)
+
+        # Calculate win rate
+        winning_trades = sum(1 for t in self.trades if t.realised_pnl > 0)
+        win_rate = winning_trades / len(self.trades) if self.trades else 0.0
+
+        # Calculate max drawdown
+        peak = float(self.initial_cash)
+        max_dd = 0.0
+
+        for _, equity in self.equity_curve:
+            if equity > peak:
+                peak = equity
+            dd = (peak - equity) / peak if peak > 0 else 0.0
+            max_dd = max(max_dd, dd)
+
+        return {
+            'total_trades': len(self.trades),
+            'win_rate': win_rate,
+            'total_return': total_return,
+            'max_drawdown': max_dd,
+            'final_equity': final_equity,
+            'total_pnl': final_equity - float(self.initial_cash),
+        }
+
+
+__all__ = ['Trade', 'BacktestResult', 'TradingEngine']

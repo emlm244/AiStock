@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Sequence
 
 from .config import DataQualityConfig
 from .data import Bar, load_csv_file
@@ -41,7 +41,7 @@ class FileSystemSourceConfig:
     symbols: Sequence[str]
     timezone: timezone = timezone.utc
     bar_interval: timedelta = timedelta(minutes=1)
-    filename_template: str = "{symbol}.csv"
+    filename_template: str = '{symbol}.csv'
 
 
 @dataclass
@@ -95,7 +95,7 @@ class DataAcquisitionConfig:
     sources: Sequence[FileSystemSourceConfig]
     raw_lake_dir: str
     ingestion: DataIngestionConfig
-    metadata_log_path: str = "state/acquisition_log.jsonl"
+    metadata_log_path: str = 'state/acquisition_log.jsonl'
     quality: DataQualityConfig = field(default_factory=DataQualityConfig)
 
 
@@ -108,12 +108,12 @@ class MetadataLogger:
 
     def append(self, payload: dict[str, object]) -> None:
         record = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             **payload,
         }
-        with self.path.open("a", encoding="utf-8") as handle:
+        with self.path.open('a', encoding='utf-8') as handle:
             handle.write(json.dumps(record, default=str))
-            handle.write("\n")
+            handle.write('\n')
 
 
 class DataValidator:
@@ -121,7 +121,7 @@ class DataValidator:
 
     def __init__(self, quality: DataQualityConfig):
         self.quality = quality
-        self.logger = configure_logger("DataValidator", structured=True)
+        self.logger = configure_logger('DataValidator', structured=True)
 
     def validate(
         self,
@@ -132,7 +132,7 @@ class DataValidator:
     ) -> ValidationReport:
         bars = load_csv_file(path, symbol, tz)
         if not bars:
-            raise ValueError(f"{path}: no rows loaded for {symbol}")
+            raise ValueError(f'{path}: no rows loaded for {symbol}')
         gaps, gap_warnings = self._inspect_gaps(bars, bar_interval)
         warnings: list[str] = gap_warnings
         self._enforce_volume_rules(bars)
@@ -140,7 +140,7 @@ class DataValidator:
         price_warnings = self._detect_price_anomalies(bars)
         warnings.extend(price_warnings)
         return ValidationReport(
-            source="",
+            source='',
             symbol=symbol,
             rows=len(bars),
             start_timestamp=bars[0].timestamp,
@@ -160,17 +160,17 @@ class DataValidator:
         previous = bars[0].timestamp
         for bar in bars[1:]:
             if bar.timestamp <= previous:
-                raise ValueError(f"{bar.symbol}: non-monotonic timestamp at {bar.timestamp.isoformat()}")
+                raise ValueError(f'{bar.symbol}: non-monotonic timestamp at {bar.timestamp.isoformat()}')
             delta_seconds = (bar.timestamp - previous).total_seconds()
             multiples = delta_seconds / expected_seconds
             if multiples > 1.01:  # Allow tiny drift
                 gaps_detected += int(max(1, round(multiples - 1)))
                 if self.quality.max_gap_bars >= 0 and multiples > (self.quality.max_gap_bars + 1):
                     raise ValueError(
-                        f"{bar.symbol}: gap of {bar.timestamp - previous} exceeds limit of {self.quality.max_gap_bars} bars"
+                        f'{bar.symbol}: gap of {bar.timestamp - previous} exceeds limit of {self.quality.max_gap_bars} bars'
                     )
                 warnings.append(
-                    f"{bar.symbol}: gap of {(bar.timestamp - previous)} detected at {bar.timestamp.isoformat()}"
+                    f'{bar.symbol}: gap of {(bar.timestamp - previous)} detected at {bar.timestamp.isoformat()}'
                 )
             previous = bar.timestamp
         return gaps_detected, warnings
@@ -180,7 +180,7 @@ class DataValidator:
             return
         for bar in bars:
             if bar.volume == 0:
-                raise ValueError(f"{bar.symbol}: zero volume detected at {bar.timestamp.isoformat()}")
+                raise ValueError(f'{bar.symbol}: zero volume detected at {bar.timestamp.isoformat()}')
 
     def _detect_price_anomalies(self, bars: Sequence[Bar]) -> list[str]:
         """
@@ -209,26 +209,25 @@ class DataValidator:
             # Check for invalid prices
             if bar.close <= 0 or bar.open <= 0:
                 raise ValueError(
-                    f"{bar.symbol}: invalid price (<=0) at {bar.timestamp.isoformat()}: "
-                    f"open={bar.open}, close={bar.close}"
+                    f'{bar.symbol}: invalid price (<=0) at {bar.timestamp.isoformat()}: '
+                    f'open={bar.open}, close={bar.close}'
                 )
 
             if bar.high <= 0 or bar.low <= 0:
                 raise ValueError(
-                    f"{bar.symbol}: invalid OHLC at {bar.timestamp.isoformat()}: "
-                    f"high={bar.high}, low={bar.low}"
+                    f'{bar.symbol}: invalid OHLC at {bar.timestamp.isoformat()}: high={bar.high}, low={bar.low}'
                 )
 
             # Warn about suspiciously low prices (potential data error)
             if float(bar.close) < MIN_PRICE:
                 warnings.append(
-                    f"{bar.symbol}: suspiciously low price at {bar.timestamp.isoformat()}: close=${bar.close}"
+                    f'{bar.symbol}: suspiciously low price at {bar.timestamp.isoformat()}: close=${bar.close}'
                 )
 
             # Warn about suspiciously high prices
             if float(bar.close) > MAX_PRICE:
                 warnings.append(
-                    f"{bar.symbol}: suspiciously high price at {bar.timestamp.isoformat()}: close=${bar.close}"
+                    f'{bar.symbol}: suspiciously high price at {bar.timestamp.isoformat()}: close=${bar.close}'
                 )
 
             # Check for extreme price jumps (circuit breaker or bad data)
@@ -239,8 +238,8 @@ class DataValidator:
 
                 if pct_change > MAX_JUMP_PCT:
                     warnings.append(
-                        f"{bar.symbol}: extreme price jump at {bar.timestamp.isoformat()}: "
-                        f"{pct_change:.1%} (from ${previous_close} to ${bar.close})"
+                        f'{bar.symbol}: extreme price jump at {bar.timestamp.isoformat()}: '
+                        f'{pct_change:.1%} (from ${previous_close} to ${bar.close})'
                     )
 
             previous_close = bar.close
@@ -260,7 +259,7 @@ class FileSystemFetcher:
         self.source = source
         self.raw_root = Path(raw_root).expanduser().resolve() / source.name
         self.staging_root = Path(staging_root).expanduser().resolve()
-        self.logger = configure_logger(f"Fetcher[{source.name}]", structured=True)
+        self.logger = configure_logger(f'Fetcher[{source.name}]', structured=True)
 
     def fetch(self, since: datetime | None = None) -> list[FetchedArtifact]:
         results: list[FetchedArtifact] = []
@@ -269,8 +268,8 @@ class FileSystemFetcher:
             origin = Path(self.source.root).expanduser().resolve() / template
             if not origin.exists():
                 self.logger.warning(
-                    "source_file_missing",
-                    extra={"symbol": symbol, "path": str(origin)},
+                    'source_file_missing',
+                    extra={'symbol': symbol, 'path': str(origin)},
                 )
                 continue
             data = origin.read_bytes()
@@ -279,10 +278,10 @@ class FileSystemFetcher:
 
             raw_dir = self.raw_root / symbol.upper()
             raw_dir.mkdir(parents=True, exist_ok=True)
-            raw_path = raw_dir / f"{fetched_at.strftime('%Y%m%d%H%M%S')}.csv"
+            raw_path = raw_dir / f'{fetched_at.strftime("%Y%m%d%H%M%S")}.csv'
             raw_path.write_bytes(data)
 
-            staging_path = self.staging_root / f"{symbol.upper()}.csv"
+            staging_path = self.staging_root / f'{symbol.upper()}.csv'
             staging_path.parent.mkdir(parents=True, exist_ok=True)
             staging_path.write_bytes(data)
 
@@ -297,12 +296,12 @@ class FileSystemFetcher:
             )
             results.append(artifact)
             self.logger.info(
-                "fetch_complete",
+                'fetch_complete',
                 extra={
-                    "symbol": artifact.symbol,
-                    "bytes": artifact.bytes_fetched,
-                    "raw_path": artifact.raw_path,
-                    "staging_path": artifact.staging_path,
+                    'symbol': artifact.symbol,
+                    'bytes': artifact.bytes_fetched,
+                    'raw_path': artifact.raw_path,
+                    'staging_path': artifact.staging_path,
                 },
             )
         return results
@@ -315,9 +314,9 @@ class DataAcquisitionService:
 
     def __init__(self, config: DataAcquisitionConfig):
         if not config.sources:
-            raise ValueError("DataAcquisitionConfig.sources must contain at least one source.")
+            raise ValueError('DataAcquisitionConfig.sources must contain at least one source.')
         self.config = config
-        self.logger = configure_logger("DataAcquisition", structured=True)
+        self.logger = configure_logger('DataAcquisition', structured=True)
         self.metadata_logger = MetadataLogger(config.metadata_log_path)
         self.validator = DataValidator(config.quality)
         self.ingestion_service = DataIngestionService(config.ingestion)
@@ -336,13 +335,13 @@ class DataAcquisitionService:
             for artifact in artifacts:
                 self.metadata_logger.append(
                     {
-                        "event": "fetch",
-                        "source": artifact.source,
-                        "symbol": artifact.symbol,
-                        "bytes": artifact.bytes_fetched,
-                        "checksum": artifact.checksum,
-                        "raw_path": artifact.raw_path,
-                        "staging_path": artifact.staging_path,
+                        'event': 'fetch',
+                        'source': artifact.source,
+                        'symbol': artifact.symbol,
+                        'bytes': artifact.bytes_fetched,
+                        'checksum': artifact.checksum,
+                        'raw_path': artifact.raw_path,
+                        'staging_path': artifact.staging_path,
                     }
                 )
             fetched.extend(artifacts)
@@ -357,32 +356,32 @@ class DataAcquisitionService:
                 validations.append(report)
                 self.metadata_logger.append(
                     {
-                        "event": "validation",
-                        "source": report.source,
-                        "symbol": report.symbol,
-                        "rows": report.rows,
-                        "start_timestamp": report.start_timestamp.isoformat(),
-                        "end_timestamp": report.end_timestamp.isoformat(),
-                        "gaps_detected": report.gaps_detected,
-                        "warnings": report.warnings,
+                        'event': 'validation',
+                        'source': report.source,
+                        'symbol': report.symbol,
+                        'rows': report.rows,
+                        'start_timestamp': report.start_timestamp.isoformat(),
+                        'end_timestamp': report.end_timestamp.isoformat(),
+                        'gaps_detected': report.gaps_detected,
+                        'warnings': report.warnings,
                     }
                 )
 
         ingestion_report = self.ingestion_service.ingest()
         self.metadata_logger.append(
             {
-                "event": "ingestion",
-                "processed_symbols": ingestion_report.processed_symbols,
-                "bars_added": ingestion_report.bars_added,
-                "manifest_path": ingestion_report.manifest_path,
+                'event': 'ingestion',
+                'processed_symbols': ingestion_report.processed_symbols,
+                'bars_added': ingestion_report.bars_added,
+                'manifest_path': ingestion_report.manifest_path,
             }
         )
         self.logger.info(
-            "acquisition_completed",
+            'acquisition_completed',
             extra={
-                "fetched": len(fetched),
-                "validations": len(validations),
-                "bars_added": ingestion_report.bars_added,
+                'fetched': len(fetched),
+                'validations': len(validations),
+                'bars_added': ingestion_report.bars_added,
             },
         )
         return AcquisitionReport(
@@ -393,10 +392,10 @@ class DataAcquisitionService:
 
 
 __all__ = [
-    "AcquisitionReport",
-    "DataAcquisitionConfig",
-    "DataAcquisitionService",
-    "FetchedArtifact",
-    "FileSystemSourceConfig",
-    "ValidationReport",
+    'AcquisitionReport',
+    'DataAcquisitionConfig',
+    'DataAcquisitionService',
+    'FetchedArtifact',
+    'FileSystemSourceConfig',
+    'ValidationReport',
 ]

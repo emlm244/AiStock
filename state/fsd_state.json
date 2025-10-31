@@ -1,0 +1,4888 @@
+{
+  "q_values": {
+    "6d58e2697a32c3ee362d08151f76155a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0029975711226959204
+    },
+    "bca0e444da55729144e316172f799a12": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005042720378336971
+    },
+    "88fee1b21cd015ba1b00a2430661470c": {
+      "BUY": 0.0,
+      "SELL": -0.00041325123513949257,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c3f68ecce7db56e0ead77838bfbc7c21": {
+      "BUY": 0.0,
+      "SELL": -0.036075212193195726,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.02064190424621323
+    },
+    "0ac6fb5dab315facf91a280ad56df358": {
+      "BUY": 0.0,
+      "SELL": -0.0015532922710860095,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005093657870031761
+    },
+    "53f9a717c2284b6a7f3c7342772b1f3d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "176c85259240457091824ee088076b67": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "140a5a4961a965b7e14adf5226730d58": {
+      "BUY": 0.0,
+      "SELL": -2.9289328959259542e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "496350bddde3adecd76cc8d2224d92bb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3dd69450f8898073ff2cefd78293737c": {
+      "BUY": 0.0,
+      "SELL": -0.0024275318975725936,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a7022600f673ac636f6593781baa66a0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d149fec81550a457b635b3ee68b94ef6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1f18776df6b1ac1f034235e764b06031": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "644597e484110216731831f7689747a3": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0010851877652056112
+    },
+    "166196528d79c46c45cac4c6809d5482": {
+      "BUY": 0.0,
+      "SELL": -0.00034528488693484253,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.008717047384985367
+    },
+    "5e37dd53cceae3fa34e32592ad5da545": {
+      "BUY": 0.0,
+      "SELL": -0.0013286622408249925,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -8.89420682848827e-05
+    },
+    "ce0f4b6ff89704f06b46f2346755fb94": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005782745851531979
+    },
+    "1af8930a789c350c3a77b7c3361014bc": {
+      "BUY": 0.0,
+      "SELL": -0.00432368479920792,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.008634087617891004
+    },
+    "b2981e45c047713eeefb45715103ab02": {
+      "BUY": 0.0,
+      "SELL": -0.01557802296929317,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00802345893495331
+    },
+    "ce8340118cd4096ceb8d41ed55d0e652": {
+      "BUY": 0.0,
+      "SELL": -0.013646762809949258,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.022502860249280623
+    },
+    "6b946d6eba7494d8d45a1a68cf99321d": {
+      "BUY": 0.0,
+      "SELL": -0.0056925322762780145,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.007473649535613012
+    },
+    "b87428420d1ce46ac7c7ba2182fa4618": {
+      "BUY": 0.0,
+      "SELL": -0.006208610449260825,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004458650212655353
+    },
+    "ddf265cfd4fa27dc5072444a6a52d8e5": {
+      "BUY": 0.0,
+      "SELL": -0.009190702210168164,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.017490213874364724
+    },
+    "642e209d49062003f79e9721e3e4ed36": {
+      "BUY": 0.0,
+      "SELL": -0.002731884128169748,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005397495215123174
+    },
+    "8f3e984e4421753d071850a89520af94": {
+      "BUY": 0.0,
+      "SELL": -0.00022460646244656495,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.007183502848399414
+    },
+    "5c17adc286715dc0f9a7e8e2cb885825": {
+      "BUY": 0.0,
+      "SELL": -0.009173853257869643,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.01625378109308132
+    },
+    "e2056859b936dce3c649b9081295ff65": {
+      "BUY": 0.0,
+      "SELL": -0.01193572717411888,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00011644838006332706
+    },
+    "72f029bf53e9ad50c39db49b496f6148": {
+      "BUY": 0.0,
+      "SELL": -8.322334585709493e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.002724746617241066
+    },
+    "28dabf5c7b6937c72554f5480a5fce45": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6eac994316f38ada0f98899fe1b5550c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5c2811e63dbc204b94f9e68bcb3162d1": {
+      "BUY": 0.0,
+      "SELL": -0.006082571970273806,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004086433239840676
+    },
+    "baeb32d3e2257c43e3dc693d96ea12f9": {
+      "BUY": 0.0,
+      "SELL": -0.009535940718431748,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005290005834608603
+    },
+    "321cbb426b72f84e3b81a9828182e8f1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0010332269885171951
+    },
+    "ffb1f036d9b1957eab7f1b807a35abd3": {
+      "BUY": 0.0,
+      "SELL": -0.016071060678400934,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0023021035351048487
+    },
+    "fd5b8a4f3bc75e0c782c6c43882a72d9": {
+      "BUY": 0.0,
+      "SELL": -0.00013192269423087857,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a1ea95d3b4f886dc0e3ac0c19ec0e41b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00047152172315127993
+    },
+    "82fe392e04109f1c2b1609672cdf2423": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.009357457067556427
+    },
+    "2353bb2b5c954f0024aeeb2ca739eeb4": {
+      "BUY": 0.0,
+      "SELL": -0.006259111584262249,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.002722538270665966
+    },
+    "980aa66b9106172e3a6aa721d69819bd": {
+      "BUY": 0.0,
+      "SELL": -0.0015549397442403726,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0005396569797238076
+    },
+    "328c3c0a424f64b00ddf3cf342eca17f": {
+      "BUY": 0.0,
+      "SELL": -0.008338929583435876,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0014128479809518706
+    },
+    "d123ffef10ace753528408886cdd4634": {
+      "BUY": 0.0,
+      "SELL": -0.0021900718418653695,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.015832060472566384
+    },
+    "a52c7fd24bc57d99b8fc21c362472039": {
+      "BUY": 0.0,
+      "SELL": -0.013468908279092952,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00429009485740354
+    },
+    "186985591474f1ac4127518525a4d856": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0e835ae12b02de07542f15d1a5252e11": {
+      "BUY": 0.0,
+      "SELL": -0.005920820319715716,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004280228556918834
+    },
+    "f4223f5abe9237f651d15e059c2cd9a9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.013754387347711805
+    },
+    "9947e3f821cd04bd24e00e4655fe4227": {
+      "BUY": 0.0,
+      "SELL": -0.007785471203812008,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "aedae1eb3e0d70dfe3f51fd232d2cc05": {
+      "BUY": 0.0,
+      "SELL": -0.0033975962163067114,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "52a162a6f7a90a074cd7dd7f027bc11e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005425000898777467
+    },
+    "e168b9caf5bc59cd2410cd34742860af": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00021295218295871242
+    },
+    "bb3809c5333ba21ff3e84881b4acca6c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1443e55173a92f1f7b658cb5ed0d9094": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0035467754728838855
+    },
+    "da06661ebe3f8f693fe80db8e9f71d02": {
+      "BUY": 0.0,
+      "SELL": -0.004002856861373411,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.006305022768375493
+    },
+    "ee3c4e34c6463334cb6ff7062cf39c54": {
+      "BUY": 0.0,
+      "SELL": -0.004842661962911428,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.023365247264939153
+    },
+    "c48fc765191f3a7d320e26f7ddb48e5b": {
+      "BUY": 0.0,
+      "SELL": -0.011245479631274691,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.019312821204201892
+    },
+    "9d0eb5ae8b5a78ebe3adff548b894d42": {
+      "BUY": 0.0,
+      "SELL": -0.006307809649826627,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005941473020157062
+    },
+    "67d01b15bc43ae9fe817df4b4742e933": {
+      "BUY": 0.0,
+      "SELL": -0.0002449324509606089,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -5.184223105687579e-05
+    },
+    "e11d7d1ef207a9f80415f87ca7100166": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e368bbf7493be38c2e66159619941376": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7aefee0706fb3d1ae2b852fd99aa3ee3": {
+      "BUY": 0.0,
+      "SELL": -0.002537143002435311,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00018203892023813142
+    },
+    "fe3637d002a0fe40d06cf2bca6699d6c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.003882597844239699
+    },
+    "2dff1717af73cf6b940d541dfbd179c0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -3.389144810797729e-05
+    },
+    "621c834eacc79589b0e20bd2fb7658c7": {
+      "BUY": 0.0,
+      "SELL": -0.0030861869631917532,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.001384202586082922
+    },
+    "070afc7efc27e9c38f9f5717fbd41376": {
+      "BUY": 0.0,
+      "SELL": -0.005170975840697945,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0021406025073937916
+    },
+    "c03789c099a67778272dd0dfae8d685c": {
+      "BUY": 0.0,
+      "SELL": -0.0014158292040742423,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -8.080330952370826e-05
+    },
+    "7cd13d9e73a350cf3fafb9ca3feaa17b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0035746634979147507
+    },
+    "2dc968a79cd80ee0a5a49ceb088a5b17": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "97ab7f1d5e4752650787df7592d17af4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "74ad4d3b787fb96cf16e69720ce2ae8f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "efff1562e1d020d1a3e9ce9c776a7cba": {
+      "BUY": 0.0,
+      "SELL": -0.004217773305503131,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a9ad94c01e0601488c093caa9d84cd09": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -2.1939034823894014e-05
+    },
+    "3007e881833a2ee487bda48836eb961b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "42c8ae2446f127a2914153fb12d7960a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d1b09a963461ba1a954bde84c15aec6a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "25503108cc0d8ca9eb0ac7b491d4d51b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "45503ac14e4b573b3159450adc060723": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00271731597374838
+    },
+    "e6298762dfd74de4d64ac90fae61ae6e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.003899568457455393
+    },
+    "f375cf63847419b6f1c16df6f94e1587": {
+      "BUY": 0.0,
+      "SELL": -0.00733032018159982,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "408fe0055c4b66d674eac3aafa4dbee0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1b24f963e92c3da88d8452c1343c5e33": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "98ea8e76631aa41b9e1a77a344354ab3": {
+      "BUY": 0.0,
+      "SELL": -0.004608736231841983,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00047646864543573336
+    },
+    "7b3dd79ef05f70d5630fdeb21a4accae": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e3cb917f2bde201e9e7b790ccabd0f4d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7ca999dac974696314ff425df221e762": {
+      "BUY": 0.0,
+      "SELL": -0.011136775947645436,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.015877818102642223
+    },
+    "c2f2d52e49bc801dee090d0afa2ac87b": {
+      "BUY": 0.0,
+      "SELL": -0.0024597296096980923,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.01455327931332725
+    },
+    "1b0e663ea7b7cfac9c42d2776df6f0cf": {
+      "BUY": 0.0,
+      "SELL": -7.974600590305688e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.002192752667374778
+    },
+    "63e588b00004d273d45e306259ca5c58": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -4.685339967009243e-05
+    },
+    "54e7fc02ca560b4500478ed3710eef87": {
+      "BUY": 0.0,
+      "SELL": -0.00565043504351309,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.003973416002792855
+    },
+    "076e33bc71f381437b0cfa9b733037ac": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.015818704125525905
+    },
+    "3008d7995aef952dd4bb25d98b1ea2eb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "eca855d798f1fff96497c80522d95d56": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -6.586158745949202e-05
+    },
+    "96d56659c18399c8c7cfcffa84ba1ba3": {
+      "BUY": 0.0,
+      "SELL": -0.0001620849873766424,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.002022004301277725
+    },
+    "f5be2c96170f7b75d72676e65d6687e3": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8278ee7411442142fb57ac51e8b3c122": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "cbdb8e38af35f75b36899e79992840e1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0035987411538524194
+    },
+    "55ca482268921177e1a2242aad1cd3bd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "609827ed38117ff1586bbf28e0114ed2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0fcc64df4a0e7cc7d82d38c4c37e5ad7": {
+      "BUY": 0.0,
+      "SELL": -0.003279197068500601,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0032546988145829045
+    },
+    "f9d9e9e656791082ac8de2d4ab4bc43c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4b734cd35b7806055091f500b0e9b8be": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3c1630d241be8c55ebc6f873b4a97733": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ba36476b819310dfc42e78af591f1a0f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "da1472f9f9034f6bc03f05e4d62e1159": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "982929573e7595c5025007b70ef604d5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.013973637354068775
+    },
+    "ef2f668d147624c22a852d76d0112b35": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4ac86b395c72d15941cbfda6ddc93a65": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "cb96893eb56dc954a6c14a8026847e0b": {
+      "BUY": 0.0,
+      "SELL": -0.0005630105654375923,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0020110135012923443
+    },
+    "376f9d9635aa5c5f14567a041136e770": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d81c867b93b75643167cd609c6d95939": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d8f7a630a072a513a24a8953a5b06039": {
+      "BUY": 0.0,
+      "SELL": -0.0007906500844286821,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "49a037c5de9bb51b15c148614b9e57fa": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "13c51d62ee655350af33f50adf27b461": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a0a1effc85aac15858b860a547d8bfd9": {
+      "BUY": 0.0,
+      "SELL": -0.0001388829077588156,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0038405366815083696
+    },
+    "85623491f71625b69d04aa231642beed": {
+      "BUY": 0.0,
+      "SELL": -0.0026268856573541523,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0045607880437605886
+    },
+    "632316825539ff44457f6647a698ebcd": {
+      "BUY": 0.0,
+      "SELL": -0.009603909937153491,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00018388399722144895
+    },
+    "4fd7536dff08991559380fb523ce4999": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6af2d27f65eb2871a84bc7002f5480e8": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "30b93be2c9d5892f7830a12328c3463e": {
+      "BUY": 0.0,
+      "SELL": -0.0014987937415075411,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.003176532292626967
+    },
+    "d99af1465aa4463e85c6d9c75f49e3a0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "277bcfefe71feba958a0a17573883085": {
+      "BUY": 0.0,
+      "SELL": -0.00429152065874237,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8e905339a520f69b3a4c6e1e5881b5d6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a498dcb358bb9c000e869e0146794647": {
+      "BUY": 0.0,
+      "SELL": -0.0015449832587816905,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0018943066284066112
+    },
+    "842595b6f89ad953cf7934db8bf101a0": {
+      "BUY": 0.0,
+      "SELL": -0.0002943749448522169,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0011956342841884992
+    },
+    "90526c0c5d1ba0e889a5900055dca37e": {
+      "BUY": 0.0,
+      "SELL": -0.006588361376556397,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0015539709662066195
+    },
+    "332b78968991d01746d4541fb8e39724": {
+      "BUY": 0.0,
+      "SELL": -0.004172899541191997,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -5.8985727881214495e-05
+    },
+    "5cbe1d57503a7d4413007dbc8076e24d": {
+      "BUY": 0.0,
+      "SELL": -0.0020046129040291447,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fd5108e110a8fa147c8cf0d63ecf8024": {
+      "BUY": 0.0,
+      "SELL": -0.002266846996496224,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.008516863589159906
+    },
+    "00c2e4613d2dae19c5441d16cfdc9ec9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "069d655b6208e2db5e709c38c8770b25": {
+      "BUY": 0.0,
+      "SELL": -0.00381340357032005,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004384258314707215
+    },
+    "77471b23e9b137aa30f6749854a85d80": {
+      "BUY": 0.0,
+      "SELL": -0.008579086768843953,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0038791456655639734
+    },
+    "28bbbbe287b8986821253207d3d1c199": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.001828116881164961
+    },
+    "4529a1a791c6739248214e2ffb8fb7bc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.007654916118848211
+    },
+    "326fe9393c3b8c0baa48420d58652434": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.003494963893385831
+    },
+    "ef82d5c6daa6cec239d17a59aa4901c9": {
+      "BUY": 0.0,
+      "SELL": -0.004420196788836418,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004562412467232525
+    },
+    "15537b5afb508f2a2c335d341aaf4515": {
+      "BUY": 0.0,
+      "SELL": -0.005309296800992019,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -8.607333329218587e-05
+    },
+    "c2a6a20b1080fe30df5b272bcc148ef5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0005678295830876361
+    },
+    "a48f20e92cc0af99cc82c1f9ee427f30": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c718e4985a2d0ab65014271b352a701f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4bdf31666fe32f2c546cc90675555945": {
+      "BUY": 0.0,
+      "SELL": -0.0025744260468801125,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4c3eba3befbe572f94c9611abef20ece": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8922b3bd44ef28838e507dc6e19fcaa6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "210148015f4dcf931a3b7260ce346bb4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -2.724034274589212e-05
+    },
+    "db681e1a5601d3b6c144d5f71fca630a": {
+      "BUY": 0.0,
+      "SELL": -0.0005162914089053758,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0033996078210902724
+    },
+    "ff3a7537f3997a53f257b95ac50dd88e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8cecf1034b030d495577ab7a8d5a8a35": {
+      "BUY": 0.0,
+      "SELL": -0.009447799722341665,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0012018389914738414
+    },
+    "b57c1b0f1bb25e57c5c61d710b0566f7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "43be61b1eb6312bef7eee23013d5d961": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fd731ad4fec8592f71ef7f549a5a27b9": {
+      "BUY": 0.0,
+      "SELL": -0.006914528412345644,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.003610772297218386
+    },
+    "7cd072c5d755d6ecddb19702d00fd387": {
+      "BUY": 0.0,
+      "SELL": -0.00010033782031408355,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2ecc03505ba162a82fed78b7dc8664d1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e1022a8a0fa907cdf35d94cdccf95726": {
+      "BUY": 0.0,
+      "SELL": -0.0008732725807722224,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "cf6ef58579082d4e1e12acfcb4275411": {
+      "BUY": 0.0,
+      "SELL": -0.002473250881021904,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005223558193983929
+    },
+    "6599ba7891eab9e939f988c1cdf0b012": {
+      "BUY": 0.0,
+      "SELL": -0.001811159466733742,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00012489267588863579
+    },
+    "22599bc75927f2f8a9f3763917f2ae77": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ed7b6fb9759c7d677eda35addb71e84d": {
+      "BUY": 0.0,
+      "SELL": -0.005429578783731792,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5a721cda2af2718a4535080b3a812599": {
+      "BUY": 0.0,
+      "SELL": -0.0025113251322481903,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "69fe4736504f35d16f10270aa2f37668": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f6fd484619dbe0fd07d937f5055ed10c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c1799ea8f5398bb19d76c26225d81096": {
+      "BUY": 0.0,
+      "SELL": -0.0022222236828777875,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0ff7aaa08fefe87fcf7663fa2cea5cd9": {
+      "BUY": 0.0,
+      "SELL": -8.24040669687538e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.006438592548429532
+    },
+    "16105b07bfea5f358c51ae8572def322": {
+      "BUY": 0.0,
+      "SELL": -8.369513456139725e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fc29b897de2794ffa5b9a0bc792a7857": {
+      "BUY": 0.0,
+      "SELL": -8.184585898854242e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0897ad4442268154bf142eb721a83399": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8596d9bd1592f874fd501925e02f4d53": {
+      "BUY": 0.0,
+      "SELL": -0.003310017522726057,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0031463068686604645
+    },
+    "7c86a06f3a65baf452e3a061dd58ea6d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.001094687964589533
+    },
+    "7caa1c05f1994cd4c49028c7c76cd104": {
+      "BUY": 0.0,
+      "SELL": -0.00010741418581278588,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0007685352996698955
+    },
+    "eca1ce8c9d65ff981b45cba99d42423b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00992824410009126
+    },
+    "257f9ddc0e8344e9d86b5d8a21de21d4": {
+      "BUY": 0.0,
+      "SELL": -0.0005765748811470441,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8353d08f1d33cf95247f5ac9275080f8": {
+      "BUY": 0.0,
+      "SELL": -0.012381181890325605,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0016353215896518399
+    },
+    "378d86d67536a4837d59a76429907d8a": {
+      "BUY": 0.0,
+      "SELL": -0.00036438745609902767,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -3.854778819550649e-05
+    },
+    "1f35ef23dc5403a966019f699ab0bc38": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6417b2ca88a7537b7c831578b312add5": {
+      "BUY": 0.0,
+      "SELL": -5.892705969882747e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0050296511685364725
+    },
+    "5af4a81b98968a6b2328e89ff44c469d": {
+      "BUY": 0.0,
+      "SELL": -0.0036487930988437166,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f62a95e68161e39c9110b3e686c98da4": {
+      "BUY": 0.0,
+      "SELL": -8.535260529839052e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "69159d5e6d57983575c6f18fdfb04fcb": {
+      "BUY": 0.0,
+      "SELL": -0.005198274876909853,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "20f3bd4d7c758212dead12625810809d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "568372d7161620cae6218bdffcafee37": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "53c03d1d74bca6728d51f664a9767d32": {
+      "BUY": 0.0,
+      "SELL": -5.367509815346856e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004519727697629745
+    },
+    "674bb33b4d70c7f238b75facff683213": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0006067860612510783
+    },
+    "cadd6af5297a6975e792c93c00ef3383": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0017390414065917312
+    },
+    "bfcb042597c1aa140020aa4f30fb8888": {
+      "BUY": 0.0,
+      "SELL": -0.0017849964245297797,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -4.0659129409307406e-05
+    },
+    "ff1cbdd3e19811045ca05ce0736a300c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004566367650903288
+    },
+    "8661bf90a11eec54c20e8e8bf01bcb52": {
+      "BUY": 0.0,
+      "SELL": -0.00785616042226437,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00800618227206161
+    },
+    "760f1370969b4341945d303d355e2af4": {
+      "BUY": 0.0,
+      "SELL": -0.0028822649239464617,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.005105302734204127
+    },
+    "3717c2312dd3d0784845b3d2ae2d181c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9caa4f6c3758dde22db22ef822d81bee": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "df533445d3acd0d5a64f33ca25685f57": {
+      "BUY": 0.0,
+      "SELL": -9.388353199774684e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bed8d38c0b64563728c9528357bb47d2": {
+      "BUY": 0.0,
+      "SELL": -0.005409071114373718,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.002929967557461216
+    },
+    "fa079f0b511a37c5df806a49068de398": {
+      "BUY": 0.0,
+      "SELL": -0.007326896023597632,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0017571783244382964
+    },
+    "9a4ffbfb6ec587b9186dca2737c07f16": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0010659304986124721
+    },
+    "145cab9a3738a2f605c0fa326f8ad66c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "57943a4ea53f7457f3da188a5a6ae290": {
+      "BUY": 0.0,
+      "SELL": -0.0024846158458055097,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -6.141692460402017e-05
+    },
+    "682d2e9b2b86c96d1b0c2994ee296182": {
+      "BUY": 0.0,
+      "SELL": -0.0006805711521185057,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004074422496348629
+    },
+    "2482737c3fcbd601bb9121da0a2ceff8": {
+      "BUY": 0.0,
+      "SELL": -0.0005592606998962334,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004129548388118926
+    },
+    "af6067591ae5343ed3dc31067c0bd2db": {
+      "BUY": 0.0,
+      "SELL": -0.019176672506338917,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a5092ed601d3b687dab2fce5dc82311d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a8507b07109e4801ddd8b77ac97a5c83": {
+      "BUY": 0.0,
+      "SELL": -0.0025221890325363553,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8975060a5709682572390b1367005a4f": {
+      "BUY": 0.0,
+      "SELL": -9.32247067765354e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fc74de27170a9cdcea1af8ea7287e883": {
+      "BUY": 0.0,
+      "SELL": -7.629345723732733e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00010024451979734184
+    },
+    "7888df8e65138dc08f96343196b5382a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d6f4004e12411f3eb27de9a6bdae668c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a4024bf59f8f5187d405c2ac8057ab03": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -9.224928900187808e-05
+    },
+    "d844ebcfa6647a11c17e6b91d81b82cd": {
+      "BUY": 0.0,
+      "SELL": -0.002421711899907955,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0018715447862287199
+    },
+    "e3dbfbcc38cfdbc11ed061d2450dd6e3": {
+      "BUY": 0.0,
+      "SELL": -0.0002907431050882235,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f51aa0d247e4ab3b93c5a57973ba0e40": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9576a771726b2db48e092244a2deab5d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5647275763d91371298a717589c088f3": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d3eaf7c2b5e185561fe526fa78df2df3": {
+      "BUY": 0.0,
+      "SELL": -0.006350230579061898,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6f8d71074b60e6cf3ef95e16e3e59219": {
+      "BUY": 0.0,
+      "SELL": -0.0005113233728930393,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2d6c110e688ba9a0086e10ec861fcd69": {
+      "BUY": 0.0,
+      "SELL": -0.00019155516538129643,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00010604254701362049
+    },
+    "e0cf08138540986078afb335e628e355": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a1c193ae9845c13bfcb19b100938f8f2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d2269e71d64549233bc8ce74fcd94fc7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e2f7f3d1feb7baf739090ea8be69b481": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d13fb23d6439c885aabe2a129d2d3654": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bb17ecb4f62362f42aec47303b423f43": {
+      "BUY": 0.0,
+      "SELL": -0.0016961076298735217,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ed01dec2f22fb0114aeb2d4b5d8eeab2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "57a5afd4d732c7cb77f7e7e3d44e4d04": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -2.5428494896641186e-05
+    },
+    "cba8ac5d2301f834051142712e2b6e4b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5e7c2ea78e8f70d35de71f286b61addd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "46d038b357baa9ba902a78f1633bf1c5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "13b7b6d7348477c23e53dbd064c463cc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ee382655218e7c518f0b796d2f9737e6": {
+      "BUY": 0.0,
+      "SELL": -2.7451381379497246e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3993fcfe43193f4f9779a8136e43975a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "aa908d3668d0cda47c3421bdca6cfc71": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bfa4894d970ef45560b4110c1581b23e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fd64e0b043ac9476eb315b4aab0fd589": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4fe905e8bdb6cff31ee9f74dad63370c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "57dc5c3158313ecace82f6caa8259849": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f56afed9f9755d558828149736b0f958": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "791e21c1a4d3d7f97f2106e2b6a99c30": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9f1f4512acd0fc86d672f5dace6aa18c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3bd16358c4056d65f04405d7224787dc": {
+      "BUY": 0.0,
+      "SELL": -0.001139486100050959,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "688bd07e3be2dd13ebcae2a738668ce7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -5.101963336465714e-05
+    },
+    "bf24fae427e6b3045eae0f66947590c3": {
+      "BUY": 0.0,
+      "SELL": -0.0020096422704694197,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2dc5682b974459d93827f73073abef66": {
+      "BUY": 0.0,
+      "SELL": -0.004296324544209437,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7dd438da257ab433046c96b8a8b6b6ab": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8016c39250361b92263842bb432ad3ff": {
+      "BUY": 0.0,
+      "SELL": -6.584541449867021e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0011559369133818328
+    },
+    "a4ae99223b03720f3ce5cedb30e99410": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b77484f8e9aa2dc1d58e6dd531554ffb": {
+      "BUY": 0.0,
+      "SELL": -0.0036915070856571716,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ffdad01d93783454fd999d770ca59d34": {
+      "BUY": 0.0,
+      "SELL": -0.0009128173529253095,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00021405383687229292
+    },
+    "122359ca6722898b40944eac51dfb68e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0019375414974694574
+    },
+    "25a27d7d132470e670b524d6ba4493f6": {
+      "BUY": 0.0,
+      "SELL": -0.005041449026743782,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0013248642808304022
+    },
+    "bbaa51d99893ed72b9c37f8891bb991b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "645c2b4708c8f25d7a372684438bdde0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "33ae894fa5665a5504fda3068323ba22": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "97d03c93dec6f9e2b04436108fb0cb9e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -4.4465696694111075e-05
+    },
+    "2086c838cc3b28123e60916701f5cbb2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.000670126743589163
+    },
+    "5a888255d9fd13c675d428a5cf3d931d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00010249091932354042
+    },
+    "7a2bc6d19d80c6850cc2d3df3d5787dc": {
+      "BUY": 0.0,
+      "SELL": -0.000291015794910812,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00016814468206988523
+    },
+    "963f3cc505254cb9880798239559233f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -9.033044220834603e-05
+    },
+    "71730458b61d099832dcc48f234e9f83": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0030415140664456276
+    },
+    "3ee0ca1b11d2459d07f855d8ffd4850e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "193f038cfef8881ee334be64cd47ebda": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004140490357073981
+    },
+    "818defb89f4216e1ec8979e59a1f950c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0033854850848747367
+    },
+    "5a482b399582478b8d2f400a20fe0c1f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.003964778799042513
+    },
+    "2cf35cef2f3418c293a41fe00dda8582": {
+      "BUY": 0.0,
+      "SELL": -0.0012692256949668995,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "758634c0906a178e4a6c3d8d976fa06d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "da8d958720024796765eabdd33ad26d4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1d6f229ac95707f74d4c08ab789f8c9f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0041798116717663035
+    },
+    "39f92773a74c55491772ae47a90287b0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.001113560816338223
+    },
+    "82874cbb26d0b14054462c26d3f86de4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8c3e7d0375c0fa8987118b9c2e266d83": {
+      "BUY": 0.0,
+      "SELL": -0.0001028394656352856,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00015430424836020894
+    },
+    "00446bc4ae5d1839acf997ae086dff37": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "98f4b5479dbb234b073b77c4c5c0e18c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4cc8002a3fdaee40ca03caf4439306d5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "cfe841f91c14fb580b3bfefaebe95f0b": {
+      "BUY": 0.0,
+      "SELL": -0.0001532153633605039,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "519b398f37ff41c536acffb3dca263ef": {
+      "BUY": 0.0,
+      "SELL": -0.00013299891508648817,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -8.495113184960631e-05
+    },
+    "b0f3fe30bfcc500ba10f1ed9263833cc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b5fc076649afdd4b24aa100088ea3d8c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0045161618326030745
+    },
+    "9695489f040c500b282c7eff1372f95f": {
+      "BUY": 0.0,
+      "SELL": -7.741502877755214e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -4.8882811114144665e-05
+    },
+    "3fb8f16a6df44a5a13d7bec4aa0983ef": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9e99ed8409ef0cb8bc37524d92d21852": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "be998b600c552590c8f21f4778e826a5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fd7c02148ba5bfc8bb9b86af6d62e1bc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4ffbce6968819578f632d6ee4c48aadf": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3ef6e1c73750601d5522c40eb165cce6": {
+      "BUY": 0.0,
+      "SELL": -0.0007564801645885144,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a00ffc81ed67ebcd4ebacc978cff065d": {
+      "BUY": 0.0,
+      "SELL": -0.0041502032059440065,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -5.126014795708832e-05
+    },
+    "42bd83265a498e7e3c5e105a7d1daddc": {
+      "BUY": 0.0,
+      "SELL": -0.00359234475573452,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9bff71519cb92d47d7c057c40c524a44": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.004422892148417548
+    },
+    "dbf163f4e6457a1dd1c937c6b5bcfe69": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "cef0e9e577e4e56f4939716c1f3901d7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "19d0aa11bf4dcb15198723dcb90d7ed6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0014846234562380877
+    },
+    "f98114edad1a763145d8d9204fdeea09": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b1fd1a4b5d2d60e15fecf91c6a4a4aab": {
+      "BUY": 0.0,
+      "SELL": -0.003028395577326215,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -6.915031234115706e-05
+    },
+    "a060a7e344230ffc334bbd2f4928aea1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "43caf633717a286a781b44ea6f19106e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "069fb373bf689b702d12bdd51ed4ec7f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "035fa55407a076141a85db476cc0ff7b": {
+      "BUY": 0.0,
+      "SELL": -0.005727355917683181,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0022276174385685407
+    },
+    "a5003882fc87c90b8abc3ac8f928ec0c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "81d677ab846648f6722421f6ed4fb65a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2b505c9c4fd029f333915ba57c3ec847": {
+      "BUY": 0.0,
+      "SELL": -0.001580335627213351,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ee712b8f991ae206e42cd14635e9d991": {
+      "BUY": 0.0,
+      "SELL": -0.002771972470126374,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7f927c6330c657493e83e70743e24c3e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "873e8cf8eba54c43bd44b0ebffc15f26": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0010325575888420375
+    },
+    "2ec71e2c614a2a4a8633606b2fb3df1a": {
+      "BUY": 0.0,
+      "SELL": -0.0044030082622442115,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e3654724b063bbf9cfb51679db56d367": {
+      "BUY": 0.0,
+      "SELL": -0.0005081064681019443,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0038202753242230184
+    },
+    "8ac1c7a108cd4bbb3683a76cd84856b9": {
+      "BUY": 0.0,
+      "SELL": -0.0016629802022365167,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b320eb062b97b2b7b81a7dc657d543d1": {
+      "BUY": 0.0,
+      "SELL": -0.000520671674312617,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0005173737099703011
+    },
+    "f2f0cb0a9ed068222156c1dbf45678ba": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -3.797051008478486e-05
+    },
+    "3bcc5722388a806159c177851b16465b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e30d651be83a20bbb9c37dbcc51167b2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0018722590444693336
+    },
+    "62c9158cfd32b43eda9de0162028544f": {
+      "BUY": 0.0,
+      "SELL": -9.068079813059432e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -9.409604370279677e-05
+    },
+    "f838a6bb94efc5771b5a1e62f9c676bf": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d6467cce451fb1d3d7acfc12c8fc276f": {
+      "BUY": 0.0,
+      "SELL": -0.00013591520737263858,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d412f54372bcd997ce9eaf0fffa9b8ec": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "629241a32b52856ed82f0e594d42c479": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e567a70e7ccae4b65c0b114d600ab764": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a2b989a484a7cdf302287084e990fcb0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "aaffdf9de85d1bed0de3132038a31aae": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ac640545cec38a2791427e6a09b61f7f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "adbc84e5590ff1b9efd23f4cde30422e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "627ac68d04244d743fe683383c44ef8b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0ea1ec7682f7a35eb3fe1589570937fc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a9f8969492ec8e609fdc92d94e7a9264": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9654889d9c7a057bccfd16d753327cdb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "898fe811f608a35bb7cbddac5326a58f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c0f283dfbb5d10487b6833d8acb56431": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ca2b9f8c6a4647a926a9cf9647524ca2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bbb352e5dc5aa29ebcd47882a805705b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "510e420f0b0718a4eb0b024ebf9a596f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8853797e901e96c63244eb88573ea79e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0c26fd4fbff920083f3339b5ebc5b99f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "54d80d06317aff3f0aeba0966838905e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4671681bfc6cf455fa5497b7960b76ec": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "06159f15937ae99f22027a522fd9e1e9": {
+      "BUY": 0.0,
+      "SELL": -0.0012080067757683096,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "db3b85af2210143d7d70e97d93290c33": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "eff69b64035fa4ab1a15b04d9d023a20": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "dab72b59f605f0f5b61fbb1abb3d34fd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "49bbf0c1dca4d21b7462901aa5cce2cf": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6a0302584048a8d8de5df4a1f981ae57": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7660f6aca6c6b23de5f058f276d2dffe": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1a0e7d2ac71c9036652fd429ae795cea": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "89b88e9f030539b3d380c700ce37bd72": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "19878bf48df0d11491dcbb02e13cd73e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0022099654269257247
+    },
+    "02a5645d6a4bd45472b2afe870831017": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fed6f0aa051edbc83f6f24ea8a831fd0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a82e06cfa979936fd314333199424974": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e28bebc4269cea09ffd8a09f9c07bbc9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f6abdb1e4030ce292768e3912aa8513e": {
+      "BUY": 0.0,
+      "SELL": -0.0011685082322764409,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "03288a8e3bd738efc00e58ba9ef61909": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "91f0034ec0abce09ae5e760b6bf74f03": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b888fa1badb4410a5b5ba951b9f0ffaf": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ba6762e91a5091d1321954b31d8992b7": {
+      "BUY": 0.0,
+      "SELL": -0.0012324696888422473,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2d2f38da1ee5a5f9dc53d808b46f17b3": {
+      "BUY": 0.0,
+      "SELL": -0.002045092657384946,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d515e66f00d8f1b198a0c7b53c449678": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5be9d9a0448ede600611ca29cfe369d0": {
+      "BUY": 0.0,
+      "SELL": -0.00030688643666585764,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "68f6e79d76794daa4ed98905fbc734a4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7c02d29a4bf7e8cbd0b2d0c989ee87dd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "edc39eebd4d607cbfced7537080299a7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6857e7fad17efac2d8f87473bd57982c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "148f64e9e5f83d0649289d123ffacae7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8ccb1b5b1d309a8dac1ca0e31138d6b0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8b7939e04add7300a3b98104243083a7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "cf9b7b34e4ff95426a48eb86066fa0ef": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1c996063c945f35666aa74fb767cdc76": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -5.6521061227942316e-05
+    },
+    "29b2e60422e525bcafc2f5f26d225975": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00011914651627318795
+    },
+    "c4eeece52d8927091846b0132eeffe16": {
+      "BUY": 0.0,
+      "SELL": -0.001877348226051626,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b9f4186cb0854f2939a2a3046dd317f4": {
+      "BUY": 0.0,
+      "SELL": -0.003222514605411299,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c9446898fae2062d31267de9d9ba9f83": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c3babaf2eff3535e4a5c959346786e4e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "de7edcf9ae00eedac75008c83575064d": {
+      "BUY": 0.0,
+      "SELL": -5.155023970389216e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -4.0301934062905784e-05
+    },
+    "52d11a8118e7597e771908c67be6dcc2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6328d8e30cb28d29f74c1bcc3f486ab4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -7.003558134058002e-05
+    },
+    "93ff84eb8a5888041ac22384eec385e2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1c0ed775e981b0716fa8bb1068f4e30c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "830b563c58ca52e2974bfb5ebbe8b580": {
+      "BUY": 0.0,
+      "SELL": -0.0016793910029016701,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8383583d9d89cf816f11a37fc6524b3f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5455cce8b7f372c95a5646585346012f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "83ecf9e36cff026f686049535ed91af4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.003326081006354602
+    },
+    "3df4d5cf174747d276e1f785c323a5ce": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "eef2bdf278f2bc1e64f6afe076269563": {
+      "BUY": 0.0,
+      "SELL": -0.0038604808422764915,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0001726136261374854
+    },
+    "4c8b9a5afe5d45bdc49410f206b94c41": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.000574546780777024
+    },
+    "36a1b003e4cce7e81886645099478607": {
+      "BUY": 0.0,
+      "SELL": -3.610024558352822e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "45be8ff2c913f115557d5034a617568c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "21c33183b0e10f5c1353379f2b5e3e2e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0f9e45f344c346ab99a395e0b2f67007": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "642d04446b8b4f5f527e0e1eb54cd318": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4e169970911b53d9da0cb15afb1a9948": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -6.413408042093999e-05
+    },
+    "7f154acd5f5b668722fb79919deca254": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e22d1925a5d02d8ba0334b7a480b9c44": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c591f30119069f4c7e8bc9deac84c63b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f74d3d28a45e758c2b32cb389884da09": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "49f29a7a62d466f06cfd247e8f767b16": {
+      "BUY": 0.0,
+      "SELL": -8.409854367737706e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0446487a1a0d41a89547051c295e9f6a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "14f4dc9ba0db7a8f51fca51a233e8e10": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "adce3af311d0a007c527f34cd6b3170d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0008669016624880825
+    },
+    "85908435efb58090af8ccdf03a029e3e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1e802ecf0cc3f8aba38d6adfa7b85fc9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ca54db06b135402ec6d65357b88dfef6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "866693b61fa0360774ca214f9481f314": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5b1bd58849b62fd04c96e2d07fab642f": {
+      "BUY": 0.0,
+      "SELL": -3.514147810262448e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "79b9f4ec5c5c86a40a02f2a3cc626ed6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0003339709383480099
+    },
+    "2b66b80e088a7005db5bd7c889d2ebab": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2f9f8f471d91beaad93595e62536e067": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8f10327523142befcc2e00d54b5cd9d8": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2971e9b8466dd6c2e9e7f4b343f25169": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "591c013c78ef704e639cace8b83cd4a2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "260a62980f42d2aaa772a9d34acf413e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "588a1df602ebcd6d6d6075fbf9a389dd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f48d1abee50db4898cb6659d212174d5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6317e11003007898892eb9c45f0b1b69": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b3584684488270feda8030541c1e2c6c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e1f07326ba4dc930c7472271cd754833": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f1adbf285fb6318ea776e84989d0cbb9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6d4ab7a3175a5f8c26e58039c3c1fa41": {
+      "BUY": 0.0,
+      "SELL": -0.0009340254904186885,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "41ac794312da217ab766e36f5db9dd27": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ce71913de254554c86c31b1e5cf08d3e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "da6b44af2bdc69434b38279caedc43ef": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "85bdbac44abc13362c70575867bc0967": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4ada1d8730962922a4cf0fa4d0b20b12": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00010232406358902754
+    },
+    "fe8c5f8fa69257bbbfc3882b06cc6e0d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7a77792e9a3978dfeffff9891b8459cb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f8ac75a2c45e55c7d8a39d53c2712f1e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "71de3263d5fdce0f794bc834c10d6c00": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "922335c831c885b6327820840bc7530c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "24e603303f377f1e75a923bd687699c1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "133c9261056a6fedd9eb04ae44b888ea": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "06035aa7110b58f59140a3b55b1d8fc6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bcc3d90b32e046356416b0319fabf63f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2ec533fbd8a61c094b0119a9cfadb26a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "df1f37fae4eb45c8cafbf6dd97ed18b6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "79fd060e46bb206263fb3429802e3b09": {
+      "BUY": 0.0,
+      "SELL": -0.0033660936595740058,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1e97c4bd8c63e92d995afb4e20c4ad06": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "29847bafe4a0ce5946242c435a9d408c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b398eea810d38d7e24dcf1ffdd404b06": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "100736256a717929f3b0d8df3a787422": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f948b6f562116294a0b2f87bda2eed7c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "26e87fecb61c86447e5f405a4d7e1ca7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5bd22d93cc73279756fbcf0e1f3f11cb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "415b00da18ea86cb615a01ea9a03d11e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "19aef3993a23b4cac356958e824a9b5a": {
+      "BUY": 0.0,
+      "SELL": -2.017777619574026e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1ab7144a139cac6d4728fe54621379b7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0422fa47797e95845222a6244ad7a70d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ad47b857f3b98a5ed29eaa411ca0ad40": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0bd835bfb3d3f901192fc67249779d5e": {
+      "BUY": 0.0,
+      "SELL": -0.0003884369858126565,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "25bae3565e253b1c04ece5159cf4f90a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "288a59523357bc2b5672d9418e9b9b8c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "17a63d55690e1da7062311b96414f11d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "eb4606c5c9b741633765009b8ac84e6c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.0011518449156096165
+    },
+    "803c6142741480c1e339d32bf4bdb2b7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fc73606718480311491d8ed04a9809ff": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.002159902776749879
+    },
+    "b0ba4ee30efba2de44711344377aa2bc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c4133f15ee95945974e354be654c1ef8": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ea813202499407126e6c0448c8146f9f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9f16c0f9f88ebf35b34e5e2cb5c40c0b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e9ddc80e640f339c01f3237f39ab4676": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8aa10cf4a8e4eb60a62beb0e7197e0b3": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "febf3ea723793fdf8d982a897cc1f63e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00044161313528051497
+    },
+    "47d209eef4a6265f55d02c1d5e8f839e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "82b465d5db372f7a5069b05f9104d86c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4b5cc0ebc67a25c964256faf3174f1e7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a8590e7a9c43149c52d230bf27fc3002": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7cdd122c5469cc20adc54da112862b5c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "17727cbb228bae6fb234466bd9ea85ca": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "34a4af678e74440d585b66e93fdda706": {
+      "BUY": 0.0,
+      "SELL": -3.596571845752959e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "31b8357d43226bf7fc921a4e7ede00db": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "99ba635a3b72ce3c43f21fa1b5ec5eeb": {
+      "BUY": 0.0,
+      "SELL": -6.549354743245388e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "44761bcd916a25cd9cf3b0cbcf3627be": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "699d06affa900e242fe2e702d229487c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bdeb62797f74ab4d7c0dbbb469859806": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "72967db1a3fa455396c631657aa4068b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f3bbd6aac12ec2faa1e440e6291e9620": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "59a20d2c1af860373b29c0d9ec1714ee": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "35906df678ba47905ee941be1b4227b5": {
+      "BUY": 0.0,
+      "SELL": -4.584110656834447e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "912128367e1165f23b354f840b7ee79d": {
+      "BUY": 0.0,
+      "SELL": -5.905582612608079e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a1077438931ed110fe1fb7b92ebd0bbe": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "961db1f8f78d2b65ae0582c994b45563": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e9660631aa472224756eccac1ca04484": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0f461e1e3e84aefa9a55f5b5e9f9273a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1f8d6de6267ae6c79fa168244009ac8f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5664b2e904666fdaa0d9c16466177ea9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "18b62972beea31f8752e6f2fb4c72f96": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "40953400a8c1657b7df775be1ceb6025": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "812ab4156f8d3f6bb0a2ae9b3425a0e6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4cc5043ae9984ba8272283a880a9ef55": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "345eea3ea4620c8fac16f68bfd3d450f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1d39c8e17687b0f84b4185ee4db0f626": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2b102868d9294cd3c7954cff8d553f17": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ccbb73c447d18a70e5b54f79d22171aa": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9a6926a6f66162ee028e0479b4059887": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "60d8b335a663c55693e3098c731adee6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9d4e53a3648fe9759a4fb374b71fa8e6": {
+      "BUY": 0.0,
+      "SELL": -9.146781334443147e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "58842f5199e2d6740a5a1509fe376996": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8aa6db3ab0c6d2140440fdaf59dfd530": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "93351a5dacecf7494bac33ff153ab405": {
+      "BUY": 0.0,
+      "SELL": -6.883169797614512e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d855f7c1a8e0d8879f25019a20304547": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7cff32ca8361877c1940e1bc37c85751": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a67b6fabba23b9af3eed76ed16d6b8b0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ad9b5eea1955e3d16e58f2ac01db844b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "abe7baa567bf3b868e9cddac6803faa7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8522d1b3b79fb5d5557c35fe58bb5414": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "80b827169e9592b1b58793759d31a8ed": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "27dbc92ab99fbd02eddcd6ab8d0230ef": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bd1cf172c92931576aa5f44e21fd79cf": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5ab38f66e801eb942585003836b1a205": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3012438d9a7099370e79763e04da6256": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5918a405add81c57564583b93184cdad": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ec923371dadd98bd29bc1896476a23e2": {
+      "BUY": 0.0,
+      "SELL": -5.535747841237998e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1a152a5a6237015573caa95bc22afe73": {
+      "BUY": 0.0,
+      "SELL": -5.481157678053042e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5f051c17ea078fcba9b6a6aeae2f24f3": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "577eecac214aa746437afa672e38c607": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b6748fe433ba5e86fd184123a55114c4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fd00c2918b2df8eb9d6ed8648d9a0caf": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0065764434e58dc6d5e7934f3861d876": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "637b9667543fb02ae62826ff9270a995": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "242d525a38806b44f6f5148c7b834943": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c1f36e8f404c237976e055b2ec2d014d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f44551e2ed8a531d90dfe51526385237": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "51191ea15c618f1076a876b9afa7c49e": {
+      "BUY": 0.0,
+      "SELL": -0.00013560960803499062,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3305af154d86eeaf9e164eb971c6c72e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "45837e55ffad8cfed6a4e11964fa67d3": {
+      "BUY": 0.0,
+      "SELL": -2.6108255430604133e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e762f7e32ea6c590411ce6269f703775": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5e744325c4c4eb7058ecc1f871b9b8c5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "96ace01e80221136abd08290546ac2cd": {
+      "BUY": 0.0,
+      "SELL": -1.8307625532979723e-05,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e2fa245296c65e0b56e0dfae1ad5c33c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9e361f322e6f313878ee0e0dde1a8044": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "773c5fb956b14d163e2a038044c35b9a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0e4b7654d95f9ac6a08738be846890ef": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3c0605cb64e7bd4ebe2c65b0cbf513b4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -0.00017595895760176154
+    },
+    "4e2496cdf351f3e179bbfca5e3207bb4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "51e13565e8d1ac6a06477afa396edae0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9ad2b8466f5a7dbf1b8260f480cf8bfd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e9b4d7c6bfb32318342e95ab7cfb3989": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2aeb613face5e51e250a79c5808924c0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3e9929ddf002a645d8ef3f5aadadeeda": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0bc4b607a19aab8266ffb396b6d18969": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c35c92610ee525ee08dee93b3760babd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fb91c91b839cb41dfe816043097c6c60": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "34eb4e63318b53691242cde6dbc63bf3": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": -2.9393777153443522e-05
+    },
+    "f4bfbfb5390c125f468fe4ba999a5683": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6a3701348014bdeadfef26ac7b7d92e7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "16a1fbc8bfd80054b1d513e378939725": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "04d8633914ab2e5d305dcc922627e2dc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "94969f91e1fbe2d7e25fbc156ba37711": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "527ff601dbbfb7ae7d6c704898b3b99a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ce651940e7b48dd4d337e66bd7293920": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f463def700d0bc0e8acd8391d5e11201": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "aec7352c47205e74952ca032cd51eeef": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1a637d62e98148a8156d0faebaeac6db": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "93e798c94453e41e8a15a24ada8523ab": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a272284aafb0cb47d33f9a40fd951621": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b3969b8bd66d8e76a219d86633f3a17e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b85ce4ab791d50ed854e30e840c4979f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9737dc68778d99997a78c8eed11e16d7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a198356cf22fa1a9616ac45a97882634": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d9d2313b004bebee96645ab05a7abab3": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "556611eae5eecb31b251ee56ea5f60f4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "251730bbef664169b9adb33faf9e9b49": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2c1eccc3b924d066f25baa01a93c7fcc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "066fdc39dc5c75bf401d0076b84cb1d5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3eb8229230fed5555843320b5aee1517": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "cdc53a15f6ab176e23fd69985506a201": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0424902fd00a5b7e5065c25e3b8a2fdf": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "abfb67e940edd5135081fb0cb69b0120": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a3a4cde40458a2a941637b13bae6302d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "47548ae1752b5383b12c9c7d52eb72ea": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c7b9a4a95e03fdff433241d244844378": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ded228a2711e22708f8ef3eca2ec1b5d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "41d9a8202d8c7a5d175e5ce40218c92a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f49fb04ce723f48022cef7d450f4d8e5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6cd722e1b99432070e60f4dfd76c5465": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e4556330a334ebbbacbecc4ad33acdc9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "387728844b2c3193e07522f312fd1bcd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fac818b66b78fddcff9cd09d278098d9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "15c532b14862565fd9103ce25f0aa206": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "def529f09ccbae2326efc5383fa3303a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ff48f8fd5a987251335ce41e080c7b87": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9445a97215ca87cd2a4c03604d0b889c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bf400f0b3ebccb6f34683180e264b5cb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "723ce8ffd422ac9738b50c1c82d1a890": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "52cc38e4098ace0da92f6511361b3ac4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "063698e896dee4d52e88052962eafa00": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ec61ec4cc692ccb38ac68e09c0df2246": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6a5a809d1b4c948ff6c6ab8132c2910a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2f0707db69d8f28d5172a9fdc70b163c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b55591f82dd2b0c20ef8470d19adf5f8": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2d004751b54f069196bd9f6f2c798465": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7497681ab75e9961304c8c944f2d9ee2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "eb9106209f7cacd9ddd90aae0adc5137": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "3ba79b53a3fb8227d8c111fde1d2aed0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "65698b5356f96e0f968b0667f9bfc408": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9197e97bd5d2ee897bf65e99ac4e502b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "990f178fa0e61cfc6a3c498d34a76639": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "43999e5abc83ad077360f7cd1b702c20": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ef574dd68055ba586f6d343b497d2a10": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8bb19cb529504071236a3e1922b043a8": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bac125a535682c8658886f093c7c0814": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "49c185af1fe51763e9908c6547d93fb1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "134f779d56cab7a1d11e7828169b057b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "09e742a6f2eb1e481df89ccbdb6d2348": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d3f01598813e68221ffbb058a7e53f76": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f59e5d3a618962aa91c6a483470b0025": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "910eb314f51fa5e5d6b14b1041ae8f18": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ca89842db9ab5c523603c5225fa42225": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "65800c537f9fed1600d4a7e4ccbd6e61": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c56f004635ffb7d0351d237cab4f6194": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "63cffa5dee6e6ed300517a9dfc6fc970": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ffae343d4bafde0175ed0c0e5c24048e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1ba388d6b2e07511cd592affaf7a72c1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "638aa0615d39738da42d3d879ffc8a2e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7284c5edfefc0a490c9a1961e9f775de": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1eb346d43cf5f9d6a04d40522fb4cd6c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "060baa64cb12d06c2652fc999c8ed168": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "62f163cca77e06c623c98ef371568e22": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "43d1cd650ec9810e53d57f6a2fa5e498": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "7e4b1ed52f5232101f9700f1507e56a0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "17915e7719cbbb764d3cbd89c1c9c2af": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "428ec477ac58ae7c80e3addd9c09064d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6524cf486b39dae102834cb3ee559c81": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a5644a48dd2809823245e31681669106": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e80d9f8097cc50cd4f1ec08d9744883e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1a9679dca64c3564d1b516e28c1eb594": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "55f895b7f6d6582a8e16cde0d3786040": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8f06e8f0d2c070021642e2890515ef25": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8ce14d46b2cbbe8b2c4dc7193eff7b1e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "cd4ddccdb5eb89844e0708a682bcb9c2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d9518b43b9d7697f6441c4dedd3f8c4c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "087950f0f611f500ebb68d565c771ef7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c546dfcec1e6c7c14e264f4c1c9e2e68": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "838d3493fbc370017aa724066f903bd9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2d57dda87ae3622db8c6901b8e45d831": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f2790d52416c5f9bdd43b332a7f609cd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b86f826a9a6312619ccc5de150fe1ab2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8b8764f8431dd3821df32fdc664d15a2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8fac0ff878771cb649554bb426b274ea": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "22a3d63a927e56f0dee5e23e19116ca3": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fd249d7fe556c858b8c2561caa82eecb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b66dd0e787b351adc1c2bf12ebfc3d9d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fdf8144b79fa6b0f07a611cfa538d31c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9ad6b5962a78834b64164df1e7a486f1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "39af6415ced2fa78e6d7691b221bf875": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "34218f1e467d7157cc95ec5e65856494": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e4215f2a679985f8a7486e4d34893853": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "26ec08ad76ae1a3e24d44fffb7369d7b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fce4695ab647418482c5ff2f0890b02b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0ef0cd7f6437a5e91584b2d4a4a9f97b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "dc5524db3a2bf924a0d69df1d1f268eb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "944f4866fd5cef2c477b350d599d5b4b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "fc070378481e1fc8a4252dbef582ddc0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "e07c6784e7d7e3a442f7c66746c86fbb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "f487b412304702ab721c62208f6f81d8": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9a6de416708d6ec9204d8f252e47b78c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "33622b6bcc5bd551c531b01944a2b12e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1b72cde71c7e8a7d0351b07da8286cf6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2438a490e2f6201f61f2637fe082269b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d49121c1279eb6891fea97dc950d9399": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "77e1cf4cfefcbf6af4ea53f6654c92e9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "af717143dd675431398a11c683375d7d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "67f9ba5c30824d5f47f6ac1a4b30a3b8": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9be58f8c486d4f259f28c2e76ea48ba0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a80b81348ca2454e8ef968b9af0e321f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c08a0448b42850a4f12e1fd60630a990": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "de67b794de571950de6c797baebbd7cc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "bab794186cdc5302597e4a3cc7168e2a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "94dbc25d45ce45b8ef89ff91df5ccbb5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8b25e35588963dcc8f5e2911a856b35e": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a582af1d6be9a43d24e5fa9cda4c7e95": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "efff379f9cc9b8a72171c7dd7f323cb2": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "67147ed269898235f26ca7a3bfb0fcf6": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4af0683a1d3bba81e24dd669e42ab9ed": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0431a288c5d767ba70ef064a0ecb1537": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "1df4a161927f26651932295d88e51ea9": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "b27da62abc3ab87bfd696283482184d0": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "73dd288b9e5a072ff702fb584603455d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8ed99d61024f0da807a135a4184e812c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "61eae68ca539894cf216794f24abd17a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "2e8ed8633e633cdd3ed49b778ec6e8b7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8adbda613faa8e223ec4c27fbd4522fa": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "beec9ef4b9f3a1872b7d30a37726c5eb": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a0d48594f89b0aa9dfa86a5429593893": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8ea813f3bb8754aaea11a8ce50eb50ed": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "67a2109a7cb87b3eac24b0ca4372f155": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "0595ee522642ea2185c2ae4add56faf1": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "13fa090c662e20f7f88ff593581e432a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9a63d064bc4986a9d356b3bb2fd9e9c7": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "946ac79cece5e5d4a6e5d7d4827b242f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "918bba7391f46054999da33aebf19709": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "ecdaf1cf236d5ac9ca594a609505b2fd": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "d453c565f2e6200e7ffc0b1f74a8e5c5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "8d09ab0b63b7722ce636a7966d78280b": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "941192e4308cd71515a97c8c8aa20cb5": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "c1b1f6ed4c56c5c64ceae4034fee21fc": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "39efc7f09b70e4a12b61ff37baf966f4": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "6923bf1264dfd7e2bd14a1dd58b3007c": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "de6d631a2fecfdf743c543dfe9ad836a": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "401f52883804ab6c0c0f2d6739efc434": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4ff1f5294de75286745239403052b256": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a66afa9c91e5ccbfa1244e8251337369": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "023f932dffc4675ac897bff8062aab6d": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a5d5a611fe0d1634434a33695ad9088f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "98f1ae7672aa5387b0fa03cb2da50387": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "5372957520a429a7cfe89a85cf95c002": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "55bb3655c1d933a1bbca854d1d191d29": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "84c7de4fbfda4ee2fc845f9e29aedd43": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "9ac8c272cc017c12c4b5e03e588702e8": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "a19baddb79c59c578c09f0ff94925390": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    },
+    "4ac1115dbd1272ce8f791eebb8a2743f": {
+      "BUY": 0.0,
+      "SELL": 0.0,
+      "HOLD": 0.0,
+      "INCREASE_SIZE": 0.0,
+      "DECREASE_SIZE": 0.0
+    }
+  },
+  "total_trades": 0,
+  "winning_trades": 0,
+  "total_pnl": 0.0,
+  "exploration_rate": 0.42,
+  "symbol_performance": {}
+}

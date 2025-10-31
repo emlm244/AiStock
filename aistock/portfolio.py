@@ -1,185 +1,281 @@
 """
-Portfolio bookkeeping primitives.
+Portfolio tracking for backtesting.
 
-Design goals:
-    * Deterministic, side-effect free computations.
-    * Explicit handling of cash, equity, and realised/unrealised P&L.
-    * No threading or reliance on broker state; reconciliation is done via
-      serialised snapshots (:meth:`Portfolio.snapshot`).
+P0-NEW-1 Fix: Thread-safe portfolio for concurrent access from IBKR callbacks.
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from decimal import Decimal
+from threading import Lock
+from typing import Any, Optional
 
 
-@dataclass
+@dataclass(slots=True)
 class Position:
+    """Represents a position in a portfolio."""
+
     symbol: str
-    quantity: Decimal = Decimal("0")
-    average_price: Decimal = Decimal("0")
-    entry_time_utc: datetime | None = None
-    last_update_utc: datetime | None = None
-    total_volume: Decimal = Decimal("0")
+    quantity: Decimal = Decimal('0')
+    average_price: Decimal = Decimal('0')
+    entry_time_utc: Optional[datetime] = None
+    last_update_utc: Optional[datetime] = None
+    total_volume: Decimal = Decimal('0')
 
-    def market_value(self, price: Decimal) -> Decimal:
-        return self.quantity * price
+    def __post_init__(self):
+        if self.entry_time_utc is None:
+            self.entry_time_utc = datetime.now(timezone.utc)
+        if self.last_update_utc is None:
+            self.last_update_utc = self.entry_time_utc
 
-    def realise(self, fill_qty: Decimal, fill_price: Decimal, fill_time: datetime | None = None) -> Decimal:
+    @property
+    def market_value(self) -> Decimal:
+        """Calculate market value (requires current price)."""
+        return self.quantity * self.average_price
+
+    @property
+    def is_long(self) -> bool:
+        """Check if position is long."""
+        return self.quantity > 0
+
+    @property
+    def is_short(self) -> bool:
+        """Check if position is short."""
+        return self.quantity < 0
+
+    def realise(self, quantity_delta: Decimal, price: Decimal, timestamp: Optional[datetime] = None):
         """
-        Apply a fill and return realised P&L.
+        Update position with a fill (for paper broker).
 
-        Positive ``fill_qty`` represents a buy; negative a sell.
+        Args:
+            quantity_delta: Change in quantity (positive for buy, negative for sell)
+            price: Fill price
+            timestamp: Fill timestamp
         """
-        if fill_qty == 0:
-            return Decimal("0")
-        prev_qty = self.quantity
-        new_qty = prev_qty + fill_qty
+        new_qty = self.quantity + quantity_delta
 
-        realised = Decimal("0")
-        same_direction = prev_qty == 0 or (prev_qty > 0 and fill_qty > 0) or (prev_qty < 0 and fill_qty < 0)
-
-        if same_direction:
-            # Increasing or opening a position in the same direction -> adjust average price.
-            total_cost = (self.average_price * prev_qty) + (fill_price * fill_qty)
+        # Update average price
+        if new_qty == 0:
+            self.quantity = Decimal('0')
+            self.average_price = Decimal('0')
+        elif (self.quantity > 0 and new_qty < 0) or (self.quantity < 0 and new_qty > 0):
+            # Reversal - new basis
             self.quantity = new_qty
-            if self.quantity != 0:
-                self.average_price = total_cost / self.quantity
-                if self.entry_time_utc is None:
-                    self.entry_time_utc = fill_time
-            else:
-                self.average_price = Decimal("0")
-                self.entry_time_utc = None
-        else:
-            # Reducing or reversing the position -> realise PnL on the closed portion.
-            closed_qty = min(abs(fill_qty), abs(prev_qty))
-            direction = Decimal("1") if prev_qty > 0 else Decimal("-1")
-            realised = (fill_price - self.average_price) * (closed_qty * direction)
-            self.quantity = new_qty
+            self.average_price = price
+        elif (self.quantity >= 0 and quantity_delta > 0) or (self.quantity <= 0 and quantity_delta < 0):
+            # Adding to position
             if self.quantity == 0:
-                self.average_price = Decimal("0")
-                self.entry_time_utc = None
-            elif prev_qty == 0 or (prev_qty > 0 and self.quantity > 0) or (prev_qty < 0 and self.quantity < 0):
-                # Remaining position keeps existing basis.
-                pass
+                self.average_price = price
             else:
-                # Reversal -> leftover quantity inherits the fill price.
-                self.average_price = fill_price
-                self.entry_time_utc = fill_time
-        self.last_update_utc = fill_time
-        self.total_volume += abs(fill_qty)
-        return realised
+                total_cost = (self.quantity * self.average_price) + (quantity_delta * price)
+                self.average_price = total_cost / new_qty
+            self.quantity = new_qty
+        else:
+            # Reducing position - keep average price
+            self.quantity = new_qty
+
+        # Update timestamps
+        if timestamp:
+            if self.entry_time_utc is None:
+                self.entry_time_utc = timestamp
+            self.last_update_utc = timestamp
 
 
-@dataclass
-class PortfolioSnapshot:
-    timestamp: datetime
-    cash: Decimal
-    equity: Decimal
-    realised_pnl: Decimal
-    unrealised_pnl: Decimal
-
-
-@dataclass
 class Portfolio:
-    cash: Decimal
-    positions: dict[str, Position] = field(default_factory=dict)
-    realised_pnl: Decimal = Decimal("0")
-    commissions_paid: Decimal = Decimal("0")
-    trade_log: list[dict[str, object]] = field(default_factory=list)
+    """
+    Simple portfolio tracker for backtest engines.
 
-    def position(self, symbol: str) -> Position:
-        return self.positions.setdefault(symbol, Position(symbol=symbol))
+    Tracks:
+    - Cash balance
+    - Position quantities
+    - Average entry prices
+    - Realized P&L
+    """
 
-    def available_cash(self) -> Decimal:
-        return self.cash
+    def __init__(self, cash: Optional[Decimal] = None, initial_cash: Optional[Decimal] = None):
+        # P0-NEW-1 Fix: Add lock for thread safety (IBKR callbacks run on separate thread)
+        self._lock = Lock()
 
-    def total_equity(self, last_prices: dict[str, Decimal]) -> Decimal:
-        equity = self.cash
-        for pos in self.positions.values():
-            price = last_prices.get(pos.symbol)
-            if price is not None:
-                equity += pos.market_value(price)
-        return equity
+        starting_cash = cash if cash is not None else (initial_cash if initial_cash is not None else Decimal('10000'))
+        self.initial_cash = starting_cash
+        self.cash = starting_cash
+        self.positions: dict[str, Position] = {}
+        self.realised_pnl = Decimal('0')
+        self.commissions_paid = Decimal('0')
+        self.trade_log: list[dict[str, Any]] = []
 
-    def unrealised_pnl(self, last_prices: dict[str, Decimal]) -> Decimal:
-        pnl = Decimal("0")
-        for pos in self.positions.values():
-            price = last_prices.get(pos.symbol)
-            if price is not None:
-                pnl += (price - pos.average_price) * pos.quantity
-        return pnl
+    def get_cash(self) -> Decimal:
+        """Get current cash balance (thread-safe)."""
+        with self._lock:
+            return self.cash
+
+    def get_position(self, symbol: str) -> Decimal:
+        """Get current position quantity for symbol (thread-safe)."""
+        with self._lock:
+            pos = self.positions.get(symbol)
+            return pos.quantity if pos else Decimal('0')
+
+    def get_avg_price(self, symbol: str) -> Optional[Decimal]:
+        """Get average entry price for symbol (thread-safe)."""
+        with self._lock:
+            pos = self.positions.get(symbol)
+            return pos.average_price if pos else None
+
+    def update_position(self, symbol: str, quantity_delta: Decimal, price: Decimal, commission: Decimal = Decimal('0')):
+        """
+        Update position and cash after a trade (thread-safe).
+
+        Args:
+            symbol: Trading symbol
+            quantity_delta: Change in position (positive for buy, negative for sell)
+            price: Execution price
+            commission: Transaction cost
+        """
+        with self._lock:
+            # Update cash
+            cash_delta = -(quantity_delta * price) - commission
+            self.cash += cash_delta
+
+            # Get or create position
+            if symbol not in self.positions:
+                self.positions[symbol] = Position(symbol=symbol)
+
+            pos = self.positions[symbol]
+            pos.realise(quantity_delta, price, datetime.now(timezone.utc))
+
+            # Remove position if closed
+            if pos.quantity == 0:
+                del self.positions[symbol]
+
+    def record_pnl(self, pnl: Decimal):
+        """Record realized P&L (thread-safe)."""
+        with self._lock:
+            self.realised_pnl += pnl
+
+    def get_equity(self, current_prices: dict[str, Decimal]) -> Decimal:
+        """
+        Calculate total equity (cash + position values) [thread-safe].
+
+        Args:
+            current_prices: Dict of symbol -> current price
+
+        Returns:
+            Total equity value
+        """
+        with self._lock:
+            position_value = Decimal('0')
+
+            for symbol, pos in self.positions.items():
+                if symbol in current_prices:
+                    position_value += pos.quantity * current_prices[symbol]
+
+            return self.cash + position_value
+
+    def total_equity(self, current_prices: dict[str, Decimal]) -> Decimal:
+        """Alias for get_equity for compatibility (thread-safe)."""
+        return self.get_equity(current_prices)
 
     def apply_fill(
-        self,
-        symbol: str,
-        quantity: Decimal,
-        price: Decimal,
-        commission: Decimal = Decimal("0"),
-        timestamp: datetime | None = None,
+        self, symbol: str, quantity: Decimal, price: Decimal, commission: Decimal, timestamp: datetime
     ) -> Decimal:
         """
-        Apply a fill to the portfolio.
+        Apply a fill to the portfolio and return realized P&L (thread-safe).
 
-        Returns the realised P&L from the trade (net of commission).
+        Args:
+            symbol: Trading symbol
+            quantity: Quantity filled (positive for buy, negative for sell)
+            price: Fill price
+            commission: Commission paid
+            timestamp: Fill timestamp
+
+        Returns:
+            Realized P&L from this fill
         """
-        pos = self.position(symbol)
-        realised = pos.realise(quantity, price, timestamp)
-        cash_flow = quantity * price + commission
-        self.cash -= cash_flow
-        self.realised_pnl += realised - commission
-        self.commissions_paid += commission
-        self.trade_log.append(
-            {
-                "symbol": symbol,
-                "quantity": quantity,
-                "price": price,
-                "timestamp": timestamp,
-                "realised_pnl": realised - commission,
-                "commission": commission,
-            }
-        )
-        return realised - commission
+        with self._lock:
+            # Compute realized P&L using current position snapshot
+            existing_position = self.positions.get(symbol)
+            realized_pnl = Decimal('0')
 
-    def flatten(self, symbol: str, price: Decimal, commission: Decimal = Decimal("0")) -> Decimal:
-        pos = self.position(symbol)
-        qty = pos.quantity
-        if qty == 0:
-            return Decimal("0")
-        return self.apply_fill(symbol, -qty, price, commission)
+            if existing_position and existing_position.quantity != 0:
+                current_qty = existing_position.quantity
+                avg_price = existing_position.average_price
 
-    def snapshot(self, timestamp: datetime, last_prices: dict[str, Decimal]) -> PortfolioSnapshot:
-        return PortfolioSnapshot(
-            timestamp=timestamp,
-            cash=self.cash,
-            equity=self.total_equity(last_prices),
-            realised_pnl=self.realised_pnl,
-            unrealised_pnl=self.unrealised_pnl(last_prices),
-        )
+                is_closing = (current_qty > 0 and quantity < 0) or (current_qty < 0 and quantity > 0)
+                if is_closing:
+                    closing_qty = min(abs(quantity), abs(current_qty))
+                    if current_qty > 0:
+                        realized_pnl = (price - avg_price) * closing_qty
+                    else:
+                        realized_pnl = (avg_price - price) * closing_qty
 
-    def gross_exposure(self, last_prices: dict[str, Decimal]) -> Decimal:
-        exposure = Decimal("0")
-        for pos in self.positions.values():
-            price = last_prices.get(pos.symbol)
-            if price is not None:
-                exposure += abs(pos.quantity * price)
-        return exposure
+            # Update cash and position atomically
+            cash_delta = -(quantity * price) - commission
+            self.cash += cash_delta
 
-    def net_exposure(self, last_prices: dict[str, Decimal]) -> Decimal:
-        exposure = Decimal("0")
-        for pos in self.positions.values():
-            price = last_prices.get(pos.symbol)
-            if price is not None:
-                exposure += pos.quantity * price
-        return exposure
+            if symbol not in self.positions:
+                self.positions[symbol] = Position(symbol=symbol)
 
-    def holding_period_bars(self, symbol: str, current_time: datetime, bar_interval: timedelta) -> int:
-        pos = self.positions.get(symbol)
-        if not pos or pos.entry_time_utc is None:
-            return 0
-        elapsed = current_time - pos.entry_time_utc
-        if bar_interval.total_seconds() == 0:
-            return 0
-        return max(0, int(elapsed.total_seconds() // bar_interval.total_seconds()))
+            position = self.positions[symbol]
+            position.realise(quantity, price, timestamp)
+            if position.quantity == 0:
+                del self.positions[symbol]
+
+            if realized_pnl:
+                self.realised_pnl += realized_pnl
+
+            return realized_pnl
+
+    def position(self, symbol: str) -> Position:
+        """
+        Get position object for a symbol (thread-safe).
+
+        Args:
+            symbol: Trading symbol
+
+        Returns:
+            Position object (may have zero quantity if no position)
+        """
+        with self._lock:
+            if symbol in self.positions:
+                # Return a copy to prevent external modification
+                pos = self.positions[symbol]
+                return Position(
+                    symbol=pos.symbol,
+                    quantity=pos.quantity,
+                    average_price=pos.average_price,
+                    entry_time_utc=pos.entry_time_utc,
+                    last_update_utc=pos.last_update_utc,
+                    total_volume=pos.total_volume,
+                )
+            return Position(symbol=symbol)
+
+    def snapshot_positions(self) -> dict[str, Position]:
+        """Return a deep copy of all positions for thread-safe inspection."""
+        with self._lock:
+            return {symbol: replace(pos) for symbol, pos in self.positions.items()}
+
+    def position_count(self) -> int:
+        """Return the number of open positions (thread-safe)."""
+        with self._lock:
+            return len(self.positions)
+
+    def get_trade_log_snapshot(self, limit: int | None = None) -> list[dict[str, Any]]:
+        """Return a copy of the most recent trade log entries (thread-safe)."""
+        with self._lock:
+            entries = self.trade_log if limit is None else self.trade_log[-limit:]
+            return [dict(entry) for entry in entries]
+
+    def replace_positions(self, positions: dict[str, Position]) -> None:
+        """Replace the internal positions map with a copy of the provided positions (thread-safe)."""
+        with self._lock:
+            self.positions = {symbol: replace(pos) for symbol, pos in positions.items()}
+
+    def get_realised_pnl(self) -> Decimal:
+        """Return the realised P&L (thread-safe)."""
+        with self._lock:
+            return self.realised_pnl
+
+    def get_commissions_paid(self) -> Decimal:
+        """Return the total commissions paid (thread-safe)."""
+        with self._lock:
+            return self.commissions_paid

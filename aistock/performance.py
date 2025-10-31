@@ -1,78 +1,187 @@
 """
-Performance analytics helpers.
+Performance metrics calculation.
 """
 
-from __future__ import annotations
-
-import math
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+import numpy as np
+
 
 @dataclass
 class TradePerformance:
+    """Trade performance statistics."""
+
     total_trades: int
+    winning_trades: int
+    losing_trades: int
     win_rate: float
+    expectancy: float
     average_win: float
     average_loss: float
-    expectancy: float
+    profit_factor: float
 
 
-def compute_drawdown(equity_curve: Sequence[tuple[datetime, Decimal]]) -> Decimal:
-    peak = Decimal("0")
-    max_dd = Decimal("0")
-    for _, equity in equity_curve:
-        if equity > peak:
-            peak = equity
-        if peak > 0:
-            drawdown = (peak - equity) / peak
-            if drawdown > max_dd:
-                max_dd = drawdown
-    return max_dd
+def compute_returns(equity_curve: list[tuple[datetime, Decimal]]) -> list[float]:
+    """
+    Compute returns from equity curve.
 
+    Args:
+        equity_curve: List of (timestamp, equity) tuples
 
-def compute_returns(equity_curve: Sequence[tuple[datetime, Decimal]]) -> list[float]:
-    returns: list[float] = []
-    for (_, prev_equity), (_, current_equity) in zip(equity_curve, equity_curve[1:]):
-        if prev_equity == 0:
-            continue
-        returns.append(float((current_equity - prev_equity) / prev_equity))
+    Returns:
+        List of percentage returns
+    """
+    if len(equity_curve) < 2:
+        return []
+
+    returns = []
+    for i in range(1, len(equity_curve)):
+        prev_equity = float(equity_curve[i - 1][1])
+        curr_equity = float(equity_curve[i][1])
+
+        if prev_equity > 0:
+            ret = (curr_equity - prev_equity) / prev_equity
+            returns.append(ret)
+
     return returns
 
 
-def sharpe_ratio(returns: Sequence[float], risk_free_rate: float = 0.0) -> float:
-    if not returns:
+def sharpe_ratio(returns: list[float], risk_free_rate: float = 0.0, periods_per_year: int = 252) -> float:
+    """
+    Calculate annualized Sharpe ratio.
+
+    Args:
+        returns: List of returns
+        risk_free_rate: Annual risk-free rate
+        periods_per_year: Number of periods in a year (252 for daily)
+
+    Returns:
+        Annualized Sharpe ratio
+    """
+    if not returns or len(returns) < 2:
         return 0.0
-    excess = [r - risk_free_rate for r in returns]
-    mean = sum(excess) / len(excess)
-    variance = sum((r - mean) ** 2 for r in excess) / len(excess) if len(excess) > 1 else 0.0
-    std = math.sqrt(variance)
-    if std == 0.0:
+
+    returns_array = np.array(returns)
+    mean_return = np.mean(returns_array)
+    std_return = np.std(returns_array, ddof=1)
+
+    if std_return == 0:
         return 0.0
-    return mean / std * math.sqrt(252.0)
+
+    # Annualize
+    annual_mean = mean_return * periods_per_year
+    annual_std = std_return * np.sqrt(periods_per_year)
+
+    return (annual_mean - risk_free_rate) / annual_std
 
 
-def sortino_ratio(returns: Sequence[float], risk_free_rate: float = 0.0) -> float:
-    downside = [min(0.0, r - risk_free_rate) for r in returns]
-    downside_sq = [d ** 2 for d in downside]
-    if not downside_sq:
+def sortino_ratio(returns: list[float], risk_free_rate: float = 0.0, periods_per_year: int = 252) -> float:
+    """
+    Calculate annualized Sortino ratio (uses downside deviation).
+
+    Args:
+        returns: List of returns
+        risk_free_rate: Annual risk-free rate
+        periods_per_year: Number of periods in a year
+
+    Returns:
+        Annualized Sortino ratio
+    """
+    if not returns or len(returns) < 2:
         return 0.0
-    downside_dev = math.sqrt(sum(downside_sq) / len(downside_sq))
-    if downside_dev == 0.0:
+
+    returns_array = np.array(returns)
+    mean_return = np.mean(returns_array)
+
+    # Calculate downside deviation (only negative returns)
+    negative_returns = returns_array[returns_array < 0]
+
+    if len(negative_returns) == 0:
+        return float('inf')  # No downside
+
+    downside_std = np.std(negative_returns, ddof=1)
+
+    if downside_std == 0:
         return 0.0
-    mean = sum(returns) / len(returns)
-    return (mean - risk_free_rate) / downside_dev * math.sqrt(252.0)
+
+    # Annualize
+    annual_mean = mean_return * periods_per_year
+    annual_downside_std = downside_std * np.sqrt(periods_per_year)
+
+    return (annual_mean - risk_free_rate) / annual_downside_std
 
 
-def trade_performance(trade_pnls: Sequence[Decimal]) -> TradePerformance:
+def compute_drawdown(equity_curve: list[tuple[datetime, Decimal]]) -> Decimal:
+    """
+    Compute maximum drawdown from equity curve.
+
+    Args:
+        equity_curve: List of (timestamp, equity) tuples
+
+    Returns:
+        Maximum drawdown as Decimal (positive number)
+    """
+    if len(equity_curve) < 2:
+        return Decimal('0')
+
+    equity_values = [float(eq[1]) for eq in equity_curve]
+    running_max = np.maximum.accumulate(equity_values)
+    drawdowns = (equity_values - running_max) / running_max
+
+    max_dd = abs(np.min(drawdowns))
+    return Decimal(str(max_dd))
+
+
+def trade_performance(trade_pnls: list[Decimal]) -> TradePerformance:
+    """
+    Calculate trade performance statistics.
+
+    Args:
+        trade_pnls: List of realized P&L values
+
+    Returns:
+        TradePerformance object with statistics
+    """
     if not trade_pnls:
-        return TradePerformance(0, 0.0, 0.0, 0.0, 0.0)
-    wins = [float(p) for p in trade_pnls if p > 0]
-    losses = [float(p) for p in trade_pnls if p < 0]
-    win_rate = len(wins) / len(trade_pnls)
-    average_win = sum(wins) / len(wins) if wins else 0.0
-    average_loss = sum(losses) / len(losses) if losses else 0.0
-    expectancy = (win_rate * average_win) + ((1 - win_rate) * average_loss)
-    return TradePerformance(len(trade_pnls), win_rate, average_win, average_loss, expectancy)
+        return TradePerformance(
+            total_trades=0,
+            winning_trades=0,
+            losing_trades=0,
+            win_rate=0.0,
+            expectancy=0.0,
+            average_win=0.0,
+            average_loss=0.0,
+            profit_factor=0.0,
+        )
+
+    total_trades = len(trade_pnls)
+    winning_trades = sum(1 for pnl in trade_pnls if pnl > 0)
+    losing_trades = sum(1 for pnl in trade_pnls if pnl < 0)
+
+    win_rate = winning_trades / total_trades if total_trades > 0 else 0.0
+
+    wins = [float(pnl) for pnl in trade_pnls if pnl > 0]
+    losses = [float(pnl) for pnl in trade_pnls if pnl < 0]
+
+    average_win = float(np.mean(wins)) if wins else 0.0
+    average_loss = float(np.mean(losses)) if losses else 0.0
+
+    total_wins = sum(wins)
+    total_losses = abs(sum(losses))
+
+    profit_factor = total_wins / total_losses if total_losses > 0 else 0.0
+
+    expectancy = float((win_rate * average_win) + ((1 - win_rate) * average_loss))
+
+    return TradePerformance(
+        total_trades=total_trades,
+        winning_trades=winning_trades,
+        losing_trades=losing_trades,
+        win_rate=win_rate,
+        expectancy=expectancy,
+        average_win=average_win,
+        average_loss=average_loss,
+        profit_factor=profit_factor,
+    )

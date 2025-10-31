@@ -1,237 +1,311 @@
 """
-Deterministic risk engine enforcing portfolio level limits.
+Risk management for backtest engines.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from decimal import Decimal
+import threading
 
 from .config import RiskLimits
 from .portfolio import Portfolio
 
 
+class RiskViolation(Exception):
+    """Exception raised when a risk limit is violated."""
+
+    pass
+
+
 @dataclass
 class RiskState:
-    last_reset_date: date
-    daily_pnl: Decimal = Decimal("0")
-    peak_equity: Decimal = Decimal("0")
-    start_of_day_equity: Decimal = Decimal("0")
+    """Serializable risk state for persistence."""
+
+    daily_start_equity: Decimal = Decimal('0')
+    start_of_day_equity: Decimal = Decimal('0')  # Kept for backward compatibility
+    peak_equity: Decimal = Decimal('0')
     halted: bool = False
-    halt_reason: str | None = None
-    # P0 Fix: Order rate limiting tracking
-    order_timestamps: list[datetime] = field(default_factory=list)
+    is_halted: bool = False  # Kept for backward compatibility
+    halt_reason: str = ''
+    last_reset_date: str = ''
+    daily_pnl: Decimal = Decimal('0')
     daily_order_count: int = 0
+    order_timestamps: list[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        # Sync backward compatibility fields
+        if self.start_of_day_equity and self.start_of_day_equity != Decimal('0'):
+            self.daily_start_equity = self.start_of_day_equity
+        elif self.daily_start_equity:
+            self.start_of_day_equity = self.daily_start_equity
+
+        if self.is_halted != self.halted:
+            self.halted = self.is_halted = self.halted or self.is_halted
 
 
-class RiskViolation(Exception):  # noqa: N818 - "Violation" is clearer than "ViolationError"
-    """Raised when a pre- or post-trade risk check fails."""
-
-
-@dataclass
 class RiskEngine:
-    limits: RiskLimits
-    portfolio: Portfolio
-    bar_interval: timedelta
-    state: RiskState = field(default_factory=lambda: RiskState(last_reset_date=date.min))
+    """
+    Risk management engine for backtesting and live trading.
 
-    def _ensure_reset(self, current_time: datetime, equity: Decimal) -> None:
-        today = current_time.date()
-        if today != self.state.last_reset_date:
-            self.state.daily_pnl = Decimal("0")
-            self.state.last_reset_date = today
-            self.state.start_of_day_equity = equity
-            self.state.halted = False
-            self.state.halt_reason = None
-            # P0 Fix: Reset daily order count
-            self.state.daily_order_count = 0
-            self.state.order_timestamps.clear()
-            if equity > self.state.peak_equity:
-                self.state.peak_equity = equity
-        elif self.state.start_of_day_equity == Decimal("0"):
-            # Engine was instantiated mid-session; capture baseline for daily loss checks.
-            self.state.start_of_day_equity = equity
+    P0 Fix (CRITICAL-2): Thread-safe to prevent race conditions in risk checks.
 
-    def register_trade(
+    Enforces:
+    - Daily loss limits
+    - Maximum drawdown halts
+    - Position size limits
+    - Pre-trade risk checks
+    - Order rate limiting
+    - Minimum balance protection (NEW: prevents trading below user-defined threshold)
+    """
+
+    def __init__(
         self,
-        pnl: Decimal,
-        commission: Decimal,
-        timestamp: datetime,
-        equity: Decimal,
-        last_prices: dict[str, Decimal],
-    ) -> None:
-        self._ensure_reset(timestamp, equity)
-        self.state.daily_pnl += pnl
-        if equity > self.state.peak_equity:
-            self.state.peak_equity = equity
-        self._check_limits(equity, last_prices, timestamp)
+        risk_config: RiskLimits,
+        portfolio: Portfolio,
+        bar_interval: timedelta,
+        state: RiskState | None = None,
+        minimum_balance: Decimal | None = None,
+        minimum_balance_enabled: bool = True,
+    ):
+        self._lock = threading.RLock()  # P0 Fix: Thread safety (reentrant for halt calls)
+        self.config: RiskLimits = risk_config
+        self.portfolio: Portfolio = portfolio
+        self.bar_interval = bar_interval
 
-    def _check_limits(self, equity: Decimal, last_prices: dict[str, Decimal], timestamp: datetime) -> None:
-        peak = max(self.state.peak_equity, equity)
-        drawdown_pct = Decimal("0")
-        if peak > 0:
-            drawdown_pct = (peak - equity) / peak
+        # NEW: Minimum balance protection
+        self.minimum_balance = minimum_balance or Decimal('0')
+        self.minimum_balance_enabled = minimum_balance_enabled
 
-        if self.limits.kill_switch_enabled and equity <= 0:
-            self.halt("Equity depleted; kill switch engaged.")
-            return
-
-        if drawdown_pct > Decimal(str(self.limits.max_drawdown_pct)):
-            self.halt(f"Drawdown limit breached: {drawdown_pct:.2%} > {self.limits.max_drawdown_pct:.2%}")
-            return
-
-        daily_loss_pct = Decimal("0")
-        start_equity = self.state.start_of_day_equity if self.state.start_of_day_equity > 0 else equity
-        if start_equity > 0:
-            loss = self.state.daily_pnl if self.state.daily_pnl < 0 else Decimal("0")
-            daily_loss_pct = -loss / start_equity
-
-        if daily_loss_pct > Decimal(str(self.limits.max_daily_loss_pct)):
-            self.halt(f"Daily loss limit breached: {daily_loss_pct:.2%}")
-
-        gross = self.portfolio.gross_exposure(last_prices)
-        if equity > 0 and gross / equity > Decimal(str(self.limits.max_gross_exposure)):
-            self.halt(f"Gross exposure {gross} exceeds limit {self.limits.max_gross_exposure} * equity")
-
-        leverage = Decimal("0")
-        if equity > 0:
-            leverage = gross / equity
-        if leverage > Decimal(str(self.limits.max_leverage)):
-            self.halt(f"Leverage {leverage:.2f} exceeds limit {self.limits.max_leverage}")
-
-        for symbol in list(self.portfolio.positions.keys()):
-            holding = self.portfolio.holding_period_bars(symbol, timestamp, self.bar_interval)
-            if holding > self.limits.max_holding_period_bars:
-                self.halt(f"Holding period for {symbol} exceeded limit ({holding} bars)")
-                break
-
-    def halt(self, reason: str) -> None:
-        self.state.halted = True
-        self.state.halt_reason = reason
-
-    def _check_rate_limit(self, current_time: datetime) -> None:
-        """
-        P0 Fix: Check order rate limits to prevent runaway algorithms.
-
-        Raises:
-            RiskViolation: If rate limit exceeded
-        """
-        if not self.limits.rate_limit_enabled:
-            return
-
-        # Check daily order limit
-        if self.state.daily_order_count >= self.limits.max_orders_per_day:
-            raise RiskViolation(
-                f"Daily order limit exceeded: {self.state.daily_order_count} >= {self.limits.max_orders_per_day}"
+        # Initialize or restore state
+        if state:
+            self.state = state
+            self.daily_start_equity = state.daily_start_equity
+            self.peak_equity = state.peak_equity
+            self._is_halted = state.is_halted
+            self._halt_reason = state.halt_reason
+        else:
+            self.state = RiskState(
+                daily_start_equity=portfolio.initial_cash,
+                peak_equity=portfolio.initial_cash,
             )
-
-        # Check per-minute order limit
-        cutoff = current_time - timedelta(minutes=1)
-        recent_orders = [ts for ts in self.state.order_timestamps if ts >= cutoff]
-        if len(recent_orders) >= self.limits.max_orders_per_minute:
-            raise RiskViolation(
-                f"Order rate limit exceeded: {len(recent_orders)} orders in last minute >= {self.limits.max_orders_per_minute}"
-            )
-
-    def _record_order_submission(self, current_time: datetime) -> None:
-        """
-        P0 Fix: Record order submission timestamp for rate limiting.
-
-        Call this AFTER an order passes all pre-trade checks and is about to be submitted.
-        """
-        self.state.order_timestamps.append(current_time)
-        self.state.daily_order_count += 1
-
-        # Cleanup old timestamps to prevent unbounded growth
-        cutoff = current_time - timedelta(minutes=5)
-        self.state.order_timestamps = [ts for ts in self.state.order_timestamps if ts >= cutoff]
+            self.daily_start_equity = portfolio.initial_cash
+            self.peak_equity = portfolio.initial_cash
+            self._is_halted = False
+            self._halt_reason = ''
 
     def check_pre_trade(
         self,
         symbol: str,
-        quantity: Decimal,
+        quantity_delta: Decimal,
         price: Decimal,
-        equity: Decimal,
+        current_equity: Decimal,
         last_prices: dict[str, Decimal],
         timestamp: datetime | None = None,
-    ) -> None:
+    ):
         """
-        Validate a proposed trade against all risk limits before execution.
+        Check if a trade violates risk limits.
+
+        P0 Fix (CRITICAL-2): Thread-safe to prevent race conditions.
 
         Args:
             symbol: Trading symbol
-            quantity: Order quantity (positive for buy, negative for sell)
+            quantity_delta: Proposed quantity change
             price: Execution price
-            equity: Current account equity
-            last_prices: Latest prices for all positions
-            timestamp: Order submission time (for rate limiting). Defaults to datetime.now(UTC).
+            current_equity: Current portfolio equity
+            last_prices: Dict of current prices for all symbols
+            timestamp: Current timestamp (for rate limiting)
 
         Raises:
-            RiskViolation: If any risk limit would be violated
+            RiskViolation: If trade violates risk limits
         """
-        # P0 Fix: Check order rate limits
-        if timestamp is None:
-            timestamp = datetime.now(timezone.utc)
-        self._check_rate_limit(timestamp)
+        with self._lock:  # P0 Fix: Thread safety
+            # Ensure reset for new day
+            if timestamp:
+                self._ensure_reset(timestamp, current_equity)
 
-        current_position = self.portfolio.position(symbol)
-        projected_qty = current_position.quantity + quantity
+            # Check if trading is halted
+            if self._is_halted:
+                # Allow flattening trades only
+                current_pos = self.portfolio.get_position(symbol)
+                is_flattening = (current_pos > 0 and quantity_delta < 0 and abs(quantity_delta) <= current_pos) or (
+                    current_pos < 0 and quantity_delta > 0 and abs(quantity_delta) <= abs(current_pos)
+                )
+                if not is_flattening:
+                    raise RiskViolation(f'Trading halted: {self._halt_reason}')
 
-        if self.state.halted:
-            current_qty = current_position.quantity
-            if current_qty == 0:
-                raise RiskViolation(f"Trading halted: {self.state.halt_reason}")
-            if current_qty * projected_qty < 0:
-                raise RiskViolation("Trading halted: only flattening existing positions is permitted.")
-            if abs(projected_qty) > abs(current_qty):
-                raise RiskViolation("Trading halted: cannot increase exposure while halted.")
+            # NEW: Check minimum balance protection
+            if self.minimum_balance_enabled and self.minimum_balance > Decimal('0'):
+                # Calculate what the TOTAL EQUITY would be after this trade
+                # We need to check equity, not just cash, because positions have value too
+                trade_cost = abs(quantity_delta * price)
 
-        position_value = abs(quantity * price)
-        max_alloc = Decimal(str(self.limits.max_position_fraction)) * equity
-        if max_alloc > 0 and position_value > max_alloc:
-            raise RiskViolation(
-                f"Position value {position_value} exceeds limit {max_alloc} ({self.limits.max_position_fraction:.2%})"
-            )
+                # For buy orders, cash decreases; for sell orders, equity stays same (converting position to cash)
+                projected_equity = current_equity - trade_cost if quantity_delta > 0 else current_equity
 
-        if (
-            self.limits.max_single_position_units > 0
-            and abs(projected_qty) > Decimal(str(self.limits.max_single_position_units))
+                # Check if projected EQUITY would fall below minimum
+                if projected_equity < self.minimum_balance:
+                    margin = self.minimum_balance - projected_equity
+                    raise RiskViolation(
+                        f'Minimum balance protection: Trade would bring equity to ${projected_equity:.2f}, '
+                        f'below minimum of ${self.minimum_balance:.2f} (${margin:.2f} short). '
+                        f'Trade BLOCKED for safety.'
+                    )
+
+            current_pos = self.portfolio.get_position(symbol)
+
+            # Check per-trade notional cap if configured
+            per_trade_cap_pct = getattr(self.config, 'per_trade_risk_pct', 0.0)
+            if per_trade_cap_pct and per_trade_cap_pct > 0:
+                per_trade_cap = current_equity * Decimal(str(per_trade_cap_pct))
+                trade_notional = abs(quantity_delta * price)
+                is_closing_trade = (
+                    (current_pos > 0 and quantity_delta < 0) or (current_pos < 0 and quantity_delta > 0)
+                )
+                if not is_closing_trade and trade_notional > per_trade_cap:
+                    raise RiskViolation(
+                        f'Per-trade cap exceeded: ${trade_notional:.2f} > '
+                        f'${per_trade_cap:.2f} ({per_trade_cap_pct:.2%} of equity)'
+                    )
+
+            # Check order rate limits (if enabled)
+            if hasattr(self.config, 'rate_limit_enabled') and self.config.rate_limit_enabled and timestamp:
+                self._check_rate_limits(timestamp)
+
+            # Check daily loss limit
+            daily_loss = (self.daily_start_equity - current_equity) / self.daily_start_equity
+            if daily_loss >= self.config.max_daily_loss_pct:
+                self.halt('Daily loss limit exceeded')
+                raise RiskViolation(f'Daily loss limit exceeded: {daily_loss:.2%}')
+
+            # Check maximum drawdown
+            if current_equity > self.peak_equity:
+                self.peak_equity = current_equity
+                self.state.peak_equity = current_equity
+
+            drawdown = (self.peak_equity - current_equity) / self.peak_equity
+            if drawdown >= self.config.max_drawdown_pct:
+                self.halt('Maximum drawdown exceeded')
+                raise RiskViolation(f'Maximum drawdown exceeded: {drawdown:.2%}')
+
+            # Check position size limit (use max_position_fraction if available)
+            max_pos_pct = getattr(self.config, 'max_position_fraction', getattr(self.config, 'max_position_pct', 0.25))
+
+            # Calculate projected position value
+            new_pos = current_pos + quantity_delta
+            position_value = abs(new_pos * price)
+            position_pct = position_value / current_equity if current_equity > 0 else 0
+
+            if position_pct > max_pos_pct:
+                raise RiskViolation(f'Position size {position_pct:.2%} exceeds limit {max_pos_pct:.2%}')
+
+    def reset_daily(self, current_equity: Decimal):
+        """
+        Reset daily tracking (call at start of each trading day).
+
+        P0 Fix (CRITICAL-2): Thread-safe.
+        """
+        with self._lock:
+            self.daily_start_equity = current_equity
+            self.state.daily_start_equity = current_equity
+            self.state.daily_pnl = Decimal('0')
+            self.state.daily_order_count = 0
+            self.state.order_timestamps = []
+
+    def _ensure_reset(self, timestamp: datetime, current_equity: Decimal):
+        """Ensure daily reset has occurred."""
+        current_date = timestamp.date().isoformat()
+        if not self.state.last_reset_date or self.state.last_reset_date != current_date:
+            self.reset_daily(current_equity)
+            self.state.last_reset_date = current_date
+            self._is_halted = False
+            self._halt_reason = ''
+            self.state.is_halted = False
+            self.state.halt_reason = ''
+
+    def _check_rate_limits(self, timestamp: datetime):
+        """Check if order rate limits would be violated."""
+        # Per-minute limit
+        if hasattr(self.config, 'max_orders_per_minute'):
+            one_minute_ago = timestamp - timedelta(minutes=1)
+            recent_orders = [ts for ts in self.state.order_timestamps if datetime.fromisoformat(ts) > one_minute_ago]
+            if len(recent_orders) >= self.config.max_orders_per_minute:
+                raise RiskViolation(
+                    f'Order rate limit exceeded: {len(recent_orders)}/{self.config.max_orders_per_minute} per minute'
+                )
+
+        # Per-day limit
+        if hasattr(self.config, 'max_orders_per_day') and (
+            self.state.daily_order_count >= self.config.max_orders_per_day
         ):
             raise RiskViolation(
-                f"Projected position size {projected_qty} units exceeds limit {self.limits.max_single_position_units}"
+                f'Daily order limit exceeded: {self.state.daily_order_count}/{self.config.max_orders_per_day}'
             )
 
-        projected_notional = abs(projected_qty * price)
-        if (
-            self.limits.per_symbol_notional_cap > 0
-            and projected_notional > Decimal(str(self.limits.per_symbol_notional_cap))
-        ):
-            raise RiskViolation(
-                f"Projected notional {projected_notional} exceeds per-symbol cap {self.limits.per_symbol_notional_cap}"
-            )
-        if max_alloc > 0 and projected_notional > max_alloc:
-            raise RiskViolation(
-                f"Projected position value {projected_notional} exceeds limit {max_alloc} "
-                f"({self.limits.max_position_fraction:.2%})"
-            )
+    def _record_order_submission(self, timestamp: datetime):
+        """Record an order submission for rate limiting."""
+        self.state.order_timestamps.append(timestamp.isoformat())
+        self.state.daily_order_count += 1
 
-        gross_current = self.portfolio.gross_exposure(last_prices)
-        current_price = last_prices.get(symbol, price)
-        old_notional = abs(current_position.quantity * current_price)
-        projected_gross = gross_current - old_notional + projected_notional
-        if equity > 0 and projected_gross / equity > Decimal(str(self.limits.max_gross_exposure)):
-            raise RiskViolation(
-                f"Projected gross exposure {projected_gross} breaches limit {self.limits.max_gross_exposure} * equity"
-            )
+    # Public wrapper for recording submissions from orchestrators
+    def record_order_submission(self, timestamp: datetime) -> None:
+        """
+        Record an order submission (external call).
 
-        if equity > 0 and projected_gross / equity > Decimal(str(self.limits.max_leverage)):
-            raise RiskViolation(
-                f"Projected leverage {projected_gross / equity:.2f} exceeds limit {self.limits.max_leverage}"
-            )
+        P0 Fix (CRITICAL-2): Thread-safe.
+
+        Use this immediately after a successful pre-trade risk check to
+        advance the order-rate tracking window.
+        """
+        with self._lock:
+            self._record_order_submission(timestamp)
+
+    def halt(self, reason: str):
+        """
+        Halt trading with a reason.
+
+        P0 Fix (CRITICAL-2): Thread-safe.
+        """
+        with self._lock:
+            self._is_halted = True
+            self._halt_reason = reason
+            self.state.is_halted = True
+            self.state.halt_reason = reason
 
     def is_halted(self) -> bool:
-        return self.state.halted
+        """
+        Check if trading is halted.
 
-    def halt_reason(self) -> str | None:
-        return self.state.halt_reason
+        P0 Fix (CRITICAL-2): Thread-safe.
+        """
+        with self._lock:
+            return self._is_halted
+
+    def halt_reason(self) -> str:
+        """
+        Get halt reason.
+
+        P0 Fix (CRITICAL-2): Thread-safe.
+        """
+        with self._lock:
+            return self._halt_reason
+
+    def register_trade(
+        self,
+        realised_pnl: Decimal,
+        unrealised_pnl: Decimal,
+        timestamp: datetime,
+        equity: Decimal,
+        last_prices: dict[str, Decimal],
+    ):
+        """
+        Register a completed trade for daily P&L tracking.
+
+        P0 Fix (CRITICAL-2): Thread-safe.
+        """
+        with self._lock:
+            self.state.daily_pnl += realised_pnl
+
+            # Check if daily loss limit breached
+            daily_loss_pct = abs(self.state.daily_pnl) / self.daily_start_equity if self.daily_start_equity > 0 else 0
+            if daily_loss_pct >= self.config.max_daily_loss_pct:
+                self.halt('Daily loss limit exceeded')

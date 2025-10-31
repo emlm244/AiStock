@@ -7,50 +7,110 @@ vendored holiday data. No third-party packages required.
 
 from __future__ import annotations
 
+from datetime import date as _date
 from datetime import datetime, time, timedelta, timezone
 
 # NYSE/NASDAQ holidays through 2030 (static, deterministic)
 # Format: (year, month, day)
 _NYSE_HOLIDAYS = {
     # 2024
-    (2024, 1, 1), (2024, 1, 15), (2024, 2, 19), (2024, 3, 29),
-    (2024, 5, 27), (2024, 6, 19), (2024, 7, 4), (2024, 9, 2),
-    (2024, 11, 28), (2024, 12, 25),
+    (2024, 1, 1),
+    (2024, 1, 15),
+    (2024, 2, 19),
+    (2024, 3, 29),
+    (2024, 5, 27),
+    (2024, 6, 19),
+    (2024, 7, 4),
+    (2024, 9, 2),
+    (2024, 11, 28),
+    (2024, 12, 25),
     # 2025
-    (2025, 1, 1), (2025, 1, 20), (2025, 2, 17), (2025, 4, 18),
-    (2025, 5, 26), (2025, 6, 19), (2025, 7, 4), (2025, 9, 1),
-    (2025, 11, 27), (2025, 12, 25),
+    (2025, 1, 1),
+    (2025, 1, 20),
+    (2025, 2, 17),
+    (2025, 4, 18),
+    (2025, 5, 26),
+    (2025, 6, 19),
+    (2025, 7, 4),
+    (2025, 9, 1),
+    (2025, 11, 27),
+    (2025, 12, 25),
     # 2026
-    (2026, 1, 1), (2026, 1, 19), (2026, 2, 16), (2026, 4, 3),
-    (2026, 5, 25), (2026, 6, 19), (2026, 7, 3), (2026, 9, 7),
-    (2026, 11, 26), (2026, 12, 25),
+    (2026, 1, 1),
+    (2026, 1, 19),
+    (2026, 2, 16),
+    (2026, 4, 3),
+    (2026, 5, 25),
+    (2026, 6, 19),
+    (2026, 7, 3),
+    (2026, 9, 7),
+    (2026, 11, 26),
+    (2026, 12, 25),
     # 2027
-    (2027, 1, 1), (2027, 1, 18), (2027, 2, 15), (2027, 3, 26),
-    (2027, 5, 31), (2027, 6, 18), (2027, 7, 5), (2027, 9, 6),
-    (2027, 11, 25), (2027, 12, 24),
+    (2027, 1, 1),
+    (2027, 1, 18),
+    (2027, 2, 15),
+    (2027, 3, 26),
+    (2027, 5, 31),
+    (2027, 6, 18),
+    (2027, 7, 5),
+    (2027, 9, 6),
+    (2027, 11, 25),
+    (2027, 12, 24),
     # 2028
-    (2028, 1, 17), (2028, 2, 21), (2028, 4, 14), (2028, 5, 29),
-    (2028, 6, 19), (2028, 7, 4), (2028, 9, 4), (2028, 11, 23),
+    (2028, 1, 17),
+    (2028, 2, 21),
+    (2028, 4, 14),
+    (2028, 5, 29),
+    (2028, 6, 19),
+    (2028, 7, 4),
+    (2028, 9, 4),
+    (2028, 11, 23),
     (2028, 12, 25),
     # 2029
-    (2029, 1, 1), (2029, 1, 15), (2029, 2, 19), (2029, 3, 30),
-    (2029, 5, 28), (2029, 6, 19), (2029, 7, 4), (2029, 9, 3),
-    (2029, 11, 22), (2029, 12, 25),
+    (2029, 1, 1),
+    (2029, 1, 15),
+    (2029, 2, 19),
+    (2029, 3, 30),
+    (2029, 5, 28),
+    (2029, 6, 19),
+    (2029, 7, 4),
+    (2029, 9, 3),
+    (2029, 11, 22),
+    (2029, 12, 25),
     # 2030
-    (2030, 1, 1), (2030, 1, 21), (2030, 2, 18), (2030, 4, 19),
-    (2030, 5, 27), (2030, 6, 19), (2030, 7, 4), (2030, 9, 2),
-    (2030, 11, 28), (2030, 12, 25),
+    (2030, 1, 1),
+    (2030, 1, 21),
+    (2030, 2, 18),
+    (2030, 4, 19),
+    (2030, 5, 27),
+    (2030, 6, 19),
+    (2030, 7, 4),
+    (2030, 9, 2),
+    (2030, 11, 28),
+    (2030, 12, 25),
 }
 
 # Early close days (1:00 PM ET close) - day before or after major holidays
 _NYSE_EARLY_CLOSE = {
-    (2024, 7, 3), (2024, 11, 29), (2024, 12, 24),
-    (2025, 7, 3), (2025, 11, 28), (2025, 12, 24),
-    (2026, 11, 27), (2026, 12, 24),
+    (2024, 7, 3),
+    (2024, 11, 29),
+    (2024, 12, 24),
+    (2025, 7, 3),
+    (2025, 11, 28),
+    (2025, 12, 24),
+    (2026, 11, 27),
+    (2026, 12, 24),
     (2027, 11, 26),
-    (2028, 7, 3), (2028, 11, 24), (2028, 12, 22),
-    (2029, 7, 3), (2029, 11, 23), (2029, 12, 24),
-    (2030, 7, 3), (2030, 11, 29), (2030, 12, 24),
+    (2028, 7, 3),
+    (2028, 11, 24),
+    (2028, 12, 22),
+    (2029, 7, 3),
+    (2029, 11, 23),
+    (2029, 12, 24),
+    (2030, 7, 3),
+    (2030, 11, 29),
+    (2030, 12, 24),
 }
 
 
@@ -113,7 +173,7 @@ def nyse_trading_hours(dt: datetime) -> tuple[time, time]:
 
 def is_trading_time(
     dt: datetime,
-    exchange: str = "NYSE",
+    exchange: str = 'NYSE',
     allow_extended_hours: bool = False,
 ) -> bool:
     """
@@ -127,8 +187,8 @@ def is_trading_time(
     Returns:
         True if market is open for trading at this time
     """
-    if exchange.upper() not in {"NYSE", "NASDAQ"}:
-        raise ValueError(f"Unsupported exchange: {exchange}")
+    if exchange.upper() not in {'NYSE', 'NASDAQ'}:
+        raise ValueError(f'Unsupported exchange: {exchange}')
 
     # Convert to Eastern Time
     et_time = _utc_to_et(dt)
@@ -155,7 +215,7 @@ def is_trading_time(
     return open_time <= current_time <= close_time
 
 
-def next_trading_day(dt: datetime, exchange: str = "NYSE") -> datetime:
+def next_trading_day(dt: datetime, exchange: str = 'NYSE') -> datetime:
     """
     Find the next trading day after the given datetime.
 
@@ -184,9 +244,20 @@ def next_trading_day(dt: datetime, exchange: str = "NYSE") -> datetime:
     return candidate
 
 
+def is_trading_day(d: _date, exchange: str = 'NYSE') -> bool:
+    """Return True if the given date is a regular trading day (not weekend/holiday)."""
+    # Normalize to UTC midnight for checks that expect datetime
+    dt = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+    if exchange.upper() not in {'NYSE', 'NASDAQ'}:
+        raise ValueError(f'Unsupported exchange: {exchange}')
+    if is_weekend(dt):
+        return False
+    return not is_nyse_holiday(dt)
+
+
 def filter_trading_hours(
     timestamps: list[datetime],
-    exchange: str = "NYSE",
+    exchange: str = 'NYSE',
     allow_extended_hours: bool = False,
 ) -> list[datetime]:
     """

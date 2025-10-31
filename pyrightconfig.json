@@ -1,0 +1,68 @@
+{
+  "typeCheckingMode": "strict",
+  "include": [
+    "aistock/**/*.py",
+    "scripts/**/*.py"
+  ],
+  "exclude": [
+    "**/.venv",
+    "**/venv",
+    "**/env",
+    "**/__pycache__",
+    "htmlcov",
+    "data",
+    "models",
+    "aistock/ml",
+    "logs"
+  ],
+  "reportMissingImports": "error",
+  "reportMissingTypeStubs": "none",
+  "reportUnknownMemberType": "warning",
+  "reportUnknownVariableType": "warning",
+  "reportUnknownParameterType": "error",
+  "reportMissingParameterType": "error",
+  "reportUnknownArgumentType": "warning",
+  "reportCallIssue": "error",
+  "reportAny": "warning",
+  "reportPrivateUsage": "warning",
+  "reportConstantRedefinition": "warning",
+  "reportAttributeAccessIssue": "error",
+  "reportGeneralTypeIssues": "error",
+  "reportMissingTypeArgument": "error",
+  "reportUntypedClassDecorator": "none",
+  "reportUntypedBaseClass": "warning",
+  "reportPossiblyUnboundVariable": "warning",
+  "useLibraryCodeForTypes": true,
+  "pythonVersion": "3.11",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.11",
+      "extraPaths": [
+        "."
+      ]
+    },
+    {
+      "root": "tests",
+      "pythonVersion": "3.11",
+      "reportUnknownParameterType": "none",
+      "reportMissingParameterType": "none",
+      "reportPrivateUsage": "none",
+      "reportMissingImports": "none",
+      "extraPaths": [
+        "."
+      ]
+    },
+    {
+      "root": "scripts",
+      "pythonVersion": "3.11",
+      "reportUnknownParameterType": "warning",
+      "reportMissingParameterType": "warning",
+      "extraPaths": [
+        "."
+      ]
+    }
+  ]
+}
+
+

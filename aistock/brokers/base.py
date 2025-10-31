@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Callable
 
 from ..execution import ExecutionReport, Order
@@ -37,8 +38,13 @@ class BaseBroker(ABC):
     def cancel(self, order_id: int) -> bool:
         """Attempt to cancel the order."""
 
-    def subscribe_realtime_bars(self, symbol: str, handler, bar_size: int = 5) -> int:
-        raise NotImplementedError("Real-time bars not supported for this broker")
+    def subscribe_realtime_bars(
+        self,
+        symbol: str,
+        handler: Callable[[datetime, str, float, float, float, float, float], None],
+        bar_size: int = 5,
+    ) -> int:
+        raise NotImplementedError('Real-time bars not supported for this broker')
 
     def unsubscribe(self, req_id: int) -> None:
         return
@@ -53,4 +59,4 @@ class BaseBroker(ABC):
         Raises:
             NotImplementedError: If broker doesn't support position retrieval
         """
-        raise NotImplementedError("Position retrieval not supported for this broker")
+        raise NotImplementedError('Position retrieval not supported for this broker')

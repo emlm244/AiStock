@@ -9,7 +9,7 @@ def test_generate_series_creates_monotonic_data():
     start = datetime.datetime(2020, 1, 2, tzinfo=datetime.timezone.utc)
     end = datetime.datetime(2020, 1, 10, tzinfo=datetime.timezone.utc)
     rows = _generate_series(
-        symbol="TEST",
+        symbol='TEST',
         start=start,
         end=end,
         step=datetime.timedelta(days=1),
@@ -18,17 +18,22 @@ def test_generate_series_creates_monotonic_data():
     )
 
     assert len(rows) == 9
-    timestamps = [datetime.datetime.fromisoformat(row["timestamp"]) for row in rows]
+    timestamps = [
+        datetime.datetime.fromisoformat(str(row['timestamp']))
+        if not isinstance(row['timestamp'], datetime.datetime)
+        else row['timestamp']
+        for row in rows
+    ]
     assert timestamps == sorted(timestamps)
-    assert all(float(row["close"]) > 0 for row in rows)
-    assert all(float(row["volume"]) >= 1000 for row in rows)
+    assert all(float(row['close']) > 0 for row in rows)
+    assert all(float(row['volume']) >= 1000 for row in rows)
 
 
 def test_write_csv_outputs_expected_headers():
     start = datetime.datetime(2020, 1, 2, tzinfo=datetime.timezone.utc)
     end = datetime.datetime(2020, 1, 3, tzinfo=datetime.timezone.utc)
     rows = _generate_series(
-        symbol="ABC",
+        symbol='ABC',
         start=start,
         end=end,
         step=datetime.timedelta(days=1),
@@ -37,8 +42,8 @@ def test_write_csv_outputs_expected_headers():
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "ABC.csv"
+        path = Path(tmpdir) / 'ABC.csv'
         _write_csv(path, rows)
         contents = path.read_text().splitlines()
-        assert contents[0] == "timestamp,open,high,low,close,volume"
+        assert contents[0] == 'timestamp,open,high,low,close,volume'
         assert len(contents) == len(rows) + 1

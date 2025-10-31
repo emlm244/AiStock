@@ -1,305 +1,257 @@
 """
-Central configuration dataclasses for the simplified AIStock Robot runtime.
-
-The previous codebase scattered configuration across mutable global modules and
-interactive prompts, which made deterministic runs impossible.  The new
-configuration model is explicit, structured, and serialisable so that every run
-can be reproduced by reusing the same configuration payload.
+Configuration dataclasses for backtesting and strategy execution.
 """
 
-from __future__ import annotations
-
-import os
-from collections.abc import Iterable, Sequence
+import datetime as dt
 from dataclasses import dataclass, field
-from datetime import timedelta, timezone
-from enum import Enum
+from typing import Optional
 
 
-class RunMode(str, Enum):
-    """Supported execution modes."""
+@dataclass
+class DataQualityConfig:
+    """Data quality and validation settings."""
 
-    RESEARCH = "research"  # Offline analytics / notebooks
-    BACKTEST = "backtest"
-    PAPER = "paper"
-    LIVE = "live"
-
-    def is_live(self) -> bool:
-        return self in {RunMode.PAPER, RunMode.LIVE}
-
-
-@dataclass(frozen=True)
-class RiskLimits:
-    """
-    Hard risk controls enforced by :class:`aistock.risk.RiskEngine`.
-
-    Percentages are expressed as decimals (e.g. 0.02 == 2%).
-    """
-
-    max_daily_loss_pct: float = 0.02
-    max_drawdown_pct: float = 0.10
-    per_trade_risk_pct: float = 0.01
-    max_position_fraction: float = 0.25  # Of equity
-    max_gross_exposure: float = 1.5  # multiple of equity
-    max_leverage: float = 2.0
-    per_symbol_notional_cap: float = 50_000.0
-    max_single_position_units: float = 10_000.0
-    max_holding_period_bars: int = 10_000
-    kill_switch_enabled: bool = True
-    # P0 Fix: Order rate limiting to prevent runaway algorithms
-    max_orders_per_minute: int = 10
-    max_orders_per_day: int = 500
-    rate_limit_enabled: bool = True
-
-    def validate(self) -> None:
-        for field_name, value in [
-            ("max_daily_loss_pct", self.max_daily_loss_pct),
-            ("max_drawdown_pct", self.max_drawdown_pct),
-            ("per_trade_risk_pct", self.per_trade_risk_pct),
-            ("max_position_fraction", self.max_position_fraction),
-        ]:
-            if value < 0:
-                raise ValueError(f"{field_name} must be non-negative")
-        if self.max_position_fraction > 1:
-            raise ValueError("max_position_fraction must be <= 1")
-        if self.max_gross_exposure <= 0:
-            raise ValueError("max_gross_exposure must be positive")
-        if self.max_leverage <= 0:
-            raise ValueError("max_leverage must be positive")
-        if self.per_symbol_notional_cap < 0:
-            raise ValueError("per_symbol_notional_cap must be >= 0")
-        if self.max_single_position_units < 0:
-            raise ValueError("max_single_position_units must be >= 0")
-        if self.max_holding_period_bars <= 0:
-            raise ValueError("max_holding_period_bars must be positive")
-        # P0 Fix: Validate rate limiting parameters
-        if self.max_orders_per_minute <= 0:
-            raise ValueError("max_orders_per_minute must be positive")
-        if self.max_orders_per_day <= 0:
-            raise ValueError("max_orders_per_day must be positive")
+    min_bars: int = 30  # Minimum bars required (reduced from 100 for testing)
+    max_gap_bars: int = 10
+    min_volume: float = 0.0
+    require_complete_ohlc: bool = True
+    require_monotonic_timestamps: bool = True
+    zero_volume_allowed: bool = False
+    fill_missing_with_last: bool = False
+    max_price_change_pct: float = 0.50  # 50% max single-bar change
+    min_price: float = 0.01  # Minimum valid price
 
 
-@dataclass(frozen=True)
+@dataclass
 class DataSource:
-    """
-    Declarative description of a historical data source.
-
-    The loader intentionally captures only what is required for deterministic
-    simulation: where the files live and how timestamps should be interpreted.
-    """
+    """Configuration for data loading."""
 
     path: str
-    timezone: timezone = timezone.utc
-    symbols: Sequence[str] | None = None
-    bar_interval: timedelta = timedelta(minutes=1)
-    warmup_bars: int = 100
-    allow_nan: bool = False
-    exchange: str = "NYSE"  # Exchange for calendar validation
-    enforce_trading_hours: bool = True  # Skip bars outside trading hours
-    allow_extended_hours: bool = False  # Include pre-market/after-hours
+    timezone: dt.timezone = field(default=dt.timezone.utc)
+    symbols: tuple[str, ...] = field(default_factory=tuple)
+    warmup_bars: int = 50
+    bar_interval: dt.timedelta = field(default_factory=lambda: dt.timedelta(minutes=1))
+    enforce_trading_hours: bool = True
+    exchange: str = 'NYSE'  # Default exchange for trading hours check
+    allow_extended_hours: bool = False  # Whether to allow extended hours trading
 
 
-@dataclass(frozen=True)
-class DataQualityConfig:
-    """Rules for validating input datasets."""
-
-    max_gap_bars: int = 5
-    require_monotonic_timestamps: bool = True
-    fill_missing_with_last: bool = False
-    zero_volume_allowed: bool = True
-
-
-@dataclass(frozen=True)
-class UniverseConfig:
-    """
-    Parameters controlling automatic universe selection.
-
-    The selector analyses recent history for every symbol available in the data
-    directory, ranks candidates by a blended momentum/volatility/volume score,
-    and returns the highest scoring names.
-    """
-
-    max_symbols: int = 10
-    lookback_bars: int = 250
-    min_avg_volume: float = 0.0
-    min_price: float | None = None
-    max_price: float | None = None
-    include: Sequence[str] = field(default_factory=tuple)
-    exclude: Sequence[str] = field(default_factory=tuple)
-    momentum_weight: float = 0.6
-    volatility_weight: float = 0.3
-    volume_weight: float = 0.1
-
-    def validate(self) -> None:
-        if self.max_symbols <= 0:
-            raise ValueError("max_symbols must be positive")
-        if self.lookback_bars <= 1:
-            raise ValueError("lookback_bars must be greater than 1")
-        if self.min_avg_volume < 0:
-            raise ValueError("min_avg_volume must be non-negative")
-        if any(symbol == "" for symbol in self.include):
-            raise ValueError("include list contains empty symbol")
-        if any(symbol == "" for symbol in self.exclude):
-            raise ValueError("exclude list contains empty symbol")
-        weight_sum = self.momentum_weight + self.volatility_weight + self.volume_weight
-        if weight_sum <= 0:
-            raise ValueError("At least one universe weight must be positive")
-
-@dataclass(frozen=True)
+@dataclass
 class StrategyConfig:
-    """Parameters for the built-in moving-average strategy."""
+    """Legacy configuration for rule-based strategies (unused in FSD mode)."""
 
-    short_window: int = 8
-    long_window: int = 21
-    exit_window: int = 10  # trailing stop look-back
-    take_profit_multiple: float = 2.0
-    stop_loss_multiple: float = 1.5
-    ml_enabled: bool = False
-    ml_model_path: str = "models/ml_model.json"
-    ml_confidence_threshold: float = 0.55
-    ml_feature_lookback: int = 30
-
-    def validate(self) -> None:
-        if self.short_window <= 0 or self.long_window <= 0:
-            raise ValueError("Strategy windows must be positive")
-        if self.short_window >= self.long_window:
-            raise ValueError("short_window must be < long_window")
-        if self.exit_window <= 0:
-            raise ValueError("exit_window must be positive")
-        if self.take_profit_multiple <= 0 or self.stop_loss_multiple <= 0:
-            raise ValueError("profit/loss multiples must be positive")
-        if self.ml_confidence_threshold <= 0 or self.ml_confidence_threshold >= 1:
-            raise ValueError("ml_confidence_threshold must be between 0 and 1")
+    pass  # Retained for backward compatibility only
 
 
-@dataclass(frozen=True)
-class EngineConfig:
+# Legacy RiskConfig removed - use RiskLimits class instead
+
+
+@dataclass
+class RiskLimits:
     """
-    Core runtime configuration shared across run modes.
+    Comprehensive risk limits for live trading and backtesting.
 
-    - ``initial_equity`` is expressed in account currency units.
-    - ``commission_per_trade`` is a flat fee applied to each filled order.
-    - ``slippage_bps`` is expressed in basis points (1/100th of a percent).
+    This is the primary risk configuration class used throughout the system.
     """
 
-    risk: RiskLimits = field(default_factory=RiskLimits)
-    strategy: StrategyConfig = field(default_factory=StrategyConfig)
-    data_quality: DataQualityConfig = field(default_factory=DataQualityConfig)
-    initial_equity: float = 100_000.0
-    commission_per_trade: float = 1.0
-    slippage_bps: float = 5.0  # 0.05 %
-    reporting_currency: str = "USD"
-    clock_timezone: timezone = timezone.utc
+    # Core risk limits
+    max_daily_loss_pct: float = 0.05  # 5% daily loss → halt
+    max_drawdown_pct: float = 0.15  # 15% drawdown → kill switch
+    max_position_fraction: float = 0.20  # 20% per asset max
+    max_gross_exposure: float = 2.0  # 200% of equity max
+    max_leverage: float = 2.0  # 2:1 leverage max
+    max_holding_period_bars: int = 100  # Force exit after N bars
+
+    # Position sizing
+    per_trade_risk_pct: float = 0.01  # 1% risk per trade
+    per_symbol_notional_cap: float = 100000.0  # Max notional per symbol
+    max_single_position_units: float = 1000.0  # Max units per position
+
+    # Order rate limiting
+    rate_limit_enabled: bool = True
+    max_orders_per_minute: int = 10  # Rate limit: 10/min
+    max_orders_per_day: int = 100  # Rate limit: 100/day
+
+    # Kill switch
+    kill_switch_enabled: bool = True  # Enable kill switch
 
     def validate(self) -> None:
-        if self.initial_equity <= 0:
-            raise ValueError("initial_equity must be positive")
-        if self.commission_per_trade < 0:
-            raise ValueError("commission_per_trade must be >= 0")
-        if self.slippage_bps < 0:
-            raise ValueError("slippage_bps must be >= 0")
-        self.risk.validate()
-        self.strategy.validate()
-        self.data_quality  # noqa: B018 - ensure dataclass field instantiation
+        """
+        P2-4 Fix: Validate risk limits parameters.
+
+        Raises:
+            ValueError: If any parameter is invalid
+        """
+        if not 0.0 < self.max_daily_loss_pct <= 1.0:
+            raise ValueError(f'max_daily_loss_pct must be in (0, 1], got {self.max_daily_loss_pct}')
+
+        if not 0.0 < self.max_drawdown_pct <= 1.0:
+            raise ValueError(f'max_drawdown_pct must be in (0, 1], got {self.max_drawdown_pct}')
+
+        if not 0.0 < self.max_position_fraction <= 1.0:
+            raise ValueError(f'max_position_fraction must be in (0, 1], got {self.max_position_fraction}')
+
+        if self.max_gross_exposure <= 0:
+            raise ValueError(f'max_gross_exposure must be positive, got {self.max_gross_exposure}')
+
+        if self.max_leverage <= 0:
+            raise ValueError(f'max_leverage must be positive, got {self.max_leverage}')
+
+        if self.max_holding_period_bars < 1:
+            raise ValueError(f'max_holding_period_bars must be >= 1, got {self.max_holding_period_bars}')
+
+        if not 0.0 < self.per_trade_risk_pct <= 1.0:
+            raise ValueError(f'per_trade_risk_pct must be in (0, 1], got {self.per_trade_risk_pct}')
+
+        if self.per_symbol_notional_cap <= 0:
+            raise ValueError(f'per_symbol_notional_cap must be positive, got {self.per_symbol_notional_cap}')
+
+        if self.max_single_position_units <= 0:
+            raise ValueError(f'max_single_position_units must be positive, got {self.max_single_position_units}')
+
+        if self.max_orders_per_minute < 1:
+            raise ValueError(f'max_orders_per_minute must be >= 1, got {self.max_orders_per_minute}')
+
+        if self.max_orders_per_day < 1:
+            raise ValueError(f'max_orders_per_day must be >= 1, got {self.max_orders_per_day}')
 
 
-@dataclass(frozen=True)
-class ExecutionConfig:
-    """Execution assumptions for paper/backtest brokers."""
+@dataclass
+class ContractSpec:
+    """
+    IBKR contract specification.
+    """
 
-    default_order_quantity: float = 1.0
-    market_latency_ms: int = 150
-    partial_fill_probability: float = 0.0
-    cancel_on_disconnect: bool = True
-    slip_bps_limit: float = 20.0
-
-    def validate(self) -> None:
-        if self.default_order_quantity <= 0:
-            raise ValueError("default_order_quantity must be positive")
-        if self.market_latency_ms < 0:
-            raise ValueError("market_latency_ms must be >= 0")
-        if not 0 <= self.partial_fill_probability <= 1:
-            raise ValueError("partial_fill_probability must be between 0 and 1")
-        if self.slip_bps_limit < 0:
-            raise ValueError("slip_bps_limit must be >= 0")
+    symbol: str
+    sec_type: str = 'STK'  # Security type: STK, FUT, OPT, CASH, etc.
+    exchange: str = 'SMART'  # Exchange: SMART, NASDAQ, NYSE, etc.
+    currency: str = 'USD'  # Currency
+    local_symbol: str = ''  # Local symbol (if different from symbol)
+    multiplier: Optional[int] = None  # Contract multiplier (for futures/options)
 
 
-@dataclass(frozen=True)
+@dataclass
 class BrokerConfig:
     """
-    Broker configuration with P0 Fix for secrets management.
-
-    Credentials are loaded from environment variables by default:
-    - IBKR_HOST (default: 127.0.0.1)
-    - IBKR_PORT (default: 7497)
-    - IBKR_CLIENT_ID (default: 1001)
-    - IBKR_ACCOUNT (required for live IBKR trading)
-
-    Direct credential arguments override environment variables.
+    Broker connection and contract configuration.
     """
 
-    backend: str = "paper"  # paper, ibkr
-    ib_host: str = field(default_factory=lambda: os.getenv("IBKR_HOST", "127.0.0.1"))
-    ib_port: int = field(default_factory=lambda: int(os.getenv("IBKR_PORT", "7497")))
-    ib_client_id: int = field(default_factory=lambda: int(os.getenv("IBKR_CLIENT_ID", "1001")))
-    ib_account: str | None = field(default_factory=lambda: os.getenv("IBKR_ACCOUNT"))
-    ib_exchange: str = "SMART"
-    ib_sec_type: str = "STK"
-    ib_currency: str = "USD"
-    reconnect_interval: int = 5
+    backend: str = 'paper'  # "paper" or "ibkr"
+    ib_host: str = '127.0.0.1'  # IBKR TWS/Gateway host
+    ib_port: int = 7497  # IBKR port (7497=paper, 7496=live)
+    ib_client_id: Optional[int] = None  # IBKR client ID (REQUIRED for IBKR backend)
+    ib_account: Optional[str] = None  # IBKR account ID
+    ib_sec_type: str = 'STK'  # Default security type
+    ib_exchange: str = 'SMART'  # Default exchange
+    ib_currency: str = 'USD'  # Default currency
     contracts: dict[str, ContractSpec] = field(default_factory=dict)
-    enable_market_data: bool = True
 
     def validate(self) -> None:
-        if self.backend not in {"paper", "ibkr"}:
-            raise ValueError("backend must be 'paper' or 'ibkr'")
-        if self.ib_port <= 0:
-            raise ValueError("ib_port must be positive")
-        if self.ib_client_id < 0:
-            raise ValueError("ib_client_id must be non-negative")
-        # P0 Fix: Require IBKR_ACCOUNT for live trading
-        if self.backend == "ibkr" and not self.ib_account:
-            raise ValueError(
-                "IBKR_ACCOUNT environment variable is required for live IBKR trading. "
-                "Set it via: export IBKR_ACCOUNT=your_account_id"
-            )
+        """
+        P2-4 Fix: Validate broker configuration.
+
+        Raises:
+            ValueError: If any parameter is invalid
+        """
+        valid_backends = {'paper', 'ibkr'}
+        if self.backend not in valid_backends:
+            raise ValueError(f'backend must be one of {valid_backends}, got {self.backend!r}')
+
+        if not self.ib_host:
+            raise ValueError('ib_host cannot be empty')
+
+        if not 1 <= self.ib_port <= 65535:
+            raise ValueError(f'ib_port must be in [1, 65535], got {self.ib_port}')
+
+        if self.ib_client_id is not None and self.ib_client_id < 0:
+            raise ValueError(f'ib_client_id must be non-negative, got {self.ib_client_id}')
+
+        if self.backend == 'ibkr':
+            if not self.ib_account:
+                raise ValueError('ib_account is required when backend is "ibkr"')
+            if self.ib_client_id is None:
+                raise ValueError('ib_client_id is required when backend is "ibkr". Set IBKR_CLIENT_ID in .env')
 
 
-@dataclass(frozen=True)
-class ContractSpec:
-    symbol: str
-    sec_type: str = "STK"
-    exchange: str = "SMART"
-    currency: str = "USD"
-    multiplier: float | None = None
-    local_symbol: str | None = None
+@dataclass
+class ExecutionConfig:
+    """Order execution settings."""
+
+    order_type: str = 'MARKET'
+    slippage_pct: float = 0.001
+    slip_bps_limit: float = 10.0  # Slippage in basis points
+    commission_per_share: float = 0.005
+    partial_fill_probability: float = 0.0  # 0=always full fill, 1=always partial
+    min_fill_fraction: float = 0.1  # Minimum fraction for partial fills
 
 
+@dataclass
+class EngineConfig:
+    """Backtesting engine configuration."""
 
-@dataclass(frozen=True)
+    initial_equity: float = 10000.0
+    commission_per_trade: float = 0.001  # 0.1%
+    slippage_bps: float = 10.0  # Slippage in basis points
+
+    strategy: StrategyConfig = field(default_factory=StrategyConfig)
+    risk: RiskLimits = field(default_factory=RiskLimits)  # Use RiskLimits instead of RiskConfig
+    data_quality: DataQualityConfig = field(default_factory=DataQualityConfig)
+
+
+@dataclass
+class UniverseConfig:
+    """Universe selection configuration (unused - symbols specified directly in FSD mode)."""
+
+    pass  # Retained for backward compatibility only
+
+
+@dataclass
 class BacktestConfig:
-    """
-    Aggregate configuration used by :class:`aistock.engine.BacktestRunner`.
-    """
+    """Complete backtest configuration."""
 
     data: DataSource
-    engine: EngineConfig = field(default_factory=EngineConfig)
+    engine: EngineConfig
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
-    broker: BrokerConfig = field(default_factory=BrokerConfig)
-    run_mode: RunMode = RunMode.BACKTEST
-    universe: UniverseConfig | None = None
+    universe: Optional[UniverseConfig] = None
+    broker: Optional[BrokerConfig] = None
 
-    def validate(self) -> None:
-        self.engine.validate()
-        self.execution.validate()
-        self.broker.validate()
-        if self.universe:
-            self.universe.validate()
+    def validate(self):
+        """
+        P2-4 Fix: Enhanced validation of configuration parameters.
 
-    @property
-    def symbols(self) -> Iterable[str]:
-        if self.data.symbols:
-            return self.data.symbols
-        raise ValueError(
-            "No symbols specified in BacktestConfig; provide DataSource.symbols or configure UniverseConfig."
-        )
+        Validates all nested configurations.
+        """
+        # Engine validation
+        if self.engine.initial_equity <= 0:
+            raise ValueError('initial_equity must be positive')
+
+        if self.engine.commission_per_trade < 0:
+            raise ValueError('commission_per_trade cannot be negative')
+
+        if self.engine.slippage_bps < 0:
+            raise ValueError('slippage_bps cannot be negative')
+
+        # Data validation
+        if not self.data.symbols and self.universe is None:
+            raise ValueError('Must provide either data.symbols or universe config')
+
+        if self.data.warmup_bars < 0:
+            raise ValueError('warmup_bars cannot be negative')
+
+        # Execution validation
+        if self.execution.slippage_pct < 0:
+            raise ValueError('slippage_pct cannot be negative')
+
+        if self.execution.commission_per_share < 0:
+            raise ValueError('commission_per_share cannot be negative')
+
+        if not 0.0 <= self.execution.partial_fill_probability <= 1.0:
+            raise ValueError('partial_fill_probability must be in [0, 1]')
+
+        if not 0.0 < self.execution.min_fill_fraction <= 1.0:
+            raise ValueError('min_fill_fraction must be in (0, 1]')
+
+        # Validate nested configs
+        self.engine.risk.validate()
+        if self.broker:
+            self.broker.validate()

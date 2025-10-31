@@ -1,822 +1,822 @@
 """
-FSD (Full Self-Driving) AI Trading Mode
+FSD (Full Self-Driving) Reinforcement Learning Trading Agent.
 
-Tesla-style autonomous trading with continuous reinforcement learning.
-Only 2 hard constraints: max_capital, time_limit.
-Everything else is self-determined by the AI.
+This is the core AI that makes ALL trading decisions in FSD mode.
+Uses Q-Learning to learn optimal trading policies from experience.
 
-The AI:
-- Learns from every trade (good or bad)
-- Chooses which stocks to trade (market scanner)
-- Decides when to trade (confidence scoring)
-- Can choose NOT to trade
-- Saves state between sessions (persistent learning)
-- Has access to ALL BOT features but makes decisions autonomously
+PROFESSIONAL ENHANCEMENTS:
+- Multi-timeframe analysis integration
+- Candlestick pattern recognition
+- Professional trading safeguards
 """
 
-from __future__ import annotations
-
+import hashlib
 import json
+import math
 import random
-from collections import deque
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+import threading
+from collections import OrderedDict, deque
+from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypedDict, cast
+
+import numpy as np
 
 from .data import Bar
-from .logging import configure_logger
-from .ml.features import extract_features
-from .ml.model import LogisticRegressionModel, load_model
 from .portfolio import Portfolio
 
+if TYPE_CHECKING:
+    from .edge_cases import EdgeCaseHandler
+    from .patterns import PatternDetector
+    from .professional import ProfessionalSafeguards
+    from .timeframes import TimeframeManager
 
-@dataclass(frozen=True)
+
+@dataclass
 class FSDConfig:
-    """
-    Configuration for FSD AI mode.
+    """Configuration for FSD RL agent."""
 
-    Only 2 HARD constraints:
-    - max_capital: Maximum capital AI can deploy
-    - time_limit_minutes: Time window for trading (e.g., 1min, 5min, 30min bars)
-
-    Everything else is learned/adjusted by the AI.
-    """
-
-    max_capital: float  # HARD CONSTRAINT: Cannot exceed
-    time_limit_minutes: int  # HARD CONSTRAINT: Must trade within this timeframe
-
-    # AI Learning Parameters (soft - AI can adjust these)
+    # Learning parameters
     learning_rate: float = 0.001
     discount_factor: float = 0.95
-    exploration_rate: float = 0.20
+    exploration_rate: float = 0.1
     exploration_decay: float = 0.995
     min_exploration_rate: float = 0.01
-    experience_buffer_size: int = 10000
-    batch_size: int = 32
 
-    # Market Scanner Settings
-    max_stocks_to_scan: int = 500
-    min_liquidity_volume: int = 100000
-    min_price: float = 1.0
-    max_price: float = 10000.0
+    # Constraints
+    max_capital: float = 10000.0
+    max_timeframe_seconds: int = 300  # 5 minutes
+    min_confidence_threshold: float = 0.6
+    max_loss_per_trade_pct: float = 5.0
 
-    # Confidence Thresholds (AI learns optimal values)
-    initial_confidence_threshold: float = 0.60
+    # Reward shaping
+    risk_penalty_factor: float = 0.1
+    transaction_cost_factor: float = 0.001
 
-    # State Persistence
-    state_save_path: str = "state/fsd/ai_state.json"
-    experience_buffer_path: str = "state/fsd/experience_buffer.json"
-    performance_history_path: str = "state/fsd/performance_history.json"
+    # State discretization
+    price_change_bins: int = 10
+    volume_bins: int = 5
+    position_bins: int = 5
 
-    # ML Model Integration
-    ml_model_path: str | None = None  # Path to trained ML model (optional)
+    # ===== ADVANCED FEATURES =====
+    # Parallel trading
+    max_concurrent_positions: int = 5  # Max positions held at once
+    max_capital_per_position: float = 0.2  # Max 20% capital per position
 
-    # Trade Deadline (Urgency Mode)
-    trade_deadline_minutes: int | None = None  # e.g., 60 = must trade within 1 hour (per session)
-    trade_deadline_stress_enabled: bool = True  # Enable threshold lowering as deadline approaches
+    # Per-symbol adaptation
+    enable_per_symbol_params: bool = True  # Learn different params per symbol
+    adaptive_confidence: bool = True  # Adjust confidence based on performance
+
+    # Dynamic confidence adaptation (REPLACES trade deadline feature)
+    # Gradually lowers confidence threshold if no trades in session (max reduction)
+    max_confidence_decay: float = 0.15  # Max 15% reduction over session
+    # Minutes before confidence starts decaying
+    confidence_decay_start_minutes: int = 30
+    # Enable session-based confidence adaptation
+    enable_session_adaptation: bool = True
+    # Volatility targeting preference: 'balanced', 'high', or 'low'
+    volatility_bias: str = 'balanced'
+
+    def validate(self) -> None:
+        """
+        P2-4 Fix: Validate FSD configuration parameters on startup.
+
+        Raises:
+            ValueError: If any parameter is invalid
+        """
+        # Learning parameters
+        if not 0.0 < self.learning_rate <= 1.0:
+            raise ValueError(f'learning_rate must be in (0, 1], got {self.learning_rate}')
+
+        if not 0.0 <= self.discount_factor <= 1.0:
+            raise ValueError(f'discount_factor must be in [0, 1], got {self.discount_factor}')
+
+        if not 0.0 <= self.exploration_rate <= 1.0:
+            raise ValueError(f'exploration_rate must be in [0, 1], got {self.exploration_rate}')
+
+        if not 0.0 < self.exploration_decay <= 1.0:
+            raise ValueError(f'exploration_decay must be in (0, 1], got {self.exploration_decay}')
+
+        if not 0.0 <= self.min_exploration_rate <= self.exploration_rate:
+            raise ValueError(
+                f'min_exploration_rate must be in [0, exploration_rate], '
+                f'got {self.min_exploration_rate} (exploration_rate={self.exploration_rate})'
+            )
+
+        # Constraints
+        if self.max_capital <= 0:
+            raise ValueError(f'max_capital must be positive, got {self.max_capital}')
+
+        if self.max_timeframe_seconds <= 0:
+            raise ValueError(f'max_timeframe_seconds must be positive, got {self.max_timeframe_seconds}')
+
+        if not 0.0 <= self.min_confidence_threshold <= 1.0:
+            raise ValueError(f'min_confidence_threshold must be in [0, 1], got {self.min_confidence_threshold}')
+
+        if not 0.0 < self.max_loss_per_trade_pct <= 100.0:
+            raise ValueError(f'max_loss_per_trade_pct must be in (0, 100], got {self.max_loss_per_trade_pct}')
+
+        # Reward shaping
+        if self.risk_penalty_factor < 0:
+            raise ValueError(f'risk_penalty_factor must be non-negative, got {self.risk_penalty_factor}')
+
+        if self.transaction_cost_factor < 0:
+            raise ValueError(f'transaction_cost_factor must be non-negative, got {self.transaction_cost_factor}')
+
+        # State discretization
+        if self.price_change_bins < 2:
+            raise ValueError(f'price_change_bins must be >= 2, got {self.price_change_bins}')
+
+        if self.volume_bins < 2:
+            raise ValueError(f'volume_bins must be >= 2, got {self.volume_bins}')
+
+        if self.position_bins < 2:
+            raise ValueError(f'position_bins must be >= 2, got {self.position_bins}')
+
+        # Parallel trading
+        if self.max_concurrent_positions < 1:
+            raise ValueError(f'max_concurrent_positions must be >= 1, got {self.max_concurrent_positions}')
+
+        if not 0.0 < self.max_capital_per_position <= 1.0:
+            raise ValueError(f'max_capital_per_position must be in (0, 1], got {self.max_capital_per_position}')
+
+        # Confidence adaptation
+        if not 0.0 <= self.max_confidence_decay <= 1.0:
+            raise ValueError(f'max_confidence_decay must be in [0, 1], got {self.max_confidence_decay}')
+
+        if self.confidence_decay_start_minutes < 0:
+            raise ValueError(
+                f'confidence_decay_start_minutes must be non-negative, got {self.confidence_decay_start_minutes}'
+            )
+
+        # Volatility bias
+        valid_volatility_biases = {'balanced', 'high', 'low'}
+        if self.volatility_bias not in valid_volatility_biases:
+            raise ValueError(
+                f'volatility_bias must be one of {valid_volatility_biases}, got {self.volatility_bias!r}'
+            )
 
 
-@dataclass
-class Trade:
-    """Represents a completed trade for RL learning."""
-
-    symbol: str
-    entry_time: datetime
-    entry_price: float
-    exit_time: datetime
-    exit_price: float
-    quantity: float
-    pnl: float
-    confidence: float
-    features: dict[str, float]
-    size_fraction: float = 0.0
-    confidence_breakdown: dict[str, float] = field(default_factory=dict)
-
-
-@dataclass
-class Experience:
-    """RL experience tuple (state, action, reward, next_state)."""
-    state: dict[str, float]
-    action: dict[str, Any]  # {'symbol': str, 'side': 'buy'/'sell', 'size': float}
-    reward: float
-    next_state: dict[str, float]
-    done: bool
-
-
-class ConfidenceScorer:
+class RLAgent:
     """
-    Multi-factor confidence scoring system.
+    Q-Learning Reinforcement Learning Agent.
 
-    Analyzes:
-    - Technical indicators
-    - Price action (candlestick patterns)
-    - Volume profile
-    - Historical performance
-    - ML model prediction
-
-    Output: Confidence score 0.0 to 1.0
-    """
-
-    def __init__(self, ml_model_path: str | None = None):
-        self.logger = configure_logger("ConfidenceScorer", structured=True)
-        self.ml_model: LogisticRegressionModel | None = None
-
-        # Load ML model if path provided
-        if ml_model_path:
-            try:
-                model_path = Path(ml_model_path).expanduser()
-                if model_path.exists():
-                    self.ml_model = load_model(str(model_path))
-                    self.logger.info(
-                        "ml_model_loaded",
-                        extra={"path": str(model_path), "features": len(self.ml_model.feature_names)}
-                    )
-                else:
-                    self.logger.warning("ml_model_not_found", extra={"path": str(model_path)})
-            except Exception as exc:
-                self.logger.error("ml_model_load_failed", extra={"path": ml_model_path, "error": str(exc)})
-
-    def score(self, symbol: str, bars: list[Bar], portfolio: Portfolio) -> dict[str, float]:
-        """
-        Calculate confidence score for trading a symbol.
-
-        Returns:
-            {
-                'total_confidence': 0.0-1.0,
-                'technical_score': 0.0-1.0,
-                'price_action_score': 0.0-1.0,
-                'volume_score': 0.0-1.0,
-                'ml_score': 0.0-1.0
-            }
-        """
-        if len(bars) < 20:
-            return {'total_confidence': 0.0}
-
-        scores = {}
-
-        # Technical indicators
-        scores['technical_score'] = self._score_technicals(bars)
-
-        # Price action (candlestick patterns)
-        scores['price_action_score'] = self._score_price_action(bars)
-
-        # Volume profile
-        scores['volume_score'] = self._score_volume(bars)
-
-        # ML model prediction (simple momentum for now)
-        scores['ml_score'] = self._score_ml_prediction(bars)
-
-        # Weighted average (ALL algorithms used)
-        # TODO: Dynamic weight adjustment based on algorithm performance
-        # For now, weights are static but Q-learning implicitly learns which signals to trust
-        weights = {
-            'technical_score': 0.30,
-            'price_action_score': 0.25,
-            'volume_score': 0.20,
-            'ml_score': 0.25,
-        }
-
-        total = sum(scores[k] * weights[k] for k in weights if k in scores)
-        scores['total_confidence'] = max(0.0, min(1.0, total))
-
-        return scores
-
-    @staticmethod
-    def _score_technicals(bars: list[Bar]) -> float:
-        """Score based on technical indicators (SMA, RSI approximation)."""
-        closes = [float(b.close) for b in bars[-20:]]
-
-        # Simple Moving Average trend
-        sma_short = sum(closes[-5:]) / 5
-        sma_long = sum(closes[-20:]) / 20
-
-        if sma_short > sma_long:
-            trend_score = 0.7
-        elif sma_short < sma_long * 0.98:
-            trend_score = 0.3
-        else:
-            trend_score = 0.5
-
-        # Price relative to SMA
-        current_price = closes[-1]
-        distance_from_sma = (current_price - sma_long) / sma_long
-
-        # Prefer prices near SMA (not too extended)
-        if abs(distance_from_sma) < 0.02:
-            position_score = 0.8
-        elif abs(distance_from_sma) < 0.05:
-            position_score = 0.6
-        else:
-            position_score = 0.4
-
-        return (trend_score + position_score) / 2
-
-    @staticmethod
-    def _score_price_action(bars: list[Bar]) -> float:
-        """Score based on candlestick patterns."""
-        if len(bars) < 3:
-            return 0.5
-
-        last_3 = bars[-3:]
-        scores = []
-
-        for bar in last_3:
-            body = abs(float(bar.close) - float(bar.open))
-            total_range = float(bar.high) - float(bar.low)
-
-            if total_range == 0:
-                scores.append(0.5)
-                continue
-
-            body_ratio = body / total_range
-
-            # Strong body = conviction
-            if body_ratio > 0.7:
-                scores.append(0.8)
-            elif body_ratio > 0.5:
-                scores.append(0.6)
-            else:
-                scores.append(0.4)
-
-        return sum(scores) / len(scores)
-
-    @staticmethod
-    def _score_volume(bars: list[Bar]) -> float:
-        """Score based on volume profile."""
-        if len(bars) < 10:
-            return 0.5
-
-        volumes = [float(b.volume) for b in bars[-10:]]
-        avg_volume = sum(volumes[:-1]) / (len(volumes) - 1)
-
-        if avg_volume == 0:
-            return 0.5
-
-        current_volume = volumes[-1]
-        volume_ratio = current_volume / avg_volume
-
-        # Higher than average volume = more conviction
-        if volume_ratio > 1.5:
-            return 0.9
-        elif volume_ratio > 1.2:
-            return 0.7
-        elif volume_ratio > 0.8:
-            return 0.6
-        else:
-            return 0.4
-
-    def _score_ml_prediction(self, bars: list[Bar], lookback: int = 30) -> float:
-        """
-        Score based on trained ML model prediction.
-
-        If ML model is loaded, uses real predictions.
-        Otherwise, falls back to simple momentum calculation.
-        """
-        # Use trained ML model if available
-        if self.ml_model is not None:
-            try:
-                features = extract_features(bars, lookback=lookback)
-                if features is None:
-                    return 0.5  # Not enough data
-
-                # Get probability of upward movement
-                prob_up = self.ml_model.predict_proba(features)
-
-                # Convert to confidence score (0.5 = neutral, 0.0/1.0 = extremes)
-                # prob_up > 0.5 = bullish, prob_up < 0.5 = bearish
-                return float(prob_up)
-
-            except Exception as exc:
-                self.logger.warning("ml_prediction_failed", extra={"error": str(exc)})
-                # Fall through to momentum fallback
-
-        # Fallback: Simple momentum if no ML model
-        if len(bars) < 10:
-            return 0.5
-
-        closes = [float(b.close) for b in bars[-10:]]
-        returns = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
-        avg_return = sum(returns) / len(returns)
-
-        # Positive momentum = higher score
-        if avg_return > 0.01:
-            return 0.8
-        elif avg_return > 0:
-            return 0.6
-        elif avg_return > -0.01:
-            return 0.4
-        else:
-            return 0.2
-
-
-class ReinforcementLearner:
-    """
-    Simple Q-learning based RL agent.
-
-    Learns optimal trading policy from experience:
-    - State: market features (price, volume, indicators)
-    - Action: {trade/no-trade, symbol, size}
-    - Reward: PnL from trade
+    State: Market features + position + P&L + time remaining
+    Actions: BUY, SELL, HOLD, MODIFY_SIZE
+    Reward: Realized P&L - risk penalty - transaction costs
     """
 
     def __init__(self, config: FSDConfig):
         self.config = config
-        self.logger = configure_logger("RLAgent", structured=True)
 
-        # Q-table approximation (simple dict for now)
-        self.q_values: dict[str, float] = {}
+        # P1-1 Fix: Q-value table with LRU eviction (OrderedDict preserves insertion order)
+        # Cap at 10K states to prevent memory bloat during long runs
+        self.q_values: OrderedDict[str, dict[str, float]] = OrderedDict()
+        self.max_q_table_size = 10_000
+        self._lock = threading.Lock()  # P0-3 Fix: Protect Q-value updates from concurrent access
 
-        # Experience replay buffer
-        self.experience_buffer: deque[Experience] = deque(maxlen=config.experience_buffer_size)
-
-        # Learning parameters
-        self.learning_rate = config.learning_rate
-        self.discount_factor = config.discount_factor
-        self.exploration_rate = config.exploration_rate
-
-        # Performance tracking
+        # Statistics
         self.total_trades = 0
         self.winning_trades = 0
         self.total_pnl = 0.0
+        self.exploration_rate = config.exploration_rate
 
-    def get_action(self, state: dict[str, float], available_symbols: list[str]) -> dict[str, Any]:
+        # Episode tracking
+        self.current_episode_rewards: list[float] = []
+        # Experience buffer capped to prevent unbounded growth (future replay support)
+        self.experience_buffer: deque[dict[str, Any]] = deque(maxlen=10_000)
+
+    def _ensure_q_table_capacity(self) -> None:
         """
-        Choose action based on current state (epsilon-greedy).
+        P1-1 Fix: Evict oldest states if Q-table exceeds size limit.
+
+        IMPORTANT: Must be called with self._lock held.
+        Uses LRU eviction to prevent memory bloat during long runs.
+        """
+        while len(self.q_values) >= self.max_q_table_size:
+            # Evict oldest (least recently used) state
+            oldest_state = next(iter(self.q_values))
+            del self.q_values[oldest_state]
+
+    def _hash_state(self, state: dict[str, object]) -> str:
+        """Create hashable state representation."""
+        # Discretize continuous values
+        pc_val: object = state.get('price_change_pct', 0.0)
+        price_change: float = float(pc_val) if isinstance(pc_val, (int, float)) else 0.0
+        vr_val: object = state.get('volume_ratio', 1.0)
+        vol_ratio: float = float(vr_val) if isinstance(vr_val, (int, float)) else 1.0
+        pp_val: object = state.get('position_pct', 0.0)
+        position_pct: float = float(pp_val) if isinstance(pp_val, (int, float)) else 0.0
+
+        t_val: object = state.get('trend', 'neutral')
+        trend_default: str = t_val if isinstance(t_val, str) else 'neutral'
+        v_val: object = state.get('volatility', 'normal')
+        vol_default: str = v_val if isinstance(v_val, str) else 'normal'
+        # Normalize optional string fields first to avoid Any warnings
+        tf_raw: object = state.get('trend_fast', trend_default)
+        trend_fast_norm: str = tf_raw if isinstance(tf_raw, str) else trend_default
+        ts_raw: object = state.get('trend_slow', trend_default)
+        trend_slow_norm: str = ts_raw if isinstance(ts_raw, str) else trend_default
+        vf_raw: object = state.get('volatility_fast', vol_default)
+        vol_fast_norm: str = vf_raw if isinstance(vf_raw, str) else vol_default
+        vs_raw: object = state.get('volatility_slow', vol_default)
+        vol_slow_norm: str = vs_raw if isinstance(vs_raw, str) else vol_default
+
+        discretized = {
+            'price_change_bin': self._discretize(price_change, -0.05, 0.05, self.config.price_change_bins),
+            'volume_bin': self._discretize(vol_ratio, 0.5, 2.0, self.config.volume_bins),
+            'position_bin': self._discretize(position_pct, -0.5, 0.5, self.config.position_bins),
+            'trend': trend_default,
+            'volatility': vol_default,
+            # Multi-timeframe features (fast≈1-3 bars, slow≈15-30 bars)
+            'trend_fast': trend_fast_norm,
+            'trend_slow': trend_slow_norm,
+            'volatility_fast': vol_fast_norm,
+            'volatility_slow': vol_slow_norm,
+        }
+
+        # Create hash
+        state_str = json.dumps(discretized, sort_keys=True)
+        return hashlib.md5(state_str.encode()).hexdigest()
+
+    # Public wrapper to satisfy external callers in strict type mode
+    def hash_state(self, state: dict[str, object]) -> str:
+        return self._hash_state(state)
+
+    def _discretize(self, value: float, min_val: float, max_val: float, bins: int) -> int:
+        """Discretize continuous value into bins."""
+        if value <= min_val:
+            return 0
+        if value >= max_val:
+            return bins - 1
+
+        range_size = max_val - min_val
+        bin_size = range_size / bins
+        bin_idx = int((value - min_val) / bin_size)
+
+        return min(bin_idx, bins - 1)
+
+    def get_actions(self) -> list[str]:
+        """Get list of possible actions."""
+        return ['BUY', 'SELL', 'HOLD', 'INCREASE_SIZE', 'DECREASE_SIZE']
+
+    def select_action(self, state: dict[str, object], training: bool = True) -> str:
+        """
+        Select action using epsilon-greedy policy.
+
+        Args:
+            state: Current state dictionary
+            training: If True, use exploration; if False, pure exploitation
 
         Returns:
-            {'trade': bool, 'symbol': str or None, 'size_fraction': float}
+            Selected action
         """
-        # Exploration: random action
-        if random.random() < self.exploration_rate:
-            return self._random_action(available_symbols)
+        state_hash = self._hash_state(state)
 
-        # Exploitation: best known action
-        return self._best_action(state, available_symbols)
+        # P0-3 Fix: Thread-safe Q-value access
+        with self._lock:
+            # Initialize Q-values for this state if new
+            if state_hash not in self.q_values:
+                # P1-1 Fix: Evict old states if necessary before adding new one
+                self._ensure_q_table_capacity()
+                self.q_values[state_hash] = dict.fromkeys(self.get_actions(), 0.0)
 
-    @staticmethod
-    def _random_action(available_symbols: list[str]) -> dict[str, Any]:
-        """Random exploration action."""
-        # 50% chance to not trade
-        if random.random() < 0.5:
-            return {'trade': False, 'symbol': None, 'size_fraction': 0.0}
+            # Epsilon-greedy
+            if training and np.random.random() < self.exploration_rate:
+                # Explore: random action
+                return random.choice(self.get_actions())
+            else:
+                # Exploit: best Q-value
+                q_vals = self.q_values[state_hash]
+                return max(q_vals.items(), key=lambda item: item[1])[0]
 
-        # Random symbol and size
-        symbol = random.choice(available_symbols) if available_symbols else None
-        size_fraction = random.uniform(0.05, 0.30)
+    def update_q_value(
+        self, state: dict[str, object], action: str, reward: float, next_state: dict[str, object], done: bool
+    ):
+        """
+        Update Q-value using Q-learning update rule.
 
-        return {'trade': True, 'symbol': symbol, 'size_fraction': size_fraction}
+        Q(s,a) ← Q(s,a) + α[r + γ·max Q(s',a') - Q(s,a)]
+        """
+        state_hash = self._hash_state(state)
+        next_state_hash = self._hash_state(next_state)
 
-    def _best_action(self, state: dict[str, float], available_symbols: list[str]) -> dict[str, Any]:
-        """Choose best action based on learned Q-values."""
-        if not available_symbols:
-            return {'trade': False, 'symbol': None, 'size_fraction': 0.0}
+        # P0-3 Fix: Thread-safe Q-value update
+        with self._lock:
+            # Initialize if needed
+            if state_hash not in self.q_values:
+                # P1-1 Fix: Evict old states if necessary before adding new one
+                self._ensure_q_table_capacity()
+                self.q_values[state_hash] = dict.fromkeys(self.get_actions(), 0.0)
+            if next_state_hash not in self.q_values:
+                # P1-1 Fix: Evict old states if necessary before adding new one
+                self._ensure_q_table_capacity()
+                self.q_values[next_state_hash] = dict.fromkeys(self.get_actions(), 0.0)
 
-        best_symbol = None
-        best_q = float('-inf')
+            # Current Q-value
+            current_q = self.q_values[state_hash][action]
 
-        for symbol in available_symbols:
-            state_key = self._state_key(state, symbol)
-            q_value = self.q_values.get(state_key, 0.0)
+            # Max future Q-value
+            max_future_q = 0.0 if done else max(self.q_values[next_state_hash].values())
 
-            if q_value > best_q:
-                best_q = q_value
-                best_symbol = symbol
+            # Q-learning update
+            new_q = current_q + self.config.learning_rate * (
+                reward + self.config.discount_factor * max_future_q - current_q
+            )
 
-        # If best Q-value is negative, don't trade
-        if best_q < 0:
-            return {'trade': False, 'symbol': None, 'size_fraction': 0.0}
+            self.q_values[state_hash][action] = new_q
 
-        # Trade with learned size (clamped to safe range)
-        size_fraction = min(0.30, max(0.05, best_q / 10.0))
+            # Decay exploration
+            if done:
+                self.exploration_rate = max(
+                    self.config.min_exploration_rate, self.exploration_rate * self.config.exploration_decay
+                )
 
-        return {'trade': True, 'symbol': best_symbol, 'size_fraction': size_fraction}
+    def get_confidence(self, state: dict[str, object], action: str) -> float:
+        """
+        Get confidence score for an action in a state.
 
-    def learn_from_trade(self, trade: Trade) -> None:
-        """Update Q-values based on completed trade."""
-        state_key = self._state_key(trade.features, trade.symbol)
+        Returns value between 0 and 1.
+        """
+        state_hash = self._hash_state(state)
 
-        # Current Q-value
-        current_q = self.q_values.get(state_key, 0.0)
+        # P0-3 Fix: Thread-safe Q-value read
+        with self._lock:
+            if state_hash not in self.q_values:
+                return 0.5  # Neutral confidence for unseen states
 
-        # Reward = PnL
-        reward = trade.pnl
+            q_vals = self.q_values[state_hash]
+            action_q = q_vals.get(action, 0.0)
 
-        # Update Q-value (simple Q-learning update)
-        new_q = current_q + self.learning_rate * (reward - current_q)
-        self.q_values[state_key] = new_q
+        # Normalize Q-values to [0, 1] using sigmoid (outside lock)
+        confidence: float = 1.0 / (1.0 + math.exp(-action_q))
 
-        # Capture experience
-        experience = Experience(
-            state=dict(trade.features),
-            action={"symbol": trade.symbol, "size_fraction": trade.size_fraction},
-            reward=trade.pnl,
-            next_state=dict(trade.features),
-            done=True,
-        )
-        self.experience_buffer.append(experience)
-        self._replay()
+        return confidence
 
-        # Update stats
-        self.total_trades += 1
-        if trade.pnl > 0:
-            self.winning_trades += 1
-        self.total_pnl += trade.pnl
 
-        # Decay exploration rate
-        self.exploration_rate = max(
-            self.config.min_exploration_rate,
-            self.exploration_rate * self.config.exploration_decay,
-        )
-
-        self.logger.info(
-            "learned_from_trade",
-            extra={
-                "symbol": trade.symbol,
-                "pnl": trade.pnl,
-                "new_q": new_q,
-                "exploration_rate": self.exploration_rate,
-                "total_trades": self.total_trades,
-                "win_rate": self.winning_trades / self.total_trades if self.total_trades > 0 else 0,
-            },
-        )
-
-    def _replay(self) -> None:
-        """Sample past experiences to reinforce learning."""
-        if not self.experience_buffer:
-            return
-
-        sample_size = min(self.config.batch_size, len(self.experience_buffer))
-        batch = random.sample(list(self.experience_buffer), sample_size)
-
-        for exp in batch:
-            symbol = exp.action.get("symbol")
-            if not symbol:
-                continue
-            state_key = self._state_key(exp.state, symbol)
-            current_q = self.q_values.get(state_key, 0.0)
-
-            target = exp.reward
-            if not exp.done and exp.next_state:
-                future_q = self.q_values.get(self._state_key(exp.next_state, symbol), 0.0)
-                target = exp.reward + self.discount_factor * future_q
-
-            updated_q = current_q + self.learning_rate * (target - current_q)
-            self.q_values[state_key] = updated_q
-
-    @staticmethod
-    def _state_key(state: dict[str, float], symbol: str) -> str:
-        """Create hashable state key."""
-        # Discretize continuous values
-        discretized = {
-            k: round(v, 2) for k, v in state.items()
-        }
-        return f"{symbol}_{json.dumps(discretized, sort_keys=True)}"
-
-    def save_state(self, path: Path) -> None:
-        """Save learned Q-values."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        state = {
-            "q_values": self.q_values,
-            "exploration_rate": self.exploration_rate,
-            "total_trades": self.total_trades,
-            "winning_trades": self.winning_trades,
-            "total_pnl": self.total_pnl,
-        }
-        with path.open("w") as f:
-            json.dump(state, f, indent=2)
-        self.logger.info("rl_state_saved", extra={"path": str(path), "q_values_count": len(self.q_values)})
-
-    def load_state(self, path: Path) -> None:
-        """Load learned Q-values from previous session."""
-        if not path.exists():
-            self.logger.info("no_previous_rl_state", extra={"path": str(path)})
-            return
-
-        with path.open("r") as f:
-            state = json.load(f)
-
-        self.q_values = state.get("q_values", {})
-        self.exploration_rate = state.get("exploration_rate", self.config.exploration_rate)
-        self.total_trades = state.get("total_trades", 0)
-        self.winning_trades = state.get("winning_trades", 0)
-        self.total_pnl = state.get("total_pnl", 0.0)
-
-        self.logger.info(
-            "rl_state_loaded",
-            extra={
-                "path": str(path),
-                "q_values_count": len(self.q_values),
-                "total_trades": self.total_trades,
-                "win_rate": self.winning_trades / self.total_trades if self.total_trades > 0 else 0,
-            },
-        )
+class SymbolStats(TypedDict):
+    trades: int
+    wins: int
+    total_pnl: float
+    confidence_adj: float
 
 
 class FSDEngine:
     """
-    Full Self-Driving AI Trading Engine.
+    Full Self-Driving Trading Engine.
 
-    Only 2 HARD constraints:
-    - max_capital: Cannot exceed this amount
-    - time_limit_minutes: Must trade within this timeframe
+    This is the AI brain that:
+    1. Evaluates market conditions and opportunities
+    2. Decides whether to trade and how much
+    3. Learns from every trade outcome
+    4. Adapts strategy parameters dynamically
 
-    Everything else (symbol selection, position sizing, entry/exit timing)
-    is autonomously determined by the AI based on continuous learning.
+    PROFESSIONAL ENHANCEMENTS:
+    5. Multi-timeframe correlation analysis
+    6. Candlestick pattern recognition
+    7. Professional trading safeguards
     """
 
-    def __init__(self, config: FSDConfig, portfolio: Portfolio):
+    def __init__(
+        self,
+        config: FSDConfig,
+        portfolio: Portfolio,
+        timeframe_manager: 'TimeframeManager | None' = None,
+        pattern_detector: 'PatternDetector | None' = None,
+        safeguards: 'ProfessionalSafeguards | None' = None,
+        edge_case_handler: 'EdgeCaseHandler | None' = None,
+    ):
         self.config = config
         self.portfolio = portfolio
-        self.logger = configure_logger("FSDEngine", structured=True)
+        self.rl_agent = RLAgent(config)
 
-        # Core AI components
-        self.confidence_scorer = ConfidenceScorer(ml_model_path=config.ml_model_path)
-        self.rl_agent = ReinforcementLearner(config)
-        self.rl_agent.load_state(Path(config.state_save_path).expanduser())
+        # Professional modules (optional but recommended)
+        self.timeframe_manager = timeframe_manager
+        self.pattern_detector = pattern_detector
+        self.safeguards = safeguards
+        self.edge_case_handler = edge_case_handler
 
-        # Runtime state
-        self._last_prices: dict[str, Decimal] = {}
-        self.pending_intents: dict[str, dict[str, Any]] = {}
-        self.open_positions: dict[str, dict[str, Any]] = {}
-        self.trade_history: list[Trade] = []
-        self.performance_history: list[dict[str, Any]] = []
+        # Trading state
+        self.current_positions: dict[str, Decimal] = {}
+        self.trade_intents: list[dict[str, Any]] = []
+        self.trade_history: list[dict[str, Any]] = []  # History of all trades
 
-        self._load_experience_buffer()
-        self._load_performance_history()
-
+        # Performance tracking
+        self.episode_start_equity = float(portfolio.initial_cash)
+        self.last_state: dict[str, Any] = {}
+        self.last_action: str = 'HOLD'
         self.last_trade_timestamp: datetime | None = None
 
         # Session tracking
-        self.session_start: datetime | None = None
-        self.session_trades: list[Trade] = []
+        self.session_start_time: datetime | None = None
+        self.session_trades: int = 0
 
-    def start_session(self) -> dict[str, Any]:
-        """Start FSD trading session."""
-        self.session_start = datetime.now(timezone.utc)
-        self.session_trades = []
-        self.pending_intents.clear()
-        self.last_trade_timestamp = None
+        # GUI callback (optional) - public interface for GUI integration
+        self.gui_log_callback: Any | None = None
 
-        session_state = {
-            "session_start": self.session_start.isoformat(),
-            "max_capital": self.config.max_capital,
-            "time_limit_minutes": self.config.time_limit_minutes,
-            "exploration_rate": self.rl_agent.exploration_rate,
-            "q_values_learned": len(self.rl_agent.q_values),
-            "experience_buffer": len(self.rl_agent.experience_buffer),
-        }
-        return session_state
+        # ===== ADVANCED FEATURES =====
+        # Per-symbol performance tracking for adaptive confidence
+        self.symbol_performance: dict[str, SymbolStats] = {}
+        # Format: {symbol: {'trades': int, 'wins': int, 'total_pnl': float, 'confidence_adj': float}}
 
-    def can_trade(self) -> bool:
-        """Check if within time limit constraint."""
-        if self.session_start is None:
-            return True
-
-        elapsed = (datetime.now(timezone.utc) - self.session_start).total_seconds() / 60
-        return elapsed < self.config.time_limit_minutes
-
-    def evaluate_opportunity(
-        self,
-        symbol: str,
-        bars: list[Bar],
-        last_prices: dict[str, Decimal],
-    ) -> dict[str, Any]:
+    def extract_state(self, symbol: str, bars: list[Bar], last_prices: dict[str, Decimal]) -> dict[str, Any]:
         """
-        Evaluate trading opportunity for a symbol.
+        ENHANCED: Extract state features from market data with professional analysis.
+
+        Args:
+            symbol: Trading symbol
+            bars: Historical bars
+            last_prices: Current prices for all symbols
 
         Returns:
-            {
-                'should_trade': bool,
-                'confidence': float,
-                'confidence_breakdown': dict,
-                'action': dict,  # From RL agent
-                'reason': str,
-                'state': dict,
-            }
+            State dictionary with multi-timeframe and pattern features
         """
-        self._last_prices = last_prices
-
-        if not bars:
-            return {
-                'should_trade': False,
-                'confidence': 0.0,
-                'confidence_breakdown': {},
-                'action': {'trade': False, 'symbol': None, 'size_fraction': 0.0},
-                'reason': 'insufficient_market_data',
-                'state': {},
-            }
-
-        last_price = float(bars[-1].close)
-        if last_price < self.config.min_price or last_price > self.config.max_price:
-            return {
-                'should_trade': False,
-                'confidence': 0.0,
-                'confidence_breakdown': {},
-                'action': {'trade': False, 'symbol': None, 'size_fraction': 0.0},
-                'reason': 'price_out_of_bounds',
-                'state': {},
-            }
-
-        if len(bars) >= 5:
-            avg_volume = sum(float(b.volume) for b in bars[-5:]) / 5
-            if avg_volume < self.config.min_liquidity_volume:
-                return {
-                    'should_trade': False,
-                    'confidence': 0.0,
-                    'confidence_breakdown': {},
-                    'action': {'trade': False, 'symbol': None, 'size_fraction': 0.0},
-                    'reason': 'insufficient_liquidity',
-                    'state': {},
-                }
-
-        # Get confidence scores
-        confidence_scores = self.confidence_scorer.score(symbol, bars, self.portfolio)
-        total_confidence = confidence_scores.get('total_confidence', 0.0)
-
-        # Extract state features for RL agent
-        state = self._extract_state_features(symbol, bars, confidence_scores)
-
-        # Calculate effective threshold (with trade deadline stress if applicable)
-        effective_threshold = self.config.initial_confidence_threshold
-        stress_factor = 0.0
-        time_remaining = None
-
-        # Trade Deadline Stress: Lower threshold if approaching deadline with no trades
-        if (
-            self.config.trade_deadline_minutes is not None
-            and self.config.trade_deadline_stress_enabled
-            and self.session_start is not None
-        ):
-            elapsed_minutes = (datetime.now(timezone.utc) - self.session_start).total_seconds() / 60
-            time_remaining = self.config.trade_deadline_minutes - elapsed_minutes
-
-            # Only apply stress if:
-            # 1. Still within deadline (time_remaining > 0)
-            # 2. No trades made yet this session (len(self.session_trades) == 0)
-            if time_remaining > 0 and len(self.session_trades) == 0:
-                # Stress factor increases as deadline approaches (0.0 to 1.0)
-                stress_factor = 1.0 - (time_remaining / self.config.trade_deadline_minutes)
-
-                # Lower threshold based on stress (max 80% reduction)
-                # e.g., threshold = 0.45 * (1 - 0.8 * 0.9) = 0.126 when 90% through deadline
-                effective_threshold = self.config.initial_confidence_threshold * (1.0 - stress_factor * 0.8)
-
-                self.logger.info(
-                    "trade_deadline_stress_active",
-                    extra={
-                        "time_remaining_minutes": round(time_remaining, 2),
-                        "stress_factor": round(stress_factor, 3),
-                        "original_threshold": self.config.initial_confidence_threshold,
-                        "effective_threshold": round(effective_threshold, 3),
-                        "trades_this_session": len(self.session_trades),
-                        "confidence": round(total_confidence, 3),
-                    }
-                )
-
-        if total_confidence < effective_threshold:
-            return {
-                'should_trade': False,
-                'confidence': total_confidence,
-                'confidence_breakdown': confidence_scores,
-                'action': {'trade': False, 'symbol': None, 'size_fraction': 0.0},
-                'reason': 'confidence_below_threshold',
-                'state': state,
-                'trade_deadline_stress': {
-                    'enabled': self.config.trade_deadline_stress_enabled,
-                    'time_remaining': time_remaining,
-                    'stress_factor': stress_factor,
-                    'effective_threshold': effective_threshold,
-                } if self.config.trade_deadline_minutes is not None else None,
-            }
-
-        # Get RL agent's action
-        action = self.rl_agent.get_action(state, [symbol])
-
-        # Check constraints
-        if not self.can_trade():
-            return {
-                'should_trade': False,
-                'confidence': total_confidence,
-                'confidence_breakdown': confidence_scores,
-                'action': action,
-                'reason': 'time_limit_exceeded',
-                'state': state,
-            }
-
-        # Check capital constraint
-        available_capital = self._available_capital()
-        if available_capital <= 0:
-            return {
-                'should_trade': False,
-                'confidence': total_confidence,
-                'confidence_breakdown': confidence_scores,
-                'action': action,
-                'reason': 'max_capital_deployed',
-                'state': state,
-            }
-
-        # AI decided not to trade
-        if not action['trade']:
-            return {
-                'should_trade': False,
-                'confidence': total_confidence,
-                'confidence_breakdown': confidence_scores,
-                'action': action,
-                'reason': 'ai_chose_no_trade',
-                'state': state,
-            }
-
-        # AI wants to trade
-        return {
-            'should_trade': True,
-            'confidence': total_confidence,
-            'confidence_breakdown': confidence_scores,
-            'action': action,
-            'reason': 'ai_approved',
-            'available_capital': available_capital,
-            'state': state,
-        }
-
-    def _extract_state_features(
-        self,
-        symbol: str,
-        bars: list[Bar],
-        confidence_scores: dict[str, float],
-    ) -> dict[str, float]:
-        """Extract state features for RL agent."""
-        if len(bars) < 10:
+        if len(bars) < 20:
             return {}
 
-        closes = [float(b.close) for b in bars[-10:]]
-        volumes = [float(b.volume) for b in bars[-10:]]
+        # Recent price changes
+        recent_closes: list[float] = [float(bar.close) for bar in bars[-20:]]
+        current_price = recent_closes[-1]
+        prev_price = recent_closes[-2] if len(recent_closes) > 1 else current_price
+
+        price_change_pct = (current_price - prev_price) / prev_price if prev_price > 0 else 0
+
+        # Volume analysis
+        recent_volumes: list[int] = [bar.volume for bar in bars[-20:]]
+        avg_volume = np.mean(recent_volumes) if recent_volumes else 1
+        current_volume = bars[-1].volume
+        volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1.0
+
+        # Trend detection (multi-timeframe using different windows from same bars)
+        # Fast trend ~ 1-3 minute view; Slow trend ~ 15-30 minute view
+        trend = 'neutral'
+        trend_fast = 'neutral'
+        trend_slow = 'neutral'
+        if len(recent_closes) >= 10:
+            short_ma = np.mean(recent_closes[-5:])
+            long_ma = np.mean(recent_closes[-10:])
+            trend = 'up' if short_ma > long_ma * 1.01 else 'down' if short_ma < long_ma * 0.99 else 'neutral'
+        if len(recent_closes) >= 6:
+            fast_short = np.mean(recent_closes[-3:])
+            fast_long = np.mean(recent_closes[-6:])
+            trend_fast = (
+                'up' if fast_short > fast_long * 1.01 else 'down' if fast_short < fast_long * 0.99 else 'neutral'
+            )
+        if len(recent_closes) >= 30:
+            slow_short = np.mean(recent_closes[-15:])
+            slow_long = np.mean(recent_closes[-30:])
+            trend_slow = (
+                'up' if slow_short > slow_long * 1.005 else 'down' if slow_short < slow_long * 0.995 else 'neutral'
+            )
+
+        # Volatility (standard deviation of returns) at multiple horizons
+        volatility = 'normal'
+        volatility_fast = 'normal'
+        volatility_slow = 'normal'
+        if len(recent_closes) >= 10:
+            returns = np.diff(recent_closes) / recent_closes[:-1]
+            volatility_val = np.std(returns)
+            volatility = 'low' if volatility_val < 0.01 else 'high' if volatility_val > 0.03 else 'normal'
+        if len(recent_closes) >= 6:
+            returns_fast = np.diff(recent_closes[-6:]) / np.array(recent_closes[-6:-1])
+            vol_fast_val = np.std(returns_fast)
+            volatility_fast = 'low' if vol_fast_val < 0.012 else 'high' if vol_fast_val > 0.04 else 'normal'
+        if len(recent_closes) >= 30:
+            returns_slow = np.diff(recent_closes[-30:]) / np.array(recent_closes[-30:-1])
+            vol_slow_val = np.std(returns_slow)
+            volatility_slow = 'low' if vol_slow_val < 0.008 else 'high' if vol_slow_val > 0.025 else 'normal'
+
+        # Position state
+        current_position = self.current_positions.get(symbol, Decimal('0'))
+        equity = float(self.portfolio.get_equity(last_prices))
+        position_value = float(current_position) * current_price
+        position_pct = position_value / equity if equity > 0 else 0
+
+        state: dict[str, Any] = {
+            'symbol': symbol,
+            'price_change_pct': price_change_pct,
+            'volume_ratio': volume_ratio,
+            'trend': trend,
+            'volatility': volatility,
+            'trend_fast': trend_fast,
+            'trend_slow': trend_slow,
+            'volatility_fast': volatility_fast,
+            'volatility_slow': volatility_slow,
+            'position_pct': position_pct,
+            'current_price': current_price,
+        }
+
+        # PROFESSIONAL ENHANCEMENT 1: Multi-timeframe features
+        if self.timeframe_manager and self.timeframe_manager.has_sufficient_data(symbol):
+            timeframe_features = self.timeframe_manager.get_timeframe_features(symbol)
+            state.update(timeframe_features)
+
+        # PROFESSIONAL ENHANCEMENT 2: Candlestick patterns
+        if self.pattern_detector and len(bars) >= 3:
+            patterns = self.pattern_detector.detect_patterns(bars)
+            if patterns:
+                # Add strongest pattern signal
+                strongest = self.pattern_detector.get_strongest_signal(patterns)
+                state['pattern_signal'] = strongest.value
+                state['pattern_count'] = len(patterns)
+                # Add individual pattern flags
+                state['has_bullish_pattern'] = any(p.signal.value == 'bullish' for p in patterns)
+                state['has_bearish_pattern'] = any(p.signal.value == 'bearish' for p in patterns)
+            else:
+                state['pattern_signal'] = 'neutral'
+                state['pattern_count'] = 0
+                state['has_bullish_pattern'] = False
+                state['has_bearish_pattern'] = False
+
+        return state
+
+    def evaluate_opportunity(self, symbol: str, bars: list[Bar], last_prices: dict[str, Decimal]) -> dict[str, Any]:
+        """
+        ENHANCED: Evaluate whether to trade this symbol with advanced features:
+        - Deadline urgency (lowers threshold as deadline approaches)
+        - Adaptive confidence per symbol (learns which symbols are profitable)
+        - Parallel trading limits (respects max concurrent positions)
+
+        Args:
+            symbol: Trading symbol
+            bars: Historical bars
+            last_prices: Current prices
+
+        Returns:
+            Decision dictionary with:
+            - should_trade: bool
+            - action: dict with trade details
+            - confidence: float
+            - state: dict
+            - reason: str (explanation)
+        """
+        # ===== EDGE CASE PROTECTION (First Line of Defense) =====
+        if self.edge_case_handler:
+            # Get timeframe data if available
+            timeframe_data = None
+            if self.timeframe_manager:
+                timeframe_data = {}
+                for tf in self.timeframe_manager.timeframes:
+                    tf_bars = self.timeframe_manager.get_bars(symbol, tf, lookback=50)
+                    if tf_bars:
+                        timeframe_data[tf] = tf_bars
+
+            edge_result = self.edge_case_handler.check_edge_cases(
+                symbol=symbol,
+                bars=bars,
+                timeframe_data=timeframe_data,
+                current_time=datetime.now(),
+            )
+
+            if edge_result.action == 'block':
+                # Critical edge case - block trading
+                return {
+                    'should_trade': False,
+                    'action': {'trade': False},
+                    'confidence': 0.0,
+                    'state': {},
+                    'reason': f'edge_case_blocked: {edge_result.reason}',
+                    'edge_case': {
+                        'severity': edge_result.severity,
+                        'reason': edge_result.reason,
+                    },
+                }
+
+        # Extract current state
+        state = self.extract_state(symbol, bars, last_prices)
+
+        if not state:
+            return {
+                'should_trade': False,
+                'action': {'trade': False},
+                'confidence': 0.0,
+                'state': {},
+                'reason': 'insufficient_data',
+            }
+
+        # ===== PROFESSIONAL SAFEGUARDS CHECK =====
+        safeguard_confidence_adjustment = 0.0
+        safeguard_position_multiplier = 1.0
+        safeguard_warnings: list[str] = []
+
+        if self.safeguards:
+            # Check for timeframe divergence if multi-timeframe enabled
+            timeframe_divergence = False
+            if self.timeframe_manager and self.timeframe_manager.has_sufficient_data(symbol):
+                analysis = self.timeframe_manager.analyze_cross_timeframe(symbol)
+                timeframe_divergence = analysis.divergence_detected
+                safeguard_confidence_adjustment += analysis.confidence_adjustment
+
+            # Run professional safeguard checks
+            safeguard_result = self.safeguards.check_trading_allowed(
+                symbol=symbol,
+                bars=bars,
+                current_time=datetime.now(),
+                timeframe_divergence=timeframe_divergence,
+            )
+
+            if not safeguard_result.allowed:
+                # Trade blocked by safeguards
+                return {
+                    'should_trade': False,
+                    'action': {'trade': False},
+                    'confidence': 0.0,
+                    'state': state,
+                    'reason': f'safeguards_blocked: {safeguard_result.reason}',
+                    'warnings': safeguard_result.warnings,
+                }
+
+            # Apply safeguard adjustments
+            safeguard_confidence_adjustment += safeguard_result.confidence_adjustment
+            safeguard_position_multiplier = safeguard_result.position_size_multiplier
+            safeguard_warnings = safeguard_result.warnings
+
+        # ===== PARALLEL TRADING LIMIT CHECK =====
+        num_positions = len([pos for pos in self.current_positions.values() if abs(pos) > Decimal('0.01')])
+        if num_positions >= self.config.max_concurrent_positions:
+            # Already at max positions - only allow closing trades
+            current_position = self.current_positions.get(symbol, Decimal('0'))
+            if abs(current_position) < Decimal('0.01'):
+                return {
+                    'should_trade': False,
+                    'action': {'trade': False},
+                    'confidence': 0.0,
+                    'state': state,
+                    'reason': f'max_positions_reached ({num_positions}/{self.config.max_concurrent_positions})',
+                }
+
+        # Get RL agent's action
+        action_type = self.rl_agent.select_action(state, training=True)
+        base_confidence = self.rl_agent.get_confidence(state, action_type)
+
+        # Store state/action for learning
+        self.last_state = state
+        self.last_action = action_type
+
+        # ===== ADAPTIVE CONFIDENCE (per-symbol learning) =====
+        adjusted_confidence = base_confidence
+
+        # Apply edge case adjustments (if edge case handler detected non-blocking issues)
+        edge_case_position_multiplier = 1.0
+        if self.edge_case_handler:
+            # Re-run edge case check to get adjustments
+            edge_result = self.edge_case_handler.check_edge_cases(symbol, bars)
+            if edge_result.is_edge_case and edge_result.action != 'block':
+                adjusted_confidence += edge_result.confidence_adjustment
+                edge_case_position_multiplier = edge_result.position_size_multiplier
+                # Log edge case warning
+                if edge_result.action == 'warn' or edge_result.action == 'reduce_size':
+                    safeguard_warnings.append(f'Edge case: {edge_result.reason}')
+
+        # Apply professional safeguard adjustments
+        adjusted_confidence += safeguard_confidence_adjustment
+
+        if self.config.enable_per_symbol_params and symbol in self.symbol_performance:
+            perf = self.symbol_performance[symbol]
+            if perf['trades'] >= 3:  # Need at least 3 trades to adapt
+                win_rate = perf['wins'] / perf['trades']
+                avg_pnl = perf['total_pnl'] / perf['trades']
+
+                # Boost confidence for profitable symbols, reduce for unprofitable
+                if win_rate > 0.6 and avg_pnl > 0:
+                    perf['confidence_adj'] = min(0.15, perf['confidence_adj'] + 0.02)
+                elif win_rate < 0.4 or avg_pnl < 0:
+                    perf['confidence_adj'] = max(-0.15, perf['confidence_adj'] - 0.02)
+
+                adjusted_confidence += perf['confidence_adj']
+
+        # Clamp confidence to valid range
+        adjusted_confidence = max(0.0, min(1.0, adjusted_confidence))
+
+        # ===== VOLATILITY BIAS ADJUSTMENT =====
+        volatility_bias = getattr(self.config, 'volatility_bias', 'balanced')
+        bias_adjustment = 0.0
+        if volatility_bias == 'high':
+            before_bias = adjusted_confidence
+            if state.get('volatility') == 'high' or state.get('volatility_fast') == 'high':
+                adjusted_confidence = min(1.0, adjusted_confidence + 0.08)
+            elif state.get('volatility') == 'low':
+                adjusted_confidence *= 0.9
+            bias_adjustment = adjusted_confidence - before_bias
+        elif volatility_bias == 'low':
+            before_bias = adjusted_confidence
+            if state.get('volatility') == 'high' or state.get('volatility_fast') == 'high':
+                adjusted_confidence *= 0.75
+            elif state.get('volatility') == 'low':
+                adjusted_confidence = min(1.0, adjusted_confidence + 0.05)
+            bias_adjustment = adjusted_confidence - before_bias
+
+        # Clamp confidence again after bias adjustment
+        adjusted_confidence = max(0.0, min(1.0, adjusted_confidence))
+
+        # ===== DYNAMIC CONFIDENCE THRESHOLD (Session-Based Adaptation) =====
+        # Smarter alternative to hard deadlines - gradually lowers threshold if bot is being too conservative
+        effective_threshold = self.config.min_confidence_threshold
+        confidence_decay = 0.0
+
+        if self.config.enable_session_adaptation and self.session_start_time and self.session_trades == 0:
+            # No trades yet - check if we should adapt
+            elapsed_minutes = (datetime.now() - self.session_start_time).total_seconds() / 60
+
+            # Only start adapting after confidence_decay_start_minutes
+            if elapsed_minutes > self.config.confidence_decay_start_minutes:
+                # Gradual decay over time (but never forced trading)
+                decay_minutes = elapsed_minutes - self.config.confidence_decay_start_minutes
+                # Decay factor: 0.0 at start, approaching 1.0 over next 60 minutes
+                decay_factor = min(1.0, decay_minutes / 60.0)
+                confidence_decay = decay_factor * self.config.max_confidence_decay
+                effective_threshold = max(0.35, self.config.min_confidence_threshold - confidence_decay)
+
+        # Convert action to trading decision
+        should_trade = action_type in ['BUY', 'SELL', 'INCREASE_SIZE', 'DECREASE_SIZE']
+
+        if not should_trade or adjusted_confidence < effective_threshold:
+            reason = (
+                'hold_action'
+                if not should_trade
+                else f'confidence_too_low ({adjusted_confidence:.2f} < {effective_threshold:.2f})'
+            )
+            return {
+                'should_trade': False,
+                'action': {'trade': False},
+                'confidence': adjusted_confidence,
+                'state': state,
+                'reason': reason,
+                'confidence_breakdown': {
+                    'base': base_confidence,
+                    'adjusted': adjusted_confidence,
+                    'threshold': effective_threshold,
+                    'confidence_decay': confidence_decay,
+                    'safeguard_adjustment': safeguard_confidence_adjustment,
+                    'volatility_bias': volatility_bias,
+                    'bias_adjustment': bias_adjustment,
+                },
+            }
+
+        # Determine size fraction based on confidence and action
+        # Cap per-position capital
+        max_fraction = max(0.0, min(self.config.max_capital_per_position, 1.0))
+
+        if action_type == 'BUY':
+            size_fraction = adjusted_confidence * max_fraction
+            trade_signal = 1
+        elif action_type == 'SELL':
+            size_fraction = adjusted_confidence * max_fraction
+            trade_signal = -1
+        elif action_type == 'INCREASE_SIZE':
+            size_fraction = adjusted_confidence * max_fraction * 0.5  # Smaller adjustments
+            trade_signal = 1
+        elif action_type == 'DECREASE_SIZE':
+            size_fraction = adjusted_confidence * max_fraction * 0.5
+            trade_signal = -1
+        else:
+            size_fraction = 0.0
+            trade_signal = 0
+
+        # Apply all position size multipliers (safeguards AND edge cases)
+        size_fraction *= safeguard_position_multiplier
+        size_fraction *= edge_case_position_multiplier
 
         return {
-            'confidence': confidence_scores.get('total_confidence', 0.0),
-            'technical_score': confidence_scores.get('technical_score', 0.0),
-            'price_change_pct': (closes[-1] - closes[0]) / closes[0] if closes[0] > 0 else 0.0,
-            'volatility': (max(closes) - min(closes)) / closes[0] if closes[0] > 0 else 0.0,
-            'volume_ratio': volumes[-1] / (sum(volumes[:-1]) / len(volumes[:-1])) if len(volumes) > 1 and sum(volumes[:-1]) > 0 else 1.0,
-            'portfolio_utilization': self._portfolio_utilization(),
+            'should_trade': True,
+            'action': {
+                'trade': True,
+                'type': action_type,
+                'size_fraction': size_fraction,
+                'signal': trade_signal,
+            },
+            'confidence': adjusted_confidence,
+            'state': state,
+            'reason': 'trade_approved',
+            'confidence_breakdown': {
+                'base': base_confidence,
+                'adjusted': adjusted_confidence,
+                'threshold': effective_threshold,
+                'confidence_decay': confidence_decay,
+                'safeguard_adjustment': safeguard_confidence_adjustment,
+                'volatility_bias': volatility_bias,
+                'bias_adjustment': bias_adjustment,
+            },
+            'warnings': safeguard_warnings,
         }
-
-    def _available_capital(self) -> float:
-        """Calculate available capital (respecting max_capital constraint)."""
-        if self.config.max_capital <= 0:
-            return 0.0
-        if not self._last_prices:
-            equity = float(self.portfolio.cash)
-        else:
-            equity = float(self.portfolio.total_equity(self._last_prices))
-        cash = float(self.portfolio.cash)
-        deployed = max(0.0, equity - cash)
-        available = self.config.max_capital - deployed
-        return max(0.0, available)
-
-    def _portfolio_utilization(self) -> float:
-        """Calculate portfolio utilization fraction."""
-        if self.config.max_capital <= 0:
-            return 0.0
-        if not self._last_prices:
-            equity = float(self.portfolio.cash)
-        else:
-            equity = float(self.portfolio.total_equity(self._last_prices))
-        cash = float(self.portfolio.cash)
-        deployed = max(0.0, equity - cash)
-        return min(1.0, deployed / self.config.max_capital)
 
     def register_trade_intent(
-        self,
-        symbol: str,
-        *,
-        timestamp: datetime,
-        decision: dict[str, Any],
-        target_notional: float,
-        target_quantity: float,
+        self, symbol: str, timestamp: datetime, decision: dict[str, Any], target_notional: float, target_quantity: float
     ) -> None:
-        """Persist intent metadata so fills can be tied back to the AI decision."""
-
-        intent = {
-            "timestamp": timestamp.isoformat(),
-            "confidence": float(decision.get('confidence', 0.0)),
-            "confidence_breakdown": decision.get('confidence_breakdown', {}),
-            "state": decision.get('state', {}),
-            "reason": decision.get('reason'),
-            "size_fraction": float(decision.get('action', {}).get('size_fraction', 0.0)),
-            "target_notional": float(target_notional),
-            "target_quantity": float(target_quantity),
-            "available_capital": float(decision.get('available_capital', 0.0)) if decision.get('available_capital') is not None else None,
-        }
-        self.pending_intents[symbol] = intent
-        self.logger.debug(
-            "fsd_intent_registered",
-            extra={"symbol": symbol, "size_fraction": intent["size_fraction"], "confidence": intent["confidence"]},
+        """Log that FSD wants to make this trade."""
+        self.trade_intents.append(
+            {
+                'symbol': symbol,
+                'timestamp': timestamp,
+                'decision': decision,
+                'target_notional': target_notional,
+                'target_quantity': target_quantity,
+            }
         )
 
     def handle_fill(
         self,
-        *,
         symbol: str,
         timestamp: datetime,
         fill_price: float,
@@ -824,346 +824,367 @@ class FSDEngine:
         signed_quantity: float,
         previous_position: float,
         new_position: float,
-    ) -> None:
-        """Update position/trade tracking when the broker confirms a fill."""
-
-        state = self.open_positions.setdefault(
-            symbol,
-            {
-                "is_open": False,
-                "realised_pnl": 0.0,
-                "entry_quantity": 0.0,
-                "peak_quantity": 0.0,
-            },
-        )
-
-        state['realised_pnl'] = state.get('realised_pnl', 0.0) + realised_pnl
-
-        intent = self.pending_intents.pop(symbol, None)
-
-        entering_position = abs(previous_position) == 0 and abs(new_position) > 0
-        closing_position = abs(new_position) == 0 and state.get('is_open')
-
-        if entering_position:
-            position = self.portfolio.position(symbol)
-            state.update(
-                {
-                    "is_open": True,
-                    "entry_time": timestamp,
-                    "entry_price": float(position.average_price),
-                    "entry_quantity": abs(new_position),
-                    "peak_quantity": abs(new_position),
-                    "confidence": float(intent.get('confidence', 0.0)) if intent else 0.0,
-                    "features": intent.get('state', {}) if intent else {},
-                    "confidence_breakdown": intent.get('confidence_breakdown', {}) if intent else {},
-                    "size_fraction": float(intent.get('size_fraction', 0.0)) if intent else 0.0,
-                    "reason": intent.get('reason') if intent else None,
-                }
-            )
-            if intent is None:
-                self.logger.warning(
-                    "fsd_missing_intent_for_fill",
-                    extra={"symbol": symbol, "timestamp": timestamp.isoformat(), "quantity": new_position},
-                )
-        else:
-            if abs(new_position) > state.get('peak_quantity', 0.0):
-                state['peak_quantity'] = abs(new_position)
-            if abs(new_position) > 0:
-                position = self.portfolio.position(symbol)
-                state['entry_price'] = float(position.average_price)
-
-        if closing_position:
-            trade = Trade(
-                symbol=symbol,
-                entry_time=state.get('entry_time', timestamp),
-                entry_price=state.get('entry_price', fill_price),
-                exit_time=timestamp,
-                exit_price=fill_price,
-                quantity=state.get('peak_quantity', abs(signed_quantity)),
-                pnl=state.get('realised_pnl', realised_pnl),
-                confidence=state.get('confidence', 0.0),
-                features=state.get('features', {}),
-                size_fraction=state.get('size_fraction', 0.0),
-                confidence_breakdown=state.get('confidence_breakdown', {}),
-            )
-            self.record_trade_outcome(trade)
-            self.open_positions[symbol] = {
-                "is_open": False,
-                "realised_pnl": 0.0,
-                "entry_quantity": 0.0,
-                "peak_quantity": 0.0,
-            }
-        else:
-            self.open_positions[symbol] = state
-
-    def _load_experience_buffer(self) -> None:
-        path = Path(self.config.experience_buffer_path).expanduser()
-        if not path.exists():
-            return
-        try:
-            with path.open("r") as f:
-                payload = json.load(f)
-        except Exception as exc:
-            self.logger.error("fsd_experience_load_failed", extra={"path": str(path), "error": str(exc)})
-            return
-
-        for item in payload:
-            experience = Experience(
-                state=item.get("state", {}),
-                action=item.get("action", {}),
-                reward=float(item.get("reward", 0.0)),
-                next_state=item.get("next_state", {}),
-                done=bool(item.get("done", True)),
-            )
-            self.rl_agent.experience_buffer.append(experience)
-
-        self.logger.info(
-            "fsd_experience_loaded",
-            extra={"path": str(path), "count": len(self.rl_agent.experience_buffer)},
-        )
-
-    def _save_experience_buffer(self) -> None:
-        path = Path(self.config.experience_buffer_path).expanduser()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        serialised = [
-            {
-                "state": exp.state,
-                "action": exp.action,
-                "reward": exp.reward,
-                "next_state": exp.next_state,
-                "done": exp.done,
-            }
-            for exp in list(self.rl_agent.experience_buffer)
-        ]
-        with path.open("w") as f:
-            json.dump(serialised, f, indent=2)
-        self.logger.debug(
-            "fsd_experience_saved",
-            extra={"path": str(path), "count": len(serialised)},
-        )
-
-    def _load_performance_history(self) -> None:
-        path = Path(self.config.performance_history_path).expanduser()
-        if not path.exists():
-            return
-        try:
-            with path.open("r") as f:
-                payload = json.load(f)
-        except Exception as exc:
-            self.logger.error("fsd_performance_load_failed", extra={"path": str(path), "error": str(exc)})
-            return
-
-        if isinstance(payload, list):
-            self.performance_history.extend(payload[-1000:])
-        self.logger.info(
-            "fsd_performance_loaded",
-            extra={"path": str(path), "count": len(self.performance_history)},
-        )
-
-    def _save_performance_history(self) -> None:
-        path = Path(self.config.performance_history_path).expanduser()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w") as f:
-            json.dump(self.performance_history[-1000:], f, indent=2)
-        self.logger.debug(
-            "fsd_performance_saved",
-            extra={"path": str(path), "count": len(self.performance_history[-1000:])},
-        )
-
-    def record_trade_outcome(self, trade: Trade) -> None:
-        """Record trade outcome and learn from it."""
-        self.rl_agent.learn_from_trade(trade)
-        self.session_trades.append(trade)
-        self.trade_history.append(trade)
-        self.performance_history.append(
-            {
-                "symbol": trade.symbol,
-                "entry_time": trade.entry_time.isoformat(),
-                "exit_time": trade.exit_time.isoformat(),
-                "pnl": trade.pnl,
-                "confidence": trade.confidence,
-                "size_fraction": trade.size_fraction,
-            }
-        )
-        if len(self.performance_history) > 1000:
-            self.performance_history = self.performance_history[-1000:]
-        self.last_trade_timestamp = trade.exit_time
-        self.logger.info(
-            "fsd_trade_recorded",
-            extra={
-                "symbol": trade.symbol,
-                "pnl": trade.pnl,
-                "confidence": trade.confidence,
-                "duration_minutes": (trade.exit_time - trade.entry_time).total_seconds() / 60
-                if trade.exit_time and trade.entry_time
-                else 0.0,
-            },
-        )
-
-    def warmup_from_historical(self, historical_bars: dict[str, list[Bar]], observation_fraction: float = 0.5) -> dict[str, Any]:
+    ):
         """
-        Warmup FSD by processing historical data before live trading.
-
-        This allows FSD to learn from past data without executing real trades.
+        ENHANCED: Update RL agent after trade fill with per-symbol learning.
 
         Args:
-            historical_bars: Dict of symbol -> list of historical bars
-            observation_fraction: Fraction of data to use for observation only (0.5 = first 50%)
+            symbol: Trading symbol
+            timestamp: Fill timestamp
+            fill_price: Execution price
+            realised_pnl: Realized P&L from this trade
+            signed_quantity: Quantity traded (signed)
+            previous_position: Position before trade
+            new_position: Position after trade
+        """
+        # Update position tracking
+        self.current_positions[symbol] = Decimal(str(new_position))
+
+        # Calculate reward
+        reward = self._calculate_reward(realised_pnl, fill_price, abs(signed_quantity))
+
+        # Get next state (would need current market data)
+        # For now, use last state as approximation
+        next_state = self.last_state.copy()
+        next_state['position_pct'] = new_position / 1000.0  # Normalized
+
+        # CRITICAL-2 Fix: Update Q-values (LEARNING!) with error recovery
+        done = abs(new_position) < 0.01  # Episode done if position closed
+        try:
+            self.rl_agent.update_q_value(
+                state=self.last_state, action=self.last_action, reward=reward, next_state=next_state, done=done
+            )
+        except Exception as q_update_error:
+            # CRITICAL-2: Never let Q-value update errors break the learning pipeline
+            # Log the error but continue with statistics tracking
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f'Q-value update failed for {symbol}: {q_update_error}',
+                exc_info=True,
+                extra={
+                    'symbol': symbol,
+                    'reward': reward,
+                    'error_type': type(q_update_error).__name__,
+                },
+            )
+
+        # Update statistics
+        self.rl_agent.total_trades += 1
+        self.rl_agent.total_pnl += realised_pnl
+
+        if realised_pnl > 0:
+            self.rl_agent.winning_trades += 1
+
+        # ===== PER-SYMBOL PERFORMANCE TRACKING =====
+        if symbol not in self.symbol_performance:
+            self.symbol_performance[symbol] = SymbolStats(
+                trades=0,
+                wins=0,
+                total_pnl=0.0,
+                confidence_adj=0.0,
+            )
+
+        perf = self.symbol_performance[symbol]
+        perf['trades'] += 1
+        perf['total_pnl'] += realised_pnl
+        if realised_pnl > 0:
+            perf['wins'] += 1
+
+        # Track trade history
+        self.trade_history.append(
+            {
+                'timestamp': timestamp,
+                'symbol': symbol,
+                'quantity': signed_quantity,
+                'price': fill_price,
+                'pnl': realised_pnl,
+                'position_before': previous_position,
+                'position_after': new_position,
+            }
+        )
+
+        # Update session tracking
+        self.last_trade_timestamp = timestamp
+        self.session_trades += 1
+
+        # Record trade in professional safeguards
+        if self.safeguards:
+            self.safeguards.record_trade(timestamp, symbol)
+
+    def _calculate_reward(self, pnl: float, price: float, quantity: float) -> float:
+        """
+        Calculate reward for RL agent.
+
+        Reward = PnL - risk_penalty - transaction_costs
+        """
+        # Base reward is the P&L
+        reward = pnl
+
+        # Penalize risk (larger positions = more risk)
+        position_value = price * quantity
+        risk_penalty = self.config.risk_penalty_factor * position_value
+        reward -= risk_penalty
+
+        # Penalize transaction costs
+        transaction_cost = self.config.transaction_cost_factor * position_value
+        reward -= transaction_cost
+
+        return reward
+
+    def save_state(self, filepath: str):
+        """
+        ENHANCED: Save FSD Q-values, statistics, and per-symbol performance.
+
+        P0-NEW-2 Fix: Uses atomic writes to prevent Q-value corruption on crash.
+        """
+        from pathlib import Path
+
+        from .persistence import _atomic_write_json
+
+        state = {
+            'q_values': self.rl_agent.q_values,
+            'total_trades': self.rl_agent.total_trades,
+            'winning_trades': self.rl_agent.winning_trades,
+            'total_pnl': self.rl_agent.total_pnl,
+            'exploration_rate': self.rl_agent.exploration_rate,
+            # NEW: Per-symbol performance for adaptive trading
+            'symbol_performance': self.symbol_performance,
+        }
+
+        # P0-NEW-2 Fix: Use atomic write instead of direct json.dump()
+        _atomic_write_json(state, Path(filepath))
+
+    def load_state(self, filepath: str):
+        """
+        ENHANCED: Load FSD Q-values, statistics, and per-symbol performance.
+
+        P0-NEW-2 Fix: Attempts backup file if primary is corrupted.
+        """
+        from pathlib import Path
+
+        try:
+            path = Path(filepath)
+            backup_path = path.with_suffix('.backup')
+
+            # P0-NEW-2 Fix: Try primary file first, fall back to backup if corrupted
+            payload_obj: object = None
+
+            # Try primary file
+            if path.exists():
+                try:
+                    with open(path) as f:
+                        payload_obj = json.load(f)
+                except json.JSONDecodeError:
+                    # Primary corrupted, will try backup
+                    pass
+
+            # If primary failed or doesn't exist, try backup
+            if payload_obj is None and backup_path.exists():
+                try:
+                    with open(backup_path) as f:
+                        payload_obj = json.load(f)
+                except json.JSONDecodeError:
+                    # Both corrupted - start fresh
+                    return False
+
+            if payload_obj is None:
+                return False  # No files found or all corrupted
+
+            payload: dict[str, object] = (
+                cast(dict[str, object], payload_obj) if isinstance(payload_obj, dict) else {}
+            )
+            q_values_obj: object = payload.get('q_values', {})
+            if isinstance(q_values_obj, dict):
+                # P1-1 Fix: Convert loaded dict to OrderedDict for LRU eviction
+                self.rl_agent.q_values = OrderedDict(q_values_obj)  # type: ignore[arg-type]
+            else:
+                self.rl_agent.q_values = OrderedDict()
+
+            tt_obj: object = payload.get('total_trades', 0)
+            self.rl_agent.total_trades = int(tt_obj) if isinstance(tt_obj, (int, float)) else 0
+
+            tw_obj: object = payload.get('winning_trades', 0)
+            self.rl_agent.winning_trades = int(tw_obj) if isinstance(tw_obj, (int, float)) else 0
+
+            pnl_obj: object = payload.get('total_pnl', 0.0)
+            self.rl_agent.total_pnl = float(pnl_obj) if isinstance(pnl_obj, (int, float)) else 0.0
+
+            er_obj: object = payload.get('exploration_rate', self.config.exploration_rate)
+            self.rl_agent.exploration_rate = (
+                float(er_obj) if isinstance(er_obj, (int, float)) else self.config.exploration_rate
+            )
+
+            # NEW: Restore per-symbol performance
+            sp_obj: object = payload.get('symbol_performance', {})
+            self.symbol_performance = sp_obj if isinstance(sp_obj, dict) else {}
+
+            return True
+        except (FileNotFoundError, json.JSONDecodeError):
+            return False
+
+    def start_session(self) -> dict[str, Any]:
+        """
+        Start a new trading session.
 
         Returns:
-            Warmup report with statistics
+            Session initialization stats
         """
-        self.logger.info("fsd_warmup_starting", extra={"symbols": list(historical_bars.keys())})
+        self.session_start_time = datetime.now()
+        self.session_trades = 0
 
-        total_bars_processed = 0
-        simulated_trades = 0
-        total_simulated_pnl = 0.0
-
-        for symbol, bars in historical_bars.items():
-            if len(bars) < 20:
-                self.logger.warning("insufficient_bars_for_warmup", extra={"symbol": symbol, "bars": len(bars)})
-                continue
-
-            # Split into observation and simulation phases
-            observation_end = int(len(bars) * observation_fraction)
-
-            # Phase 1: Observation (just build state, no decisions)
-            self.logger.info(
-                "warmup_observation_phase",
-                extra={"symbol": symbol, "bars": observation_end}
-            )
-
-            for i in range(min(observation_end, len(bars) - 1)):
-                bar = bars[i]
-                # Just track prices for state building
-                self._last_prices[symbol] = bar.close
-                total_bars_processed += 1
-
-            # Phase 2: Simulated Trading (make decisions, simulate outcomes, learn)
-            self.logger.info(
-                "warmup_simulation_phase",
-                extra={"symbol": symbol, "bars": len(bars) - observation_end}
-            )
-
-            for i in range(observation_end, len(bars) - 1):
-                current_bar = bars[i]
-                next_bar = bars[i + 1]
-
-                # Build history window
-                history_window = bars[max(0, i - 50):i + 1]
-
-                # Evaluate opportunity
-                decision = self.evaluate_opportunity(
-                    symbol=symbol,
-                    bars=history_window,
-                    last_prices={symbol: current_bar.close}
-                )
-
-                # If FSD decided to trade, simulate the trade
-                if decision['should_trade'] and decision['action']['trade']:
-                    action = decision['action']
-
-                    # Simulate entry
-                    entry_price = float(current_bar.close)
-                    size_fraction = action.get('size_fraction', 0.1)
-
-                    # Simulate exit on next bar
-                    exit_price = float(next_bar.close)
-
-                    # Calculate simulated PnL (simplified)
-                    # Assume we trade $1000 worth for simulation purposes
-                    notional = 1000.0 * size_fraction
-                    quantity = notional / entry_price
-                    pnl = (exit_price - entry_price) * quantity
-
-                    # Create simulated trade
-                    simulated_trade = Trade(
-                        symbol=symbol,
-                        entry_time=current_bar.timestamp,
-                        entry_price=entry_price,
-                        exit_time=next_bar.timestamp,
-                        exit_price=exit_price,
-                        quantity=quantity,
-                        pnl=pnl,
-                        confidence=decision['confidence'],
-                        features=decision['state'],
-                        size_fraction=size_fraction,
-                        confidence_breakdown=decision.get('confidence_breakdown', {}),
-                    )
-
-                    # LEARN from simulated trade
-                    self.rl_agent.learn_from_trade(simulated_trade)
-
-                    simulated_trades += 1
-                    total_simulated_pnl += pnl
-
-                    self.logger.debug(
-                        "warmup_simulated_trade",
-                        extra={
-                            "symbol": symbol,
-                            "entry_price": entry_price,
-                            "exit_price": exit_price,
-                            "pnl": pnl,
-                            "confidence": decision['confidence']
-                        }
-                    )
-
-                total_bars_processed += 1
-
-        warmup_report = {
-            'total_bars_processed': total_bars_processed,
-            'simulated_trades': simulated_trades,
-            'simulated_pnl': total_simulated_pnl,
-            'simulated_win_rate': self.rl_agent.winning_trades / simulated_trades if simulated_trades > 0 else 0,
-            'q_values_learned': len(self.rl_agent.q_values),
-            'experience_buffer_size': len(self.rl_agent.experience_buffer),
+        return {
+            'session_start': self.session_start_time.isoformat(),
+            'q_values_count': len(self.rl_agent.q_values),
             'exploration_rate': self.rl_agent.exploration_rate,
+            'total_trades_all_time': self.rl_agent.total_trades,
         }
-
-        self.logger.info("fsd_warmup_complete", extra=warmup_report)
-
-        # Save the learned state
-        state_path = Path(self.config.state_save_path).expanduser()
-        self.rl_agent.save_state(state_path)
-
-        return warmup_report
 
     def end_session(self) -> dict[str, Any]:
-        """End FSD session and save state."""
-        # Save RL agent state
-        state_path = Path(self.config.state_save_path).expanduser()
-        self.rl_agent.save_state(state_path)
+        """
+        End trading session and return stats.
 
-        # Calculate session stats
-        session_pnl = sum(t.pnl for t in self.session_trades)
-        winning_trades = sum(1 for t in self.session_trades if t.pnl > 0)
+        Returns:
+            Session summary statistics
+        """
+        if not self.session_start_time:
+            return {}
 
-        session_report = {
-            'session_duration_minutes': (datetime.now(timezone.utc) - self.session_start).total_seconds() / 60 if self.session_start else 0,
-            'total_trades': len(self.session_trades),
-            'winning_trades': winning_trades,
-            'win_rate': winning_trades / len(self.session_trades) if len(self.session_trades) > 0 else 0,
-            'session_pnl': session_pnl,
-            'cumulative_pnl': self.rl_agent.total_pnl,
-            'cumulative_trades': self.rl_agent.total_trades,
-            'cumulative_win_rate': self.rl_agent.winning_trades / self.rl_agent.total_trades if self.rl_agent.total_trades > 0 else 0,
-            'exploration_rate': self.rl_agent.exploration_rate,
+        session_duration = datetime.now() - self.session_start_time
+
+        return {
+            'session_duration_seconds': session_duration.total_seconds(),
+            'session_trades': self.session_trades,
             'q_values_learned': len(self.rl_agent.q_values),
-            'trade_history': len(self.trade_history),
-            'experience_buffer': len(self.rl_agent.experience_buffer),
-            'performance_samples': len(self.performance_history),
+            'exploration_rate': self.rl_agent.exploration_rate,
+            'total_pnl': self.rl_agent.total_pnl,
         }
 
-        self._save_experience_buffer()
-        self._save_performance_history()
+    def warmup_from_historical(
+        self, historical_bars: dict[str, list[Bar]], observation_fraction: float = 0.5
+    ) -> dict[str, Any]:
+        """
+        Warm up the RL agent with realistic simulation and learning.
 
-        return session_report
+        Processes historical data to pre-train Q-values before live trading.
+        Uses lower confidence threshold (40%) and higher exploration (20%) during warmup.
 
+        Args:
+            historical_bars: Mapping of symbol -> list[Bar]
+            observation_fraction: Fraction used for observation-only (0.5 = 50% observe, 50% trade)
 
-__all__ = [
-    "FSDConfig",
-    "FSDEngine",
-    "ConfidenceScorer",
-    "ReinforcementLearner",
-    "Trade",
-]
+        Returns:
+            Dict with keys: total_bars_processed, q_values_learned, simulated_trades,
+            simulated_win_rate, simulated_pnl
+        """
+        if not historical_bars:
+            return {
+                'status': 'no_data',
+                'total_bars_processed': 0,
+                'q_values_learned': len(self.rl_agent.q_values),
+                'simulated_trades': 0,
+                'simulated_win_rate': 0.0,
+                'simulated_pnl': 0.0,
+            }
+
+        total_bars_processed = 0
+        states_discovered = 0
+        simulated_trades = 0
+        simulated_pnl = 0.0
+        simulated_wins = 0
+        sim_positions: dict[str, float] = {}
+        sim_cash = float(self.portfolio.initial_cash)
+
+        observation_fraction = max(0.0, min(1.0, observation_fraction))
+        warmup_threshold = 0.40
+        original_exploration = self.rl_agent.exploration_rate
+        self.rl_agent.exploration_rate = max(original_exploration, 0.20)
+
+        for symbol, bars in historical_bars.items():
+            if not bars or len(bars) < 20:
+                continue
+
+            n = len(bars)
+            total_bars_processed += n
+            observe_upto = max(20, int(n * observation_fraction))
+
+            # Observation phase: discover states
+            for i in range(20, observe_upto, 5):  # Step by 5 for efficiency
+                window = bars[i - 20 : i + 1]
+                state_dict: dict[str, Any] = self.extract_state(symbol, window, {symbol: window[-1].close})
+                if state_dict:
+                    state_hash = self.rl_agent.hash_state(state_dict)
+                    if state_hash not in self.rl_agent.q_values:
+                        self.rl_agent.q_values[state_hash] = dict.fromkeys(self.rl_agent.get_actions(), 0.0)
+                        states_discovered += 1
+
+            # Simulation phase: trade and learn
+            for i in range(max(20, observe_upto), n - 1, 2):  # Step by 2 for efficiency
+                window = bars[i - 20 : i + 1]
+                current_price = float(window[-1].close)
+                next_bar_price = float(bars[i + 1].close)
+
+                state2: dict[str, Any] = self.extract_state(symbol, window, {symbol: Decimal(str(current_price))})
+                if not state2:
+                    continue
+
+                action_type = self.rl_agent.select_action(state2, training=True)
+                confidence = self.rl_agent.get_confidence(state2, action_type)
+                self.last_state = state2
+                self.last_action = action_type
+
+                if (
+                    action_type not in ['BUY', 'SELL', 'INCREASE_SIZE', 'DECREASE_SIZE']
+                    or confidence < warmup_threshold
+                ):
+                    continue
+
+                current_position = sim_positions.get(symbol, 0.0)
+
+                if action_type in ['BUY', 'INCREASE_SIZE']:
+                    max_spend = sim_cash * 0.05
+                    quantity = max_spend / current_price if current_price > 0 else 0
+                    if quantity > 0:
+                        sim_positions[symbol] = current_position + quantity
+                        sim_cash -= quantity * current_price
+                        simulated_trades += 1
+
+                elif action_type in ['SELL', 'DECREASE_SIZE'] and abs(current_position) > 0.001:
+                    quantity_to_sell = abs(current_position) * 0.5
+                    realised_pnl = (next_bar_price - current_price) * quantity_to_sell
+                    sim_positions[symbol] = current_position - quantity_to_sell
+                    sim_cash += quantity_to_sell * next_bar_price
+                    simulated_pnl += realised_pnl
+                    simulated_trades += 1
+
+                    if realised_pnl > 0:
+                        simulated_wins += 1
+
+                    # Learn from trade
+                    reward = self._calculate_reward(realised_pnl, current_price, quantity_to_sell)
+                    next_state2: dict[str, Any] = self.extract_state(
+                        symbol, bars[i - 19 : i + 2], {symbol: Decimal(str(next_bar_price))}
+                    )
+                    if next_state2:
+                        self.rl_agent.update_q_value(
+                            state=state2,
+                            action=action_type,
+                            reward=reward,
+                            next_state=next_state2,
+                            done=(abs(sim_positions.get(symbol, 0.0)) < 0.001),
+                        )
+        # Restore exploration rate to its original value
+        self.rl_agent.exploration_rate = original_exploration
+
+        simulated_win_rate = (simulated_wins / simulated_trades) if simulated_trades > 0 else 0.0
+
+        return {
+            'status': 'complete',
+            'total_bars_processed': total_bars_processed,
+            'q_values_learned': len(self.rl_agent.q_values),
+            'simulated_trades': simulated_trades,
+            'simulated_win_rate': simulated_win_rate,
+            'simulated_pnl': simulated_pnl,
+            # Keep legacy fields for backward compatibility
+            'states_discovered': states_discovered,
+        }

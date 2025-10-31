@@ -99,7 +99,7 @@ class PaperBroker(BaseBroker):
             # Fill 20-80% of remaining (random)
             fill_fraction = Decimal(str(self._rng.uniform(0.2, 0.8)))
             fill_qty = order.remaining_quantity * fill_fraction
-            return max(Decimal("0.01"), fill_qty)  # At least 0.01 units
+            return max(Decimal('0.01'), fill_qty)  # At least 0.01 units
 
         # Full fill of remaining
         return order.remaining_quantity
@@ -108,7 +108,7 @@ class PaperBroker(BaseBroker):
         if order.symbol != bar.symbol:
             return None
         price = bar.close
-        slip = (price * Decimal(self._config.slip_bps_limit)) / Decimal("10000")
+        slip = (price * Decimal(self._config.slip_bps_limit)) / Decimal('10000')
         if order.order_type == OrderType.MARKET:
             return price + slip if order.side == OrderSide.BUY else price - slip
         if order.order_type == OrderType.LIMIT:

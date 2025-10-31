@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import json
 import shutil
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any
 
 from .config import DataQualityConfig
 from .data import Bar, load_csv_file
@@ -37,7 +38,7 @@ class DataIngestionConfig:
 
     staging_dir: str
     curated_dir: str
-    manifest_path: str = "state/ingestion_manifest.json"
+    manifest_path: str = 'state/ingestion_manifest.json'
     allow_overwrite: bool = False
     archive_processed: str | None = None
     timezone: timezone = timezone.utc
@@ -63,9 +64,9 @@ class IngestionManifest:
 
     def _load(self) -> None:
         if self.path.exists():
-            with self.path.open("r", encoding="utf-8") as handle:
+            with self.path.open('r', encoding='utf-8') as handle:
                 try:
-                    data = json.load(handle)
+                    data: Any = json.load(handle)
                     if isinstance(data, dict):
                         self._entries = {str(k): str(v) for k, v in data.items()}
                 except json.JSONDecodeError:
@@ -86,7 +87,7 @@ class IngestionManifest:
 
     def persist(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as handle:
+        with self.path.open('w', encoding='utf-8') as handle:
             json.dump(self._entries, handle, indent=2)
 
 
@@ -102,7 +103,7 @@ class DataIngestionService:
     def __init__(self, config: DataIngestionConfig):
         self.config = config
         self.manifest = IngestionManifest(config.manifest_path)
-        self.logger = configure_logger("IngestionService", structured=True)
+        self.logger = configure_logger('IngestionService', structured=True)
 
     def ingest(self) -> IngestionReport:
         staging = Path(self.config.staging_dir).expanduser().resolve()
@@ -113,16 +114,16 @@ class DataIngestionService:
         bars_added = 0
 
         if not staging.exists():
-            self.logger.warning("staging_missing", extra={"path": str(staging)})
+            self.logger.warning('staging_missing', extra={'path': str(staging)})
             return IngestionReport(processed_symbols=[], bars_added=0, manifest_path=str(self.manifest.path))
 
-        for path in sorted(staging.glob("*.csv")):
+        for path in sorted(staging.glob('*.csv')):
             symbol = path.stem.upper()
             new_bars = self._load_new_bars(symbol, path)
             if not new_bars:
                 continue
 
-            destination = curated / f"{symbol}.csv"
+            destination = curated / f'{symbol}.csv'
             existing_bars: list[Bar] = []
             if destination.exists() and not self.config.allow_overwrite:
                 existing_bars = load_csv_file(destination, symbol, self.config.timezone)
@@ -139,7 +140,9 @@ class DataIngestionService:
                 shutil.copy2(path, archive_root / path.name)
 
         self.manifest.persist()
-        return IngestionReport(processed_symbols=processed, bars_added=bars_added, manifest_path=str(self.manifest.path))
+        return IngestionReport(
+            processed_symbols=processed, bars_added=bars_added, manifest_path=str(self.manifest.path)
+        )
 
     # ------------------------------------------------------------------
     def _load_new_bars(self, symbol: str, path: Path) -> list[Bar]:
@@ -150,12 +153,12 @@ class DataIngestionService:
         filtered = [bar for bar in bars if bar.timestamp > last_ts]
         if filtered:
             self.logger.info(
-                "new_bars_detected",
+                'new_bars_detected',
                 extra={
-                    "symbol": symbol,
-                    "count": len(filtered),
-                    "path": str(path),
-                    "last_manifest_ts": last_ts.isoformat(),
+                    'symbol': symbol,
+                    'count': len(filtered),
+                    'path': str(path),
+                    'last_manifest_ts': last_ts.isoformat(),
                 },
             )
         return filtered
@@ -183,7 +186,7 @@ class DataIngestionService:
         previous: datetime | None = None
         for bar in bars:
             if previous and bar.timestamp <= previous:
-                raise ValueError(f"Non-monotonic timestamp detected for {bar.symbol} at {bar.timestamp}")
+                raise ValueError(f'Non-monotonic timestamp detected for {bar.symbol} at {bar.timestamp}')
             previous = bar.timestamp
 
     @staticmethod
@@ -191,17 +194,17 @@ class DataIngestionService:
         import csv
 
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with destination.open("w", newline="") as handle:
+        with destination.open('w', newline='') as handle:
             writer = csv.writer(handle)
-            writer.writerow(["timestamp", "open", "high", "low", "close", "volume"])
+            writer.writerow(['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             for bar in bars:
                 writer.writerow(
                     [
                         bar.timestamp.replace(tzinfo=timezone.utc).isoformat(),
-                        f"{bar.open}",
-                        f"{bar.high}",
-                        f"{bar.low}",
-                        f"{bar.close}",
-                        f"{bar.volume}",
+                        f'{bar.open}',
+                        f'{bar.high}',
+                        f'{bar.low}',
+                        f'{bar.close}',
+                        f'{bar.volume}',
                     ]
                 )

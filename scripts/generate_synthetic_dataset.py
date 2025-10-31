@@ -18,48 +18,48 @@ import argparse
 import csv
 import math
 import random
+from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable
 
 FREQUENCIES = {
-    "daily": timedelta(days=1),
-    "hourly": timedelta(hours=1),
-    "minute": timedelta(minutes=1),
+    'daily': timedelta(days=1),
+    'hourly': timedelta(hours=1),
+    'minute': timedelta(minutes=1),
 }
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate deterministic OHLCV test data.")
-    parser.add_argument("--out", required=True, help="Output directory for generated CSV files")
-    parser.add_argument("--symbols", nargs="+", required=True, help="Ticker symbols to generate")
+    parser = argparse.ArgumentParser(description='Generate deterministic OHLCV test data.')
+    parser.add_argument('--out', required=True, help='Output directory for generated CSV files')
+    parser.add_argument('--symbols', nargs='+', required=True, help='Ticker symbols to generate')
     parser.add_argument(
-        "--start",
+        '--start',
         required=True,
-        help="Start date (YYYY-MM-DD) inclusive",
+        help='Start date (YYYY-MM-DD) inclusive',
     )
     parser.add_argument(
-        "--end",
+        '--end',
         required=True,
-        help="End date (YYYY-MM-DD) inclusive",
+        help='End date (YYYY-MM-DD) inclusive',
     )
     parser.add_argument(
-        "--frequency",
+        '--frequency',
         choices=sorted(FREQUENCIES),
-        default="daily",
-        help="Bar frequency to generate",
+        default='daily',
+        help='Bar frequency to generate',
     )
     parser.add_argument(
-        "--seed",
+        '--seed',
         type=int,
         default=17,
-        help="Random seed for deterministic generation",
+        help='Random seed for deterministic generation',
     )
     parser.add_argument(
-        "--base-price",
+        '--base-price',
         type=float,
         default=100.0,
-        help="Starting price for the first symbol; subsequent symbols are offset.",
+        help='Starting price for the first symbol; subsequent symbols are offset.',
     )
     return parser.parse_args()
 
@@ -103,12 +103,12 @@ def _generate_series(
 
         series.append(
             {
-                "timestamp": timestamp.isoformat(),
-                "open": f"{open_price:.4f}",
-                "high": f"{high:.4f}",
-                "low": f"{low:.4f}",
-                "close": f"{close:.4f}",
-                "volume": f"{volume:.0f}",
+                'timestamp': timestamp.isoformat(),
+                'open': f'{open_price:.4f}',
+                'high': f'{high:.4f}',
+                'low': f'{low:.4f}',
+                'close': f'{close:.4f}',
+                'volume': f'{volume:.0f}',
             }
         )
 
@@ -117,8 +117,8 @@ def _generate_series(
 
 def _write_csv(path: Path, rows: Iterable[dict[str, float | str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["timestamp", "open", "high", "low", "close", "volume"])
+    with path.open('w', newline='') as handle:
+        writer = csv.DictWriter(handle, fieldnames=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         writer.writeheader()
         writer.writerows(rows)
 
@@ -130,12 +130,12 @@ def main() -> None:
     try:
         step = FREQUENCIES[args.frequency]
     except KeyError:
-        raise SystemExit(f"Unsupported frequency {args.frequency!r}")
+        raise SystemExit(f'Unsupported frequency {args.frequency!r}')
 
     start_dt = datetime.fromisoformat(args.start).replace(tzinfo=timezone.utc)
     end_dt = datetime.fromisoformat(args.end).replace(tzinfo=timezone.utc)
     if end_dt < start_dt:
-        raise SystemExit("End date must be on or after start date.")
+        raise SystemExit('End date must be on or after start date.')
 
     for idx, symbol in enumerate(args.symbols):
         rows = _generate_series(
@@ -146,11 +146,11 @@ def main() -> None:
             base_price=args.base_price,
             seed=args.seed + idx,
         )
-        out_path = output_dir / f"{symbol.upper()}.csv"
+        out_path = output_dir / f'{symbol.upper()}.csv'
         _write_csv(out_path, rows)
 
-    print(f"Generated {len(args.symbols)} symbols in {output_dir}")
+    print(f'Generated {len(args.symbols)} symbols in {output_dir}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

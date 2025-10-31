@@ -11,24 +11,25 @@ from enum import Enum
 
 
 class OrderType(str, Enum):
-    MARKET = "market"
-    LIMIT = "limit"
-    STOP = "stop"
+    MARKET = 'market'
+    LIMIT = 'limit'
+    STOP = 'stop'
 
 
 class OrderSide(str, Enum):
-    BUY = "buy"
-    SELL = "sell"
+    BUY = 'buy'
+    SELL = 'sell'
 
 
 class OrderStatus(str, Enum):
     """P1 Enhancement: Order lifecycle states."""
-    PENDING = "pending"
-    SUBMITTED = "submitted"
-    PARTIALLY_FILLED = "partially_filled"
-    FILLED = "filled"
-    CANCELLED = "cancelled"
-    REJECTED = "rejected"
+
+    PENDING = 'pending'
+    SUBMITTED = 'submitted'
+    PARTIALLY_FILLED = 'partially_filled'
+    FILLED = 'filled'
+    CANCELLED = 'cancelled'
+    REJECTED = 'rejected'
 
 
 @dataclass
@@ -39,11 +40,11 @@ class Order:
     order_type: OrderType = OrderType.MARKET
     limit_price: Decimal | None = None
     stop_price: Decimal | None = None
-    time_in_force: str = "DAY"
+    time_in_force: str = 'DAY'
     submit_time: datetime | None = None
     client_order_id: str | None = None  # P0 Fix: For idempotency
     # P1 Enhancement: Partial fill tracking
-    filled_quantity: Decimal = Decimal("0")
+    filled_quantity: Decimal = Decimal('0')
     remaining_quantity: Decimal | None = None  # Auto-computed
     status: OrderStatus = OrderStatus.PENDING
 
@@ -60,18 +61,16 @@ class Order:
             ValueError: If fill exceeds remaining quantity
         """
         if fill_qty <= 0:
-            raise ValueError(f"Fill quantity must be positive, got {fill_qty}")
+            raise ValueError(f'Fill quantity must be positive, got {fill_qty}')
         if self.remaining_quantity is None:
             self.remaining_quantity = self.quantity
         if fill_qty > self.remaining_quantity:
-            raise ValueError(
-                f"Fill quantity {fill_qty} exceeds remaining {self.remaining_quantity}"
-            )
+            raise ValueError(f'Fill quantity {fill_qty} exceeds remaining {self.remaining_quantity}')
 
         self.filled_quantity += fill_qty
         self.remaining_quantity -= fill_qty
 
-        if self.remaining_quantity <= Decimal("0"):
+        if self.remaining_quantity <= Decimal('0'):
             self.status = OrderStatus.FILLED
         else:
             self.status = OrderStatus.PARTIALLY_FILLED
@@ -99,4 +98,3 @@ class ExecutionReport:
     is_partial: bool = False
     cumulative_filled: Decimal | None = None  # Total filled so far
     remaining: Decimal | None = None  # Remaining to fill
-
