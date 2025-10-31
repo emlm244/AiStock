@@ -6,8 +6,8 @@ from pathlib import Path
 
 from aistock.config import BacktestConfig, BrokerConfig, DataSource, EngineConfig
 from aistock.data import load_csv_file
+from aistock.factories import SessionFactory
 from aistock.fsd import FSDConfig
-from aistock.session import LiveTradingSession
 
 
 def run(symbol: str, data_path: str, limit: int) -> int:
@@ -16,9 +16,14 @@ def run(symbol: str, data_path: str, limit: int) -> int:
     config = BacktestConfig(data=data, engine=EngineConfig(), broker=BrokerConfig(backend='paper'))
     fsd_config = FSDConfig()
 
-    session = LiveTradingSession(
-        config=config, fsd_config=fsd_config, checkpoint_dir='state', enable_checkpointing=False
+    # Create session using new modular architecture
+    factory = SessionFactory(config, fsd_config=fsd_config)
+    session = factory.create_trading_session(
+        symbols=list(data.symbols) if data.symbols else [symbol],
+        checkpoint_dir='state',
     )
+    # Disable checkpointing for smoke test
+    session.checkpointer.enabled = False
     session.start()
 
     try:
