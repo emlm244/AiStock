@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from ..config import BacktestConfig, FSDConfig
+from ..config import BacktestConfig
+from ..fsd import FSDConfig
 from ..session.coordinator import TradingCoordinator
 from ..universe import UniverseSelector
 from .trading_components_factory import TradingComponentsFactory
