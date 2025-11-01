@@ -15,6 +15,14 @@
     - `interfaces/` - Protocol definitions for all major components (enables DI and testing)
     - `_legacy/` - Archived old monolithic code (for reference only)
 
+  - **⚠️ Orphaned Modules (EXIST but NOT imported)**:
+    - `config_consolidated/` - 4 files (280 lines) - Unused, scheduled for removal
+    - `fsd_components/` - 5 files (598 lines) - Unused, scheduled for removal
+    - `services/` - 6 files (691 lines) - Unused, scheduled for removal
+    - `state_management/` - 3 files (207 lines) - Unused, scheduled for removal
+    - **Status**: Fix branch `fix/remove-unused-modules` removes these, NOT merged yet
+    - **Action**: Do NOT import from these modules
+
   - **Core Components**:
     - `fsd.py` - Q-Learning decision engine (FSD = Full Self-Driving)
     - `portfolio.py` - Portfolio management with thread-safe operations
@@ -25,7 +33,7 @@
     - `edge_cases.py` - Edge case handling
     - `calendar.py` - Trading calendar and hours
     - `brokers/` - Broker integrations (Paper, IBKR)
-    - `simple_gui.py` - Tkinter GUI for manual trading
+    - `simple_gui.py` - Tkinter GUI (69,975 lines - candidate for decomposition)
     - `__main__.py` - Entry point (`python -m aistock`)
 
 ### Supporting Directories
@@ -51,6 +59,42 @@
   - Generated Q-learning data
   - Each developer has their own
   - Excluded from version control
+
+---
+
+## ⚠️ Current Branch Status & Known Issues
+
+### Branch: `feature/modular-architecture`
+
+**Status**: Functional but contains orphaned code awaiting cleanup
+
+**Pending Merge**: Three fix branches created (2025-10-31) but NOT yet merged:
+1. `fix/remove-unused-modules` - Removes 18 orphaned files (1,776 lines)
+2. `fix/checkpoint-restore-implementation` - Removes broken checkpoint restore method
+3. `fix/gui-protocol-callback` - Fixes protocol violation in GUI
+
+**Impact**:
+- ✅ **Runtime**: No impact (orphaned code not imported)
+- ⚠️ **Codebase Clarity**: Confusing to see unused modules
+- ⚠️ **Documentation**: Docs claim modules removed, but they still exist
+
+**Recommendation**: Merge fix branches OR manually delete orphaned directories before production deployment
+
+```bash
+# Option 1: Merge fix branches
+git checkout feature/modular-architecture
+git merge fix/remove-unused-modules
+git merge fix/checkpoint-restore-implementation
+git merge fix/gui-protocol-callback
+
+# Option 2: Manual cleanup
+rm -rf aistock/config_consolidated
+rm -rf aistock/fsd_components
+rm -rf aistock/services
+rm -rf aistock/state_management
+git add -A
+git commit -m "chore: remove orphaned modules"
+```
 
 ---
 
@@ -438,11 +482,14 @@ def my_function(component: MyProtocol):
 - ✅ Added `interfaces/` for protocol definitions
 - ✅ Archived old code in `_legacy/`
 
-### Code Review Fixes
-- ✅ Removed unused modules (services/, fsd_components/, state_management/, config_consolidated/)
-- ✅ Fixed broken checkpoint restore (removed until properly implemented)
-- ✅ Fixed GUI protocol violation (added hasattr guard)
-- ✅ Removed state files from git tracking
+### Code Review Fixes (IN FIX BRANCHES - NOT YET MERGED)
+- 🔄 **fix/remove-unused-modules**: Removes 18 orphaned files (1,776 lines)
+  - ⚠️ Modules still exist on feature branch until merged
+- 🔄 **fix/checkpoint-restore-implementation**: Removes broken checkpoint restore
+  - Method loaded checkpoint but didn't use it (silent data loss)
+- 🔄 **fix/gui-protocol-callback**: Fixes protocol violation
+  - Added hasattr() guard for gui_log_callback
+- ✅ **Merged**: State files removed from git tracking
 
 ### Production Readiness
 - ✅ Thread safety verified
@@ -450,6 +497,7 @@ def my_function(component: MyProtocol):
 - ✅ Atomic persistence with backups
 - ✅ Position reconciliation working
 - ✅ Error isolation functional
+- ⚠️ **Pending**: Merge fix branches for final cleanup
 
 ---
 

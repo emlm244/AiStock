@@ -44,6 +44,14 @@ SessionFactory (DI entry point)
 - `aistock/interfaces/` - Protocol definitions (PortfolioProtocol, RiskEngineProtocol, DecisionEngineProtocol)
 - `aistock/_legacy/` - Archived monolithic code (for reference only)
 
+**⚠️ WARNING - Orphaned Modules (DO NOT USE)**:
+- `aistock/config_consolidated/` - Unused (4 files, 280 lines) - Removal pending in fix branch
+- `aistock/fsd_components/` - Unused (5 files, 598 lines) - Removal pending in fix branch
+- `aistock/services/` - Unused (6 files, 691 lines) - Removal pending in fix branch
+- `aistock/state_management/` - Unused (3 files, 207 lines) - Removal pending in fix branch
+
+**Status**: These modules exist on `feature/modular-architecture` but are NOT imported anywhere. The `fix/remove-unused-modules` branch removes them but hasn't been merged yet. **Do not import from these modules.**
+
 **Core Trading Components**:
 - `aistock/fsd.py` - Q-Learning decision engine
 - `aistock/portfolio.py` - Thread-safe portfolio management
@@ -161,7 +169,7 @@ pyright aistock/
 ### Modularization Complete ✅
 - **Date**: 2025-10-31
 - **Status**: Complete with code review fixes applied
-- **Branch**: `feature/modular-architecture` (ready to merge)
+- **Branch**: `feature/modular-architecture` (needs fix branch merges first)
 
 **What Changed**:
 1. Decomposed `LiveTradingSession` (1,242 lines) → `session/` components (6 files, 353 lines max)
@@ -169,26 +177,27 @@ pyright aistock/
 3. Added protocol interfaces in `interfaces/`
 4. Archived old code in `_legacy/`
 
-### Code Review Fixes Applied ✅
+### Code Review Fixes Created (PENDING MERGE) 🔄
 
-**Branch 1**: `fix/remove-unused-modules` (merged)
+**Branch 1**: `fix/remove-unused-modules` (⚠️ NOT merged to feature branch yet)
 - Removed orphaned modules: services/, fsd_components/, state_management/, config_consolidated/
 - 18 files removed, ~1,776 lines of unused code
 - 22% reduction in codebase size
+- **Current State**: Orphaned modules still exist on feature branch
 
-**Branch 2**: `fix/checkpoint-restore-implementation` (merged)
+**Branch 2**: `fix/checkpoint-restore-implementation` (⚠️ NOT merged to feature branch yet)
 - Removed broken `SessionFactory.create_with_checkpoint_restore()`
 - Added TODO for Phase 7 implementation
 - Prevents silent data loss
 
-**Branch 3**: `fix/gui-protocol-callback` (merged)
+**Branch 3**: `fix/gui-protocol-callback` (⚠️ NOT merged to feature branch yet)
 - Fixed protocol violation in GUI
 - Added `hasattr()` guard for `gui_log_callback`
 - Maintains Liskov Substitution Principle
 
 ### Production Readiness Assessment
 
-**Current Status**: ✅ **APPROVED WITH FIXES APPLIED**
+**Current Status**: ⚠️ **APPROVED WITH PENDING FIX MERGES**
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -518,10 +527,29 @@ chore: Maintenance
 
 ## Known Issues & Future Work
 
+### Current Branch Issues (URGENT)
+
+**Orphaned Modules Still Exist** ⚠️:
+- `aistock/config_consolidated/` (4 files, 280 lines)
+- `aistock/fsd_components/` (5 files, 598 lines)
+- `aistock/services/` (6 files, 691 lines)
+- `aistock/state_management/` (3 files, 207 lines)
+
+**Status**: Fix branch `fix/remove-unused-modules` removes them, but NOT merged yet
+**Impact**: No runtime impact (not imported), but confusing codebase
+**Action**: Merge fix branch before production deployment
+
+**Large GUI File**:
+- `simple_gui.py` is 69,975 lines (extremely large)
+- **Recommendation**: Decompose into smaller modules in future refactor
+
 ### Phase 7 (Future)
 - **Complete FSD decomposition**: Fully use `fsd_components/` (currently not integrated)
+  - **Note**: Current `fsd_components/` is orphaned and will be removed
+  - If FSD decomposition is desired, recreate with proper integration plan
 - **Checkpoint restore**: Implement proper state restoration in SessionFactory
 - **Service layer**: Reconsider if service layer abstraction is needed
+  - **Note**: Current `services/` is orphaned and will be removed
 
 ### Limitations
 - **IBKR callbacks**: Still mutate shared state directly (queue-based handoff planned)
@@ -530,15 +558,71 @@ chore: Maintenance
 
 ---
 
+## 🚨 Critical Pre-Deployment Steps
+
+**REQUIRED BEFORE PRODUCTION DEPLOYMENT**:
+
+### 1. Merge Fix Branches ⚠️
+
+Three fix branches were created on 2025-10-31 but are **NOT yet merged** to `feature/modular-architecture`:
+
+```bash
+# Merge all fix branches
+git checkout feature/modular-architecture
+git merge fix/remove-unused-modules
+git merge fix/checkpoint-restore-implementation
+git merge fix/gui-protocol-callback
+
+# Verify cleanup
+ls aistock/services/           # Should not exist
+ls aistock/fsd_components/     # Should not exist
+ls aistock/state_management/   # Should not exist
+ls aistock/config_consolidated/ # Should not exist
+```
+
+**Why This Matters**:
+- Removes 1,776 lines of orphaned code
+- Prevents confusion about which modules to use
+- Aligns codebase with documentation
+- Removes broken checkpoint restore method (prevents silent data loss)
+- Fixes GUI protocol violation
+
+### 2. Verify Imports ✅
+
+```bash
+python -c "from aistock.factories import SessionFactory; print('OK')"
+python -c "from aistock.session import TradingCoordinator; print('OK')"
+```
+
+### 3. Run Full Test Suite ✅
+
+```bash
+pytest tests/ -v --cov=aistock
+# Target: 97%+ pass rate
+```
+
+### 4. Paper Trading Validation ✅
+
+```bash
+python -m aistock
+# Configure: $200, paper trading, AAPL
+# Run for: 1-2 hours minimum
+# Monitor: Logs for errors/warnings
+```
+
+---
+
 ## Production Deployment
 
 ### Pre-Deployment Checklist
+- [ ] **CRITICAL**: Merge fix branches (see "Critical Pre-Deployment Steps" above)
 - [ ] Run full test suite: `pytest tests/ -v`
 - [ ] Verify imports: `python -c "from aistock.factories import SessionFactory"`
 - [ ] Paper trade for 1-2 hours minimum
 - [ ] Check logs for errors/warnings
 - [ ] Verify position reconciliation working
 - [ ] Test with conservative FSD parameters
+- [ ] Confirm orphaned modules removed: `ls aistock/services/` should fail
 
 ### Paper Trading (Safe) ✅
 ```bash

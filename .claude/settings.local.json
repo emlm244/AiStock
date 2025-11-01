@@ -58,7 +58,19 @@
       "Bash(gh pr create:*)",
       "Bash(git ls-tree:*)",
       "Bash(git fetch:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(git -C C:/Users/bc200/AiStock branch:*)",
+      "Bash(git -C C:/Users/bc200/AiStock status --short)",
+      "Bash(git -C C:/Users/bc200/AiStock log --oneline -10)",
+      "Bash(git -C C:/Users/bc200/AiStock show:*)",
+      "Bash(git -C C:/Users/bc200/AiStock diff feature/modular-architecture fix/remove-unused-modules --stat)",
+      "Bash(git -C C:/Users/bc200/AiStock log --oneline feature/modular-architecture)",
+      "Bash(git -C C:/Users/bc200/AiStock log --oneline fix/remove-unused-modules)",
+      "Bash(git -C C:/Users/bc200/AiStock merge-base:*)",
+      "Bash(git -C C:/Users/bc200/AiStock log --oneline --graph --all)",
+      "Bash(git -C C:/Users/bc200/AiStock status)",
+      "Bash(git -C C:/Users/bc200/AiStock log --oneline --graph feature/modular-architecture -10)",
+      "Bash(git -C C:/Users/bc200/AiStock diff CLAUDE.md)"
     ],
     "deny": [],
     "ask": []
