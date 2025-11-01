@@ -70,7 +70,8 @@
       "Bash(git -C C:/Users/bc200/AiStock log --oneline --graph --all)",
       "Bash(git -C C:/Users/bc200/AiStock status)",
       "Bash(git -C C:/Users/bc200/AiStock log --oneline --graph feature/modular-architecture -10)",
-      "Bash(git -C C:/Users/bc200/AiStock diff CLAUDE.md)"
+      "Bash(git -C C:/Users/bc200/AiStock diff CLAUDE.md)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []
