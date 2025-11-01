@@ -483,30 +483,22 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
             if abs(portfolio_qty) < 0.01:  # No portfolio position
                 if abs(broker_qty) > 0.01:
                     discrepancies.append(
-                        f"Missing in portfolio: {symbol} (broker qty={broker_qty}, avg_price={broker_avg_price})"
+                        f'Missing in portfolio: {symbol} (broker qty={broker_qty}, avg_price={broker_avg_price})'
                     )
             elif abs(float(portfolio_qty) - broker_qty) > 0.01:  # Quantity mismatch
-                discrepancies.append(
-                    f"Quantity mismatch: {symbol} (portfolio={portfolio_qty}, broker={broker_qty})"
-                )
+                discrepancies.append(f'Quantity mismatch: {symbol} (portfolio={portfolio_qty}, broker={broker_qty})')
 
         # Check positions in portfolio but not in broker
         portfolio_positions = portfolio.snapshot_positions()
         for symbol, position in portfolio_positions.items():
             if symbol not in positions_snapshot:
                 if abs(float(position.quantity)) > 0.01:
-                    discrepancies.append(
-                        f"Extra in portfolio: {symbol} (qty={position.quantity}, not in broker)"
-                    )
+                    discrepancies.append(f'Extra in portfolio: {symbol} (qty={position.quantity}, not in broker)')
 
         # Log results
         if discrepancies:
             self._logger.warning(
-                'position_discrepancies_detected',
-                extra={
-                    'count': len(discrepancies),
-                    'discrepancies': discrepancies
-                }
+                'position_discrepancies_detected', extra={'count': len(discrepancies), 'discrepancies': discrepancies}
             )
             for disc in discrepancies:
                 self._logger.warning('position_discrepancy', extra={'detail': disc})

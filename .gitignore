@@ -113,3 +113,11 @@ Thumbs.db
 *.pem
 *.key
 secrets.*.claude/
+
+# Trading session state (generated at runtime - DO NOT COMMIT)
+state/**/*.json
+state/**/*.pkl
+!state/**/.gitkeep
+
+# Benchmark results
+.benchmarks/

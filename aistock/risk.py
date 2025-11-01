@@ -2,10 +2,10 @@
 Risk management for backtest engines.
 """
 
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-import threading
 
 from .config import RiskLimits
 from .portfolio import Portfolio
@@ -158,9 +158,7 @@ class RiskEngine:
             if per_trade_cap_pct and per_trade_cap_pct > 0:
                 per_trade_cap = current_equity * Decimal(str(per_trade_cap_pct))
                 trade_notional = abs(quantity_delta * price)
-                is_closing_trade = (
-                    (current_pos > 0 and quantity_delta < 0) or (current_pos < 0 and quantity_delta > 0)
-                )
+                is_closing_trade = (current_pos > 0 and quantity_delta < 0) or (current_pos < 0 and quantity_delta > 0)
                 if not is_closing_trade and trade_notional > per_trade_cap:
                     raise RiskViolation(
                         f'Per-trade cap exceeded: ${trade_notional:.2f} > '

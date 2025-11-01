@@ -9,11 +9,11 @@ Detects classic candlestick patterns used by professional traders:
 
 from __future__ import annotations
 
+import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-import threading
 
 from .data import Bar
 
@@ -640,7 +640,7 @@ class PatternDetector:
         first_bearish = pp_close < pp_open
 
         # Second bar is small (star)
-        second_small = abs(p_close - p_open) < abs(pp_close - pp_open) * Decimal("0.3")
+        second_small = abs(p_close - p_open) < abs(pp_close - pp_open) * Decimal('0.3')
 
         # Third bar is bullish and closes above first bar's midpoint
         third_bullish = c_close > c_open
@@ -662,7 +662,7 @@ class PatternDetector:
         first_bullish = pp_close > pp_open
 
         # Second bar is small (star)
-        second_small = abs(p_close - p_open) < abs(pp_close - pp_open) * Decimal("0.3")
+        second_small = abs(p_close - p_open) < abs(pp_close - pp_open) * Decimal('0.3')
 
         # Third bar is bearish and closes below first bar's midpoint
         third_bearish = c_close < c_open

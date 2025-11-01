@@ -27,9 +27,9 @@ from .config import (
     ExecutionConfig,
     StrategyConfig,
 )
+from .factories import SessionFactory
 from .fsd import FSDConfig
 from .logging import configure_logger
-from .session import LiveTradingSession
 
 # from .setup import FirstTimeSetupWizard  # Module doesn't exist - disable for now
 
@@ -118,9 +118,12 @@ class SimpleGUI:
         # IBKR credentials (for live mode) - Read from environment variables
         # CRITICAL-8 Fix: No hardcoded defaults - force user to set via .env
         import os
+
         self.ibkr_account = os.getenv('IBKR_ACCOUNT_ID')  # No default - required for IBKR
         self.ibkr_port = int(os.getenv('IBKR_TWS_PORT', '7497'))  # Default to paper trading port
-        self.ibkr_client_id = int(os.getenv('IBKR_CLIENT_ID')) if os.getenv('IBKR_CLIENT_ID') else None  # No default - required for IBKR
+        self.ibkr_client_id = (
+            int(os.getenv('IBKR_CLIENT_ID')) if os.getenv('IBKR_CLIENT_ID') else None
+        )  # No default - required for IBKR
 
         # Default configurations (hidden from user)
         self.data_folder = 'data/historical/stocks'  # FSD mode: stocks only
@@ -128,7 +131,7 @@ class SimpleGUI:
         self.symbols = self._discover_available_symbols()
 
         # Session state
-        self.session: LiveTradingSession | None = None
+        self.session = None  # TradingCoordinator from new modular architecture
 
         self.trade_tempo_var = tk.StringVar(value='balanced')
 
@@ -1281,21 +1284,33 @@ class SimpleGUI:
             self._log_activity(f'   💵 Max capital per position: {fsd_config.max_capital_per_position:.0%}')
             self._log_activity(f'   🌪️ Volatility bias: {fsd_config.volatility_bias}')
 
-            # Create session (FSD-only) with minimum balance protection and professional features
-            self.session = LiveTradingSession(
+            # Create session using new modular SessionFactory
+            factory = SessionFactory(
                 config,
                 fsd_config=fsd_config,
+                enable_professional_features=True,
+            )
+            self.session = factory.create_trading_session(
+                symbols=list(data_source.symbols) if data_source.symbols else [],
+                checkpoint_dir='state',
                 minimum_balance=minimum_balance,
                 minimum_balance_enabled=minimum_balance_enabled,
-                timeframes=timeframes,  # Pass multi-timeframe config
-                enable_professional_features=True,  # Enable all professional enhancements
+                timeframes=timeframes,
                 safeguard_config=safeguard_config,
-                risk_limit_overrides=risk_limit_overrides,
             )
 
+            # Apply risk limit overrides if provided
+            if risk_limit_overrides:
+                for key, value in risk_limit_overrides.items():
+                    if key == 'max_daily_loss_pct':
+                        self.session.risk.config.max_daily_loss_pct = max(0.0001, min(float(value), 1.0))
+                    elif key == 'max_drawdown_pct':
+                        self.session.risk.config.max_drawdown_pct = max(0.0001, min(float(value), 1.0))
+
             # Attach logging callback so FSD decisions appear in GUI
-            if self.session.fsd_engine:
-                self.session.fsd_engine.gui_log_callback = self._log_activity
+            # Use hasattr to avoid protocol violation (not all decision engines have this callback)
+            if self.session.decision_engine and hasattr(self.session.decision_engine, 'gui_log_callback'):
+                self.session.decision_engine.gui_log_callback = self._log_activity
 
             # Professional warmup: Pull 10 days of historical bars from IBKR for each timeframe
             self._log_activity('🕐 Professional Warmup: Pulling 10 days of historical data from IBKR...')

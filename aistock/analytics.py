@@ -56,9 +56,7 @@ class DrawdownMetrics:
     current_equity: Decimal
 
 
-def calculate_symbol_performance(
-    trade_log: list[dict[str, Any]], symbol: str
-) -> SymbolPerformance | None:
+def calculate_symbol_performance(trade_log: list[dict[str, Any]], symbol: str) -> SymbolPerformance | None:
     """
     Calculate per-symbol trading statistics.
 
@@ -175,9 +173,7 @@ def calculate_drawdown_metrics(equity_curve: list[tuple[datetime, Decimal]]) -> 
     )
 
 
-def export_symbol_performance_csv(
-    trade_log: list[dict[str, Any]], symbols: list[str], output_path: str
-) -> None:
+def export_symbol_performance_csv(trade_log: list[dict[str, Any]], symbols: list[str], output_path: str) -> None:
     """
     Export per-symbol performance to CSV.
 
@@ -191,38 +187,42 @@ def export_symbol_performance_csv(
 
     with output_file.open('w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow([
-            'symbol',
-            'total_trades',
-            'winning_trades',
-            'losing_trades',
-            'win_rate_pct',
-            'total_pnl',
-            'avg_win',
-            'avg_loss',
-            'largest_win',
-            'largest_loss',
-            'expectancy',
-            'profit_factor',
-        ])
+        writer.writerow(
+            [
+                'symbol',
+                'total_trades',
+                'winning_trades',
+                'losing_trades',
+                'win_rate_pct',
+                'total_pnl',
+                'avg_win',
+                'avg_loss',
+                'largest_win',
+                'largest_loss',
+                'expectancy',
+                'profit_factor',
+            ]
+        )
 
         for symbol in symbols:
             perf = calculate_symbol_performance(trade_log, symbol)
             if perf:
-                writer.writerow([
-                    perf.symbol,
-                    perf.total_trades,
-                    perf.winning_trades,
-                    perf.losing_trades,
-                    round(perf.win_rate, 2),
-                    float(perf.total_pnl),
-                    float(perf.avg_win),
-                    float(perf.avg_loss),
-                    float(perf.largest_win),
-                    float(perf.largest_loss),
-                    float(perf.expectancy),
-                    round(perf.profit_factor, 2),
-                ])
+                writer.writerow(
+                    [
+                        perf.symbol,
+                        perf.total_trades,
+                        perf.winning_trades,
+                        perf.losing_trades,
+                        round(perf.win_rate, 2),
+                        float(perf.total_pnl),
+                        float(perf.avg_win),
+                        float(perf.avg_loss),
+                        float(perf.largest_win),
+                        float(perf.largest_loss),
+                        float(perf.expectancy),
+                        round(perf.profit_factor, 2),
+                    ]
+                )
 
 
 def export_drawdown_csv(equity_curve: list[tuple[datetime, Decimal]], output_path: str) -> None:
