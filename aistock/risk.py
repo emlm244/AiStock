@@ -303,7 +303,8 @@ class RiskEngine:
         with self._lock:
             self.state.daily_pnl += realised_pnl
 
-            # Check if daily loss limit breached
-            daily_loss_pct = abs(self.state.daily_pnl) / self.daily_start_equity if self.daily_start_equity > 0 else 0
-            if daily_loss_pct >= self.config.max_daily_loss_pct:
-                self.halt('Daily loss limit exceeded')
+            # Check if daily loss limit breached (only for actual losses, not profits)
+            if self.state.daily_pnl < 0:
+                daily_loss_pct = -self.state.daily_pnl / self.daily_start_equity if self.daily_start_equity > 0 else 0
+                if daily_loss_pct >= self.config.max_daily_loss_pct:
+                    self.halt('Daily loss limit exceeded')
