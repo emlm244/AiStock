@@ -129,31 +129,18 @@ class SessionFactory:
 
         return coordinator
 
-    def create_with_checkpoint_restore(
-        self,
-        checkpoint_dir: str = 'state',
-        **kwargs,
-    ) -> TradingCoordinator:
-        """Create session and restore from checkpoint.
-
-        Args:
-            checkpoint_dir: Checkpoint directory
-            **kwargs: Additional arguments for create_trading_session
-
-        Returns:
-            TradingCoordinator with restored state
-        """
-        # Create portfolio and risk from checkpoint
-        from ..persistence import load_checkpoint
-
-        try:
-            portfolio, risk_state = load_checkpoint(checkpoint_dir)
-
-            # Update config to use restored portfolio
-            # (implementation detail: would need to pass portfolio to factory)
-
-        except FileNotFoundError:
-            # No checkpoint - create fresh
-            pass
-
-        return self.create_trading_session(checkpoint_dir=checkpoint_dir, **kwargs)
+    # TODO(Phase-7): Implement proper checkpoint restore
+    # Current implementation doesn't actually use restored state.
+    # Need to refactor factory to accept pre-built Portfolio/RiskEngine
+    # or add restore_checkpoint() method to TradingCoordinator.
+    #
+    # def create_with_checkpoint_restore(
+    #     self,
+    #     checkpoint_dir: str = 'state',
+    #     **kwargs,
+    # ) -> TradingCoordinator:
+    #     """Create session and restore from checkpoint."""
+    #     from ..persistence import load_checkpoint
+    #     portfolio, risk_state = load_checkpoint(checkpoint_dir)
+    #     # TODO: Actually use restored portfolio/risk_state!
+    #     return self.create_trading_session(checkpoint_dir=checkpoint_dir, **kwargs)
