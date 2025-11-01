@@ -58,7 +58,8 @@
       "Bash(gh pr create:*)",
       "Bash(git ls-tree:*)",
       "Bash(git fetch:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(git branch:*)"
     ],
     "deny": [],
     "ask": []
