@@ -222,7 +222,7 @@ class TradingCoordinator:
 
         # Risk check
         try:
-            self.risk.check_pre_trade(symbol, delta, current_price, Decimal(str(equity)), last_prices)
+            self.risk.check_pre_trade(symbol, delta, current_price, Decimal(str(equity)), last_prices, timestamp)
         except Exception as exc:
             self.logger.warning(f'Risk violation: {exc}')
             return
@@ -247,9 +247,9 @@ class TradingCoordinator:
             )
 
             self.risk.record_order_submission(timestamp)
-            self.idempotency.mark_submitted(client_order_id)
 
             order_id = self.broker.submit(order)
+            self.idempotency.mark_submitted(client_order_id)
             self._order_submission_times[order_id] = timestamp
 
             self.logger.info(f'Order submitted: {symbol} {order_id}')
