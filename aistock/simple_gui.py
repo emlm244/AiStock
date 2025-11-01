@@ -1305,7 +1305,8 @@ class SimpleGUI:
                         self.session.risk.config.max_drawdown_pct = max(0.0001, min(float(value), 1.0))
 
             # Attach logging callback so FSD decisions appear in GUI
-            if self.session.decision_engine:
+            # Use hasattr to avoid protocol violation (not all decision engines have this callback)
+            if self.session.decision_engine and hasattr(self.session.decision_engine, 'gui_log_callback'):
                 self.session.decision_engine.gui_log_callback = self._log_activity
 
             # Professional warmup: Pull 10 days of historical bars from IBKR for each timeframe
