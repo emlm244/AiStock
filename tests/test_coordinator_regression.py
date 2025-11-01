@@ -125,37 +125,37 @@ class BrokerFailureRegressionTests(unittest.TestCase):
 
     def test_broker_failure_does_not_increment_rate_limits(self):
         """Verify failed broker.submit() does not count toward rate limits."""
+        from aistock.config import RiskLimits
+        from aistock.portfolio import Portfolio
         from aistock.risk import RiskEngine
+        from datetime import timedelta
 
-        # Create risk engine
-        risk = RiskEngine(
-            max_position_pct=Decimal('0.1'),
-            max_daily_loss=Decimal('1000'),
-            max_concurrent_positions=5,
-            order_rate_limit_per_minute=10,
-            order_rate_limit_per_day=100,
+        # Create portfolio and risk engine
+        portfolio = Portfolio(cash=Decimal('100000'))
+        limits = RiskLimits(
+            max_position_fraction=Decimal('0.1'),
+            max_daily_loss_pct=Decimal('0.01'),
+            max_drawdown_pct=Decimal('0.5'),
+            max_orders_per_minute=10,
+            max_orders_per_day=100,
         )
+        risk = RiskEngine(limits, portfolio, bar_interval=timedelta(minutes=1))
 
         timestamp = datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc)
-
-        # Record a failed submission (should NOT happen in fixed code)
-        # This simulates the OLD buggy behavior
-        initial_minute_count = risk._order_count_minute
-        initial_day_count = risk._order_count_day
 
         # In the FIXED code, record_order_submission is called AFTER broker.submit succeeds
         # So if broker.submit fails, record_order_submission is never called
 
-        # Verify initial state
-        self.assertEqual(initial_minute_count, 0)
-        self.assertEqual(initial_day_count, 0)
+        # Verify initial state (no orders recorded yet)
+        self.assertEqual(len(risk.state.order_timestamps), 0)
+        self.assertEqual(risk.state.daily_order_count, 0)
 
         # Simulate a successful submission (should increment)
         risk.record_order_submission(timestamp)
 
         # After successful submit, counters should increment
-        self.assertEqual(risk._order_count_minute, 1)
-        self.assertEqual(risk._order_count_day, 1)
+        self.assertEqual(len(risk.state.order_timestamps), 1)
+        self.assertEqual(risk.state.daily_order_count, 1)
 
         # If broker fails, record_order_submission should NOT be called
         # (tested via integration test below)
