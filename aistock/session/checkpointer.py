@@ -63,6 +63,7 @@ class CheckpointManager:
                 request = self._checkpoint_queue.get(timeout=1.0)
 
                 if request is None:  # Shutdown signal
+                    self._checkpoint_queue.task_done()  # Must mark sentinel as done
                     break
 
                 # Perform save

@@ -246,9 +246,8 @@ class TradingCoordinator:
                 float(desired_qty),
             )
 
-            self.risk.record_order_submission(timestamp)
-
             order_id = self.broker.submit(order)
+            self.risk.record_order_submission(timestamp)
             self.idempotency.mark_submitted(client_order_id)
             self._order_submission_times[order_id] = timestamp
 
