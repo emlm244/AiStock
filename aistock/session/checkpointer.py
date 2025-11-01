@@ -41,11 +41,7 @@ class CheckpointManager:
         # Background worker
         self._checkpoint_queue: queue.Queue[dict[str, Any] | None] = queue.Queue(maxsize=10)
         self._worker_running = True
-        self._worker = threading.Thread(
-            target=self._worker_loop,
-            daemon=True,
-            name='CheckpointWorker'
-        )
+        self._worker = threading.Thread(target=self._worker_loop, daemon=True, name='CheckpointWorker')
         self._worker.start()
         self.logger.info('Checkpoint worker started')
 
@@ -74,7 +70,7 @@ class CheckpointManager:
                     self.state_manager.save_checkpoint(
                         self.portfolio,
                         self.risk_engine.state,  # type: ignore[attr-defined]
-                        self.checkpoint_dir
+                        self.checkpoint_dir,
                     )
                     self.logger.debug('Checkpoint saved async')
                 except Exception as exc:
@@ -123,7 +119,7 @@ class CheckpointManager:
             self.state_manager.save_checkpoint(
                 self.portfolio,
                 self.risk_engine.state,  # type: ignore[attr-defined]
-                self.checkpoint_dir
+                self.checkpoint_dir,
             )
             self.logger.info('Final checkpoint saved')
         except Exception as exc:

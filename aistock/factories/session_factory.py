@@ -73,9 +73,7 @@ class SessionFactory:
 
         # Create core components (order matters for dependencies)
         portfolio = self.components_factory.create_portfolio()
-        risk_engine = self.components_factory.create_risk_engine(
-            portfolio, minimum_balance, minimum_balance_enabled
-        )
+        risk_engine = self.components_factory.create_risk_engine(portfolio, minimum_balance, minimum_balance_enabled)
         broker = self.components_factory.create_broker()
 
         # Create professional features
@@ -84,9 +82,7 @@ class SessionFactory:
         safeguards = None
 
         if self.enable_professional:
-            timeframe_manager = self.components_factory.create_timeframe_manager(
-                symbols, timeframes
-            )
+            timeframe_manager = self.components_factory.create_timeframe_manager(symbols, timeframes)
             pattern_detector = self.components_factory.create_pattern_detector()
             safeguards = self.components_factory.create_safeguards(safeguard_config)
 
@@ -105,12 +101,8 @@ class SessionFactory:
         # Create session components
         bar_processor = self.components_factory.create_bar_processor(timeframe_manager)
         reconciler = self.components_factory.create_reconciler(portfolio, broker, risk_engine)
-        checkpointer = self.components_factory.create_checkpointer(
-            portfolio, risk_engine, checkpoint_dir, enabled=True
-        )
-        analytics = self.components_factory.create_analytics_reporter(
-            portfolio, checkpoint_dir
-        )
+        checkpointer = self.components_factory.create_checkpointer(portfolio, risk_engine, checkpoint_dir, enabled=True)
+        analytics = self.components_factory.create_analytics_reporter(portfolio, checkpoint_dir)
 
         # Create coordinator
         coordinator = TradingCoordinator(

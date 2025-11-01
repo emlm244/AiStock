@@ -7,7 +7,7 @@ import threading
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ..data import Bar
 
@@ -70,7 +70,7 @@ class BarProcessor:
             # Keep bounded
             max_history = self.warmup_bars * 5
             if len(history) > max_history:
-                del history[:len(history) - max_history]
+                del history[: len(history) - max_history]
 
             # Update price
             self.last_prices[symbol] = bar.close
@@ -113,9 +113,7 @@ class BarProcessor:
                 new_bars = [bar for bar in bars if bar.timestamp not in existing_ts]
                 if new_bars:
                     self.history[symbol].extend(new_bars)
-                    self.logger.info(
-                        f'Warmup merged: {len(new_bars)} bars for {symbol}'
-                    )
+                    self.logger.info(f'Warmup merged: {len(new_bars)} bars for {symbol}')
 
         # Feed to timeframe manager
         if self.timeframe_manager:

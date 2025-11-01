@@ -7,9 +7,9 @@ Usage:
     python -m aistock --help       # Show this help message
 """
 
+import logging
 import signal
 import sys
-import logging
 
 # Global reference to GUI instance for signal handlers
 _gui_instance = None

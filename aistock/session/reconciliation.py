@@ -44,7 +44,11 @@ class PositionReconciler:
             return True
 
         current_utc = current_time if current_time.tzinfo else current_time.replace(tzinfo=timezone.utc)
-        last_utc = self._last_reconciliation if self._last_reconciliation.tzinfo else self._last_reconciliation.replace(tzinfo=timezone.utc)
+        last_utc = (
+            self._last_reconciliation
+            if self._last_reconciliation.tzinfo
+            else self._last_reconciliation.replace(tzinfo=timezone.utc)
+        )
 
         if current_utc <= last_utc:
             return False
@@ -60,8 +64,7 @@ class PositionReconciler:
             portfolio_positions = self.portfolio.snapshot_positions()
 
             internal_map = {
-                sym: (float(pos.quantity), float(pos.average_price))
-                for sym, pos in portfolio_positions.items()
+                sym: (float(pos.quantity), float(pos.average_price)) for sym, pos in portfolio_positions.items()
             }
 
             mismatches = []
@@ -70,22 +73,26 @@ class PositionReconciler:
             for symbol, (internal_qty, _) in internal_map.items():
                 broker_qty, _ = broker_positions.get(symbol, (0.0, 0.0))
                 if abs(internal_qty - broker_qty) > 0.001:
-                    mismatches.append({
-                        'symbol': symbol,
-                        'internal_qty': internal_qty,
-                        'broker_qty': broker_qty,
-                        'delta': internal_qty - broker_qty,
-                    })
+                    mismatches.append(
+                        {
+                            'symbol': symbol,
+                            'internal_qty': internal_qty,
+                            'broker_qty': broker_qty,
+                            'delta': internal_qty - broker_qty,
+                        }
+                    )
 
             # Check broker positions not in internal
             for symbol, (broker_qty, _) in broker_positions.items():
                 if symbol not in internal_map and abs(broker_qty) > 0.001:
-                    mismatches.append({
-                        'symbol': symbol,
-                        'internal_qty': 0.0,
-                        'broker_qty': broker_qty,
-                        'delta': -broker_qty,
-                    })
+                    mismatches.append(
+                        {
+                            'symbol': symbol,
+                            'internal_qty': 0.0,
+                            'broker_qty': broker_qty,
+                            'delta': -broker_qty,
+                        }
+                    )
 
             if mismatches:
                 # Check for critical mismatches (>=10%)

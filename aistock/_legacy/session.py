@@ -241,9 +241,7 @@ class LiveTradingSession:
         self._checkpoint_queue: queue.Queue[dict[str, Any] | None] = queue.Queue(maxsize=10)
         self._checkpoint_worker_running = True
         self._checkpoint_worker = threading.Thread(
-            target=self._checkpoint_worker_loop,
-            daemon=True,
-            name='CheckpointWorker'
+            target=self._checkpoint_worker_loop, daemon=True, name='CheckpointWorker'
         )
         self._checkpoint_worker.start()
         self.logger.info('checkpoint_worker_started')
@@ -391,12 +389,18 @@ class LiveTradingSession:
                                     else:
                                         # History exists - merge new warmup without duplicates
                                         existing_timestamps = {bar.timestamp for bar in self.history[symbol]}
-                                        new_bars = [bar for bar in warmup_bars if bar.timestamp not in existing_timestamps]
+                                        new_bars = [
+                                            bar for bar in warmup_bars if bar.timestamp not in existing_timestamps
+                                        ]
                                         if new_bars:
                                             self.history[symbol].extend(new_bars)
                                             self.logger.info(
                                                 'warmup_bars_merged',
-                                                extra={'symbol': symbol, 'new_bars': len(new_bars), 'existing_bars': len(self.history[symbol])},
+                                                extra={
+                                                    'symbol': symbol,
+                                                    'new_bars': len(new_bars),
+                                                    'existing_bars': len(self.history[symbol]),
+                                                },
                                             )
 
                             # Feed to timeframe manager
@@ -978,7 +982,11 @@ class LiveTradingSession:
             )
             self.logger.info(
                 'fsd_learning_update',
-                extra={'symbol': report.symbol, 'pnl': float(realised), 'total_trades': len(self.fsd_engine.trade_history)},
+                extra={
+                    'symbol': report.symbol,
+                    'pnl': float(realised),
+                    'total_trades': len(self.fsd_engine.trade_history),
+                },
             )
         except Exception as learning_error:
             # CRITICAL-2: Never let learning errors prevent trade recording
@@ -1034,8 +1042,7 @@ class LiveTradingSession:
             broker_positions = self.broker.get_positions()
             positions_snapshot = self.portfolio.snapshot_positions()
             internal_positions = {
-                sym: (float(pos.quantity), float(pos.average_price))
-                for sym, pos in positions_snapshot.items()
+                sym: (float(pos.quantity), float(pos.average_price)) for sym, pos in positions_snapshot.items()
             }
 
             mismatches = []
@@ -1057,9 +1064,7 @@ class LiveTradingSession:
                 if symbol not in broker_positions:
                     qty = float(pos.quantity)
                     if abs(qty) > 0.001:
-                        mismatches.append(
-                            {'symbol': symbol, 'internal_qty': qty, 'broker_qty': 0.0, 'delta': qty}
-                        )
+                        mismatches.append({'symbol': symbol, 'internal_qty': qty, 'broker_qty': 0.0, 'delta': qty})
 
             # Check broker positions not in internal
             for symbol, (broker_qty, _) in broker_positions.items():

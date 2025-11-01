@@ -182,6 +182,4 @@ class TradingComponentsFactory:
         checkpoint_dir: str = 'state',
     ) -> OrderIdempotencyTracker:
         """Create order idempotency tracker."""
-        return OrderIdempotencyTracker(
-            storage_path=f'{checkpoint_dir}/submitted_orders.json'
-        )
+        return OrderIdempotencyTracker(storage_path=f'{checkpoint_dir}/submitted_orders.json')

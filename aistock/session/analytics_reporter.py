@@ -39,13 +39,15 @@ class AnalyticsReporter:
         realized_pnl: float,
     ) -> None:
         """Record a trade for analytics."""
-        self.trade_log.append({
-            'timestamp': timestamp,
-            'symbol': symbol,
-            'quantity': quantity,
-            'price': price,
-            'realised_pnl': realized_pnl,
-        })
+        self.trade_log.append(
+            {
+                'timestamp': timestamp,
+                'symbol': symbol,
+                'quantity': quantity,
+                'price': price,
+                'realised_pnl': realized_pnl,
+            }
+        )
 
         # Keep bounded
         if len(self.trade_log) > 1000:
@@ -71,18 +73,13 @@ class AnalyticsReporter:
             # Symbol performance
             if self.trade_log and self.symbols:
                 export_symbol_performance_csv(
-                    self.trade_log,
-                    self.symbols,
-                    f'{self.checkpoint_dir}/symbol_performance.csv'
+                    self.trade_log, self.symbols, f'{self.checkpoint_dir}/symbol_performance.csv'
                 )
                 self.logger.info('Exported symbol_performance.csv')
 
             # Drawdown analysis
             if self.equity_curve:
-                export_drawdown_csv(
-                    self.equity_curve,
-                    f'{self.checkpoint_dir}/drawdown_analysis.csv'
-                )
+                export_drawdown_csv(self.equity_curve, f'{self.checkpoint_dir}/drawdown_analysis.csv')
                 self.logger.info('Exported drawdown_analysis.csv')
 
             # Capital sizing

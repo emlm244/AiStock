@@ -153,9 +153,7 @@ class FSDConfig:
         # Volatility bias
         valid_volatility_biases = {'balanced', 'high', 'low'}
         if self.volatility_bias not in valid_volatility_biases:
-            raise ValueError(
-                f'volatility_bias must be one of {valid_volatility_biases}, got {self.volatility_bias!r}'
-            )
+            raise ValueError(f'volatility_bias must be one of {valid_volatility_biases}, got {self.volatility_bias!r}')
 
 
 class RLAgent:
@@ -858,6 +856,7 @@ class FSDEngine:
             # CRITICAL-2: Never let Q-value update errors break the learning pipeline
             # Log the error but continue with statistics tracking
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(
                 f'Q-value update failed for {symbol}: {q_update_error}',
@@ -991,9 +990,7 @@ class FSDEngine:
             if payload_obj is None:
                 return False  # No files found or all corrupted
 
-            payload: dict[str, object] = (
-                cast(dict[str, object], payload_obj) if isinstance(payload_obj, dict) else {}
-            )
+            payload: dict[str, object] = cast(dict[str, object], payload_obj) if isinstance(payload_obj, dict) else {}
             q_values_obj: object = payload.get('q_values', {})
             if isinstance(q_values_obj, dict):
                 # P1-1 Fix: Convert loaded dict to OrderedDict for LRU eviction

@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from ..interfaces.decision import DecisionEngineProtocol
     from ..interfaces.portfolio import PortfolioProtocol
     from ..interfaces.risk import RiskEngineProtocol
-    from ..risk import RiskViolation
     from .analytics_reporter import AnalyticsReporter
     from .bar_processor import BarProcessor
     from .checkpointer import CheckpointManager
@@ -68,9 +67,7 @@ class TradingCoordinator:
         self.checkpoint_dir = checkpoint_dir
 
         # Idempotency tracker
-        self.idempotency = OrderIdempotencyTracker(
-            storage_path=f'{checkpoint_dir}/submitted_orders.json'
-        )
+        self.idempotency = OrderIdempotencyTracker(storage_path=f'{checkpoint_dir}/submitted_orders.json')
 
         # Track order submissions
         self._order_submission_times: dict[int, datetime] = {}
@@ -99,9 +96,7 @@ class TradingCoordinator:
 
         # Load learned state
         try:
-            loaded = self.decision_engine.load_state(
-                f'{self.checkpoint_dir}/fsd_state.json'
-            )
+            loaded = self.decision_engine.load_state(f'{self.checkpoint_dir}/fsd_state.json')
             if loaded:
                 self.logger.info('Loaded decision engine state')
         except Exception as exc:
@@ -114,15 +109,11 @@ class TradingCoordinator:
 
         # Report orphaned orders
         if self._order_submission_times:
-            self.logger.warning(
-                f'Orphaned orders: {len(self._order_submission_times)}'
-            )
+            self.logger.warning(f'Orphaned orders: {len(self._order_submission_times)}')
 
         # Save decision engine state
         try:
-            self.decision_engine.save_state(
-                f'{self.checkpoint_dir}/fsd_state.json'
-            )
+            self.decision_engine.save_state(f'{self.checkpoint_dir}/fsd_state.json')
             self.logger.info('Saved decision engine state')
         except Exception as exc:
             self.logger.error(f'Could not save state: {exc}')
@@ -223,9 +214,7 @@ class TradingCoordinator:
             return
 
         # Generate idempotent order ID
-        client_order_id = self.idempotency.generate_client_order_id(
-            symbol, timestamp, delta
-        )
+        client_order_id = self.idempotency.generate_client_order_id(symbol, timestamp, delta)
 
         if self.idempotency.is_duplicate(client_order_id):
             self.logger.warning(f'Duplicate order: {client_order_id}')
@@ -233,9 +222,7 @@ class TradingCoordinator:
 
         # Risk check
         try:
-            self.risk.check_pre_trade(
-                symbol, delta, current_price, Decimal(str(equity)), last_prices
-            )
+            self.risk.check_pre_trade(symbol, delta, current_price, Decimal(str(equity)), last_prices)
         except Exception as exc:
             self.logger.warning(f'Risk violation: {exc}')
             return
@@ -292,10 +279,7 @@ class TradingCoordinator:
 
         # Risk tracking
         equity = self.portfolio.total_equity(last_prices)
-        self.risk.register_trade(
-            realized, Decimal('0'), report.timestamp,
-            Decimal(str(equity)), last_prices
-        )
+        self.risk.register_trade(realized, Decimal('0'), report.timestamp, Decimal(str(equity)), last_prices)
 
         # Analytics
         self._last_equity = Decimal(str(equity))
@@ -337,12 +321,14 @@ class TradingCoordinator:
 
         positions = []
         for symbol, pos in self.portfolio.snapshot_positions().items():
-            positions.append({
-                'symbol': symbol,
-                'quantity': float(pos.quantity),
-                'avg_price': float(pos.average_price),
-                'last_update': pos.last_update_utc,
-            })
+            positions.append(
+                {
+                    'symbol': symbol,
+                    'quantity': float(pos.quantity),
+                    'avg_price': float(pos.average_price),
+                    'last_update': pos.last_update_utc,
+                }
+            )
 
         return {
             'positions': positions,

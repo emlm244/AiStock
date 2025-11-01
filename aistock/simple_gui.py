@@ -118,9 +118,12 @@ class SimpleGUI:
         # IBKR credentials (for live mode) - Read from environment variables
         # CRITICAL-8 Fix: No hardcoded defaults - force user to set via .env
         import os
+
         self.ibkr_account = os.getenv('IBKR_ACCOUNT_ID')  # No default - required for IBKR
         self.ibkr_port = int(os.getenv('IBKR_TWS_PORT', '7497'))  # Default to paper trading port
-        self.ibkr_client_id = int(os.getenv('IBKR_CLIENT_ID')) if os.getenv('IBKR_CLIENT_ID') else None  # No default - required for IBKR
+        self.ibkr_client_id = (
+            int(os.getenv('IBKR_CLIENT_ID')) if os.getenv('IBKR_CLIENT_ID') else None
+        )  # No default - required for IBKR
 
         # Default configurations (hidden from user)
         self.data_folder = 'data/historical/stocks'  # FSD mode: stocks only
