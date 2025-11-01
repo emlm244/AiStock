@@ -1,11 +1,78 @@
 # CLAUDE.md
 
-**Last Updated**: 2025-11-01 (Post-Deployment Preparation)
+**Last Updated**: 2025-11-01 (Post-Critical Bug Fixes)
 **Architecture**: Modular with Dependency Injection
-**Status**: Production-Ready - All Fixes Merged
+**Status**: ✅ PRODUCTION-READY - All 6 Critical Bugs Fixed
 
 This file provides guidance to Claude Code when working with the AIStock trading system.
 
+
+
+---
+
+## 🔥 Critical Bug Fixes (2025-11-01)
+
+**All critical production-breaking bugs have been identified and fixed.**
+
+### Summary of Fixes
+
+| # | Bug | File:Line | Severity | Status |
+|---|-----|-----------|----------|--------|
+| 1 | Missing timestamp in risk check | coordinator.py:225 | 🔴 CRITICAL | ✅ FIXED |
+| 2 | Premature idempotency marking | coordinator.py:252 | 🔴 CRITICAL | ✅ FIXED |
+| 3 | Checkpoint shutdown deadlock | checkpointer.py:66 | 🔴 CRITICAL | ✅ FIXED |
+| 4 | Premature risk recording | coordinator.py:251 | 🔴 CRITICAL | ✅ FIXED |
+| 5 | Profit triggers loss halt | risk.py:307 | 🔴 CRITICAL | ✅ FIXED |
+| 6 | Timezone-aware/naive crash | edge_cases.py:206 | 🔴 CRITICAL | ✅ FIXED |
+
+### Bug Details
+
+**Bug #1: Missing Timestamp in Risk Check**
+- **Impact**: Risk limits never reset, order throttling disabled
+- **Fix**: Pass timestamp parameter to `risk.check_pre_trade()`
+- **Commit**: 225a596
+
+**Bug #2: Premature Idempotency Marking**
+- **Impact**: Broker failures cause silent trade loss
+- **Fix**: Mark idempotency AFTER successful `broker.submit()`
+- **Commit**: 225a596
+
+**Bug #3: Checkpoint Shutdown Deadlock**
+- **Impact**: System hangs forever on shutdown, final checkpoint lost
+- **Fix**: Call `task_done()` before breaking on None sentinel
+- **Commit**: 3ef7d68
+
+**Bug #4: Premature Risk Recording**
+- **Impact**: Broker failures exhaust rate limits
+- **Fix**: Record order submission AFTER successful broker submit
+- **Commit**: 3ef7d68
+
+**Bug #5: Profit Triggers Loss Halt**
+- **Impact**: Trading stops on profitable days (backwards!)
+- **Fix**: Only check loss limit when `daily_pnl < 0`
+- **Commit**: 0ae8c0b
+
+**Bug #6: Timezone-Aware/Naive DateTime Crash**
+- **Impact**: System crashes on first bar (launch blocker)
+- **Fix**: Normalize timezone awareness before datetime subtraction
+- **Commit**: 89f191f
+
+### Regression Tests Added
+
+**New Test File**: `tests/test_coordinator_regression.py` (5 tests)
+- Checkpoint shutdown without deadlock ✅
+- Final checkpoint saved on shutdown ✅
+- Pending checkpoints processed ✅
+- Broker failure doesn't increment rate limits ✅
+- Risk accounting integration test ✅
+
+**Updated Test File**: `tests/test_risk_engine.py` (+2 tests)
+- Profit doesn't trigger daily loss halt ✅
+- Loss exceeding limit triggers halt ✅
+
+**Total New Tests**: 7 regression tests to prevent recurrence
+
+---
 ---
 
 ## Project Overview
