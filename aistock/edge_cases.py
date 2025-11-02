@@ -205,14 +205,13 @@ class EdgeCaseHandler:
 
         # Fix timezone mismatch: ensure both have same timezone awareness
         # CRITICAL: If current_time is naive, this is a bug upstream.
-        # All callers should pass timezone-aware datetimes.
+        # All callers MUST pass timezone-aware datetimes.
         if current_time.tzinfo is None:
-            # Log error - this should not happen
-            import logging
-            logging.error("_check_stale_data received naive datetime; assuming UTC (this may be incorrect if local time)")
-            from datetime import timezone
-            # Best effort: assume it's already UTC (but this is dangerous if it's local time)
-            current_time = current_time.replace(tzinfo=timezone.utc)
+            raise TypeError(
+                "EdgeCaseHandler._check_stale_data received naive datetime. "
+                "All callers must use datetime.now(timezone.utc) or ensure timezone awareness. "
+                "This prevents silent 5-hour errors on non-UTC machines."
+            )
 
         # If bar is naive but current_time is tz-aware, make bar tz-aware (assume UTC)
         if last_bar.timestamp.tzinfo is None and current_time.tzinfo is not None:
