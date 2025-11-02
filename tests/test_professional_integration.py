@@ -405,6 +405,23 @@ class TestProfessionalSafeguards:
         assert result.confidence_adjustment < 0
         assert any('unusual activity' in w.lower() or 'news' in w.lower() for w in result.warnings)
 
+    def test_record_trade_rejects_naive_datetime(self):
+        """Test that record_trade raises TypeError for naive datetime (regression test for Bug #7)."""
+        ps = ProfessionalSafeguards()
+
+        # Naive datetime (no tzinfo)
+        naive_timestamp = datetime(2024, 1, 1, 12, 0, 0)
+
+        # Should raise TypeError with clear message
+        with pytest.raises(TypeError) as exc_info:
+            ps.record_trade(naive_timestamp, 'AAPL')
+
+        # Verify error message contains guidance
+        error_msg = str(exc_info.value)
+        assert 'naive datetime' in error_msg.lower()
+        assert 'timezone.utc' in error_msg
+        assert 'comparison errors' in error_msg.lower()
+
     @staticmethod
     def _create_test_bars(symbol: str, count: int) -> list[Bar]:
         """Create test bars."""

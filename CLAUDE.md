@@ -1,6 +1,6 @@
 ## CLAUDE Playbook – AIStock Trading System
 **Last Updated**: 2025-11-02 (Timezone Bug #7 + Strict Enforcement)
-**Status**: ✅ Production-ready (`main` @ 5bbeca0)
+**Status**: ✅ Production-ready (`main` @ c96cdf0)
 
 This document is the operating manual for Claude Code (and similar assistants) when working in the AIStock repository. It mirrors `AGENTS.md` but emphasises assistant-specific expectations, safety constraints, and verification steps.
 
