@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 from .calendar import nyse_trading_hours
@@ -104,7 +104,7 @@ class ProfessionalSafeguards:
             TradingSafeguardResult with allowed/blocked decision
         """
         if current_time is None:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
 
         warnings: list[str] = []
         confidence_adjustment = 0.0
@@ -369,13 +369,13 @@ class ProfessionalSafeguards:
         Returns:
             Dictionary with trade statistics
         """
-        cutoff = datetime.now() - timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         recent_trades = [t for t in self._trade_times if t >= cutoff]
 
         return {
             'total_trades': len(recent_trades),
-            'trades_last_hour': sum(1 for t in recent_trades if t >= datetime.now() - timedelta(hours=1)),
-            'trades_today': sum(1 for t in recent_trades if t.date() == datetime.now().date()),
+            'trades_last_hour': sum(1 for t in recent_trades if t >= datetime.now(timezone.utc) - timedelta(hours=1)),
+            'trades_today': sum(1 for t in recent_trades if t.date() == datetime.now(timezone.utc).date()),
             'max_trades_per_hour': self.max_trades_per_hour,
             'max_trades_per_day': self.max_trades_per_day,
             'utilization_pct': (len(recent_trades) / self.max_trades_per_day) * 100,

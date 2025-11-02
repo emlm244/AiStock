@@ -17,7 +17,7 @@ import random
 import threading
 from collections import OrderedDict, deque
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
@@ -564,7 +564,7 @@ class FSDEngine:
                 symbol=symbol,
                 bars=bars,
                 timeframe_data=timeframe_data,
-                current_time=datetime.now(),
+                current_time=datetime.now(timezone.utc),
             )
 
             if edge_result.action == 'block':
@@ -610,7 +610,7 @@ class FSDEngine:
             safeguard_result = self.safeguards.check_trading_allowed(
                 symbol=symbol,
                 bars=bars,
-                current_time=datetime.now(),
+                current_time=datetime.now(timezone.utc),
                 timeframe_divergence=timeframe_divergence,
             )
 
@@ -715,7 +715,7 @@ class FSDEngine:
 
         if self.config.enable_session_adaptation and self.session_start_time and self.session_trades == 0:
             # No trades yet - check if we should adapt
-            elapsed_minutes = (datetime.now() - self.session_start_time).total_seconds() / 60
+            elapsed_minutes = (datetime.now(timezone.utc) - self.session_start_time).total_seconds() / 60
 
             # Only start adapting after confidence_decay_start_minutes
             if elapsed_minutes > self.config.confidence_decay_start_minutes:
@@ -1027,7 +1027,7 @@ class FSDEngine:
         Returns:
             Session initialization stats
         """
-        self.session_start_time = datetime.now()
+        self.session_start_time = datetime.now(timezone.utc)
         self.session_trades = 0
 
         return {
@@ -1047,7 +1047,7 @@ class FSDEngine:
         if not self.session_start_time:
             return {}
 
-        session_duration = datetime.now() - self.session_start_time
+        session_duration = datetime.now(timezone.utc) - self.session_start_time
 
         return {
             'session_duration_seconds': session_duration.total_seconds(),

@@ -204,15 +204,24 @@ class EdgeCaseHandler:
         last_bar = bars[-1]
 
         # Fix timezone mismatch: ensure both have same timezone awareness
-        # If bar is tz-aware but current_time is naive, make current_time tz-aware (UTC)
-        if last_bar.timestamp.tzinfo is not None and current_time.tzinfo is None:
+        # CRITICAL: If current_time is naive, this is a bug upstream.
+        # All callers should pass timezone-aware datetimes.
+        if current_time.tzinfo is None:
+            # Log error - this should not happen
+            import logging
+            logging.error("_check_stale_data received naive datetime; assuming UTC (this may be incorrect if local time)")
             from datetime import timezone
+            # Best effort: assume it's already UTC (but this is dangerous if it's local time)
             current_time = current_time.replace(tzinfo=timezone.utc)
-        # If bar is naive but current_time is tz-aware, use naive comparison
-        elif last_bar.timestamp.tzinfo is None and current_time.tzinfo is not None:
-            current_time = current_time.replace(tzinfo=None)
 
-        age = current_time - last_bar.timestamp
+        # If bar is naive but current_time is tz-aware, make bar tz-aware (assume UTC)
+        if last_bar.timestamp.tzinfo is None and current_time.tzinfo is not None:
+            from datetime import timezone
+            last_bar_timestamp = last_bar.timestamp.replace(tzinfo=timezone.utc)
+        else:
+            last_bar_timestamp = last_bar.timestamp
+
+        age = current_time - last_bar_timestamp
         age_minutes = age.total_seconds() / 60
 
         # Stale if last bar is >10 minutes old (for minute-level trading)
