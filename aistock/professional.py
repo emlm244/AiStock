@@ -344,9 +344,19 @@ class ProfessionalSafeguards:
         Record a trade for overtrading detection.
 
         Args:
-            timestamp: Trade timestamp
+            timestamp: Trade timestamp (must be timezone-aware)
             symbol: Trading symbol
+
+        Raises:
+            TypeError: If timestamp is naive (tzinfo is None)
         """
+        if timestamp.tzinfo is None:
+            raise TypeError(
+                "ProfessionalSafeguards.record_trade received naive datetime. "
+                "All callers must use datetime.now(timezone.utc) or ensure timezone awareness. "
+                "This prevents comparison errors with timezone-aware timestamps."
+            )
+
         self._trade_times.append(timestamp)
         self._symbol_trade_times[symbol].append(timestamp)
 

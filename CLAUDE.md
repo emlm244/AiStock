@@ -1,6 +1,6 @@
-## CLAUDE Playbook – AIStock Trading System  
-**Last Updated**: 2025-11-01 (Post-Critical Bug Fixes)  
-**Status**: ✅ Production-ready (`main` @ 89f191f)
+## CLAUDE Playbook – AIStock Trading System
+**Last Updated**: 2025-11-02 (Timezone Bug #7 + Strict Enforcement)
+**Status**: ✅ Production-ready (`main` @ 5bbeca0)
 
 This document is the operating manual for Claude Code (and similar assistants) when working in the AIStock repository. It mirrors `AGENTS.md` but emphasises assistant-specific expectations, safety constraints, and verification steps.
 
@@ -16,6 +16,7 @@ This document is the operating manual for Claude Code (and similar assistants) w
 | 4 | Risk counters increment on failed submit | `aistock/session/coordinator.py` | ✅ | `tests/test_coordinator_regression.py` |
 | 5 | Profit triggered daily-loss halt | `aistock/risk.py` | ✅ | `tests/test_risk_engine.py::test_profit_does_not_trigger_daily_loss_halt` |
 | 6 | Naive vs tz-aware datetime crash | `aistock/edge_cases.py` | ✅ | Covered by existing edge-case tests |
+| 7 | Timezone bugs (5-hour stale-data underflow) | `aistock/fsd.py`, `aistock/professional.py`, `aistock/edge_cases.py` | ✅ | `tests/test_edge_cases.py`, `tests/test_professional_integration.py` |
 
 **Must-run before handoff** (once dependencies installed):
 ```bash
