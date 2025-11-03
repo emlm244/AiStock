@@ -68,6 +68,7 @@ class TradingEngine:
         self.initial_cash = initial_cash
         self.cash = initial_cash
         self.positions: dict[str, Decimal] = {}
+        self.cost_basis: dict[str, Decimal] = {}  # Average entry price per symbol
         self.trades: list[Trade] = []
         self.equity_curve: list[tuple[datetime, float]] = []
 
@@ -90,17 +91,47 @@ class TradingEngine:
         # Update cash
         self.cash -= cost
 
-        # Update position
+        # Get current position and cost basis
         current_position = self.positions.get(symbol, Decimal('0'))
-        new_position = current_position + quantity
-        self.positions[symbol] = new_position
+        current_basis = self.cost_basis.get(symbol, Decimal('0'))
 
-        # Calculate realized P&L (simplified)
+        # Calculate realized P&L using cost basis
         realised_pnl = Decimal('0')
         if (current_position > 0 and quantity < 0) or (current_position < 0 and quantity > 0):
-            # Closing or reducing position - realize P&L
+            # Closing or reducing position - calculate P&L from cost basis
             closed_qty = min(abs(quantity), abs(current_position))
-            realised_pnl = closed_qty * price if current_position > 0 else -closed_qty * price
+
+            if current_position > 0:
+                # Closing long: profit = (exit_price - entry_price) * qty
+                realised_pnl = closed_qty * (price - current_basis)
+            else:
+                # Closing short: profit = (entry_price - exit_price) * qty
+                realised_pnl = closed_qty * (current_basis - price)
+
+        # Update position
+        new_position = current_position + quantity
+
+        # Update cost basis
+        if new_position == 0:
+            # Fully closed - remove cost basis
+            if symbol in self.cost_basis:
+                del self.cost_basis[symbol]
+        elif abs(new_position) > abs(current_position):
+            # Opening or adding to position - update weighted average basis
+            if current_position == 0:
+                # Opening new position
+                self.cost_basis[symbol] = price
+            else:
+                # Adding to existing position - weighted average
+                added_qty = abs(quantity)
+                total_qty = abs(current_position) + added_qty
+                weighted_basis = (
+                    (abs(current_position) * current_basis + added_qty * price) / total_qty
+                )
+                self.cost_basis[symbol] = weighted_basis
+        # else: reducing position - cost basis stays the same
+
+        self.positions[symbol] = new_position
 
         # Calculate current equity
         equity = self.calculate_equity({symbol: price})
