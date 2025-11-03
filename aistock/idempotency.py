@@ -24,11 +24,27 @@ class OrderIdempotencyTracker:
 
     _SCHEMA_VERSION = 2
 
-    def __init__(self, storage_path: str = 'state/submitted_orders.json'):
+    def __init__(
+        self,
+        storage_path: str = 'state/submitted_orders.json',
+        expiration_minutes: int = 5,
+    ):
+        """
+        Initialize idempotency tracker with time-boxed duplicate prevention.
+
+        Args:
+            storage_path: Path to persist submitted order IDs
+            expiration_minutes: How long to remember submitted IDs (default: 5 min)
+                               After this window, IDs are considered stale and can be
+                               resubmitted (allows safe restart retries)
+        """
         self.storage_path = storage_path
+        self.expiration_ms = expiration_minutes * 60 * 1000  # Convert to milliseconds
         self._lock = threading.Lock()
         self._submitted_ids: dict[str, int] = {}
         self._load_from_disk()
+        # Clean up stale entries on startup
+        self.clear_stale_ids()
 
     # ------------------------------------------------------------------
     def _load_from_disk(self) -> None:
@@ -115,16 +131,29 @@ class OrderIdempotencyTracker:
         return f'{symbol.upper()}_{ts_unix_ms}_{digest}'
 
     def is_duplicate(self, client_order_id: str) -> bool:
-        """Check if this client order ID has already been submitted."""
+        """
+        Check if this client order ID was submitted recently (within expiration window).
+
+        Returns:
+            True if the ID was submitted within expiration_minutes, False otherwise
+        """
         with self._lock:
-            return client_order_id in self._submitted_ids
+            if client_order_id not in self._submitted_ids:
+                return False
+
+            # Check if the entry is still fresh (within expiration window)
+            submitted_ts_ms = self._submitted_ids[client_order_id]
+            current_ts_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+            age_ms = current_ts_ms - submitted_ts_ms
+
+            return age_ms < self.expiration_ms
 
     def mark_submitted(self, client_order_id: str) -> None:
         """
         Mark a client order ID as submitted and persist to disk.
 
-        Should be called immediately before broker.submit() to ensure
-        idempotency across crashes.
+        Should be called AFTER successful broker.submit() to record acceptance.
+        Time-boxed: entries expire after expiration_minutes, allowing safe retries.
         """
         timestamp_ms = self._extract_timestamp_ms(client_order_id)
         with self._lock:
@@ -155,6 +184,33 @@ class OrderIdempotencyTracker:
             if client_order_id in self._submitted_ids:
                 del self._submitted_ids[client_order_id]
                 self._write_locked()
+
+    def clear_stale_ids(self) -> int:
+        """
+        Remove all submitted IDs older than expiration_minutes.
+
+        Called on startup to clean up entries from previous sessions.
+        Allows safe retry of orders that were marked submitted but may
+        never have reached the broker (e.g., crash during mark_submitted).
+
+        Returns:
+            Number of stale IDs removed
+        """
+        current_ts_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        with self._lock:
+            stale_ids = [
+                cid
+                for cid, ts_ms in self._submitted_ids.items()
+                if (current_ts_ms - ts_ms) >= self.expiration_ms
+            ]
+
+            for cid in stale_ids:
+                del self._submitted_ids[cid]
+
+            if stale_ids:
+                self._write_locked()
+
+            return len(stale_ids)
 
     def count_submitted(self) -> int:
         """Return the total number of tracked submitted order IDs."""

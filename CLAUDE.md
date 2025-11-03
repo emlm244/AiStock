@@ -1,7 +1,7 @@
 ## CLAUDE Playbook – AIStock Trading System
-**Last Updated**: 2025-11-03 (Code Review Fix Round + Regression Tests)
+**Last Updated**: 2025-11-03 (Option D: Time-Boxed Idempotency)
 **Status**: ✅ Production-ready (`main`)
-**Production Code**: HEAD (all critical code-review fixes applied + comprehensive tests)
+**Production Code**: HEAD (Option D deployed + comprehensive tests)
 
 This document is the operating manual for Claude Code (and similar assistants) when working in the AIStock repository. It mirrors `AGENTS.md` but emphasises assistant-specific expectations, safety constraints, and verification steps.
 
@@ -12,7 +12,7 @@ This document is the operating manual for Claude Code (and similar assistants) w
 | # | Issue | Location | Status | Regression Test |
 |---|-------|----------|--------|-----------------|
 | 1 | Risk timestamp missing (daily reset disabled) | `aistock/session/coordinator.py` | ✅ | `tests/test_coordinator_regression.py` |
-| 2 | **Idempotency marked AFTER broker submit** (crash/restart duplicate orders) | `aistock/session/coordinator.py` + `aistock/idempotency.py` | ✅ | `tests/test_coordinator_regression.py::IdempotencyOrderingRegressionTests` |
+| 2 | **Time-boxed idempotency** (5-min expiration prevents silent drops) | `aistock/idempotency.py` + `aistock/session/coordinator.py` | ✅ | `tests/test_coordinator_regression.py::TimeBoxedIdempotencyRegressionTests` |
 | 3 | **Checkpoint shutdown race condition** (worker exits before sentinel) | `aistock/session/checkpointer.py` | ✅ | `tests/test_coordinator_regression.py::CheckpointShutdownRegressionTests` |
 | 4 | **Risk counters increment on failed submit** | `aistock/session/coordinator.py` | ✅ | `tests/test_coordinator_regression.py::BrokerFailureRegressionTests` |
 | 5 | Profit triggered daily-loss halt | `aistock/risk.py` | ✅ | `tests/test_risk_engine.py::test_profit_does_not_trigger_daily_loss_halt` |

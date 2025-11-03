@@ -27,7 +27,8 @@ class IdempotencyTests(unittest.TestCase):
     def test_duplicate_detection(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tracker = OrderIdempotencyTracker(f'{tmpdir}/orders.json')
-            timestamp = datetime(2024, 7, 9, 14, 30, tzinfo=timezone.utc)
+            # Use current time (within expiration window)
+            timestamp = datetime.now(timezone.utc)
             client_id = tracker.generate_client_order_id('AAPL', timestamp, '5')
 
             self.assertFalse(tracker.is_duplicate(client_id))
@@ -40,7 +41,8 @@ class IdempotencyTests(unittest.TestCase):
 
             # First tracker submits order
             tracker1 = OrderIdempotencyTracker(storage_path)
-            timestamp = datetime(2024, 7, 9, 14, 30, tzinfo=timezone.utc)
+            # Use current time (within expiration window)
+            timestamp = datetime.now(timezone.utc)
             client_id = tracker1.generate_client_order_id('AAPL', timestamp, 1)
             tracker1.mark_submitted(client_id)
 
@@ -77,8 +79,10 @@ class IdempotencyTests(unittest.TestCase):
     def test_loads_legacy_v1_format(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = f'{tmpdir}/orders.json'
-            timestamp = datetime(2024, 7, 9, 14, 30, tzinfo=timezone.utc)
-            legacy_id = 'AAPL_1720535400000_deadbeef'
+            # Use current time (within expiration window)
+            timestamp = datetime.now(timezone.utc)
+            timestamp_ms = int(timestamp.timestamp() * 1000)
+            legacy_id = f'AAPL_{timestamp_ms}_deadbeef'
 
             with open(path, 'w', encoding='utf-8') as handle:
                 json.dump({'submitted_ids': [legacy_id]}, handle)

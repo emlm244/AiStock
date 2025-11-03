@@ -3,7 +3,7 @@
 These tests exercise specific bugs found in production code review:
 1. Checkpoint shutdown deadlock (task_done() not called on sentinel)
 2. Premature risk recording (counted before broker submit)
-3. Idempotency ordering (mark_submitted after broker.submit creates duplicate window)
+3. Time-boxed idempotency (5-minute expiration window prevents silent drops)
 4. Drawdown duration not resetting on recovery
 5. Timezone-aware/naive datetime mixing in edge case checks
 """
@@ -187,59 +187,103 @@ class BrokerFailureRegressionTests(unittest.TestCase):
         pass
 
 
-class IdempotencyOrderingRegressionTests(unittest.TestCase):
-    """Regression tests for idempotency ordering bug."""
+class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
+    """Regression tests for time-boxed idempotency (Option D)."""
 
-    def test_idempotency_marked_before_submission(self):
-        """Verify mark_submitted() is called BEFORE broker.submit()."""
-        from aistock.idempotency import OrderIdempotencyTracker
-        import tempfile
-        import os
-
-        # Create temp storage
-        with tempfile.TemporaryDirectory() as tmpdir:
-            storage_path = os.path.join(tmpdir, 'submitted_orders.json')
-            tracker = OrderIdempotencyTracker(storage_path=storage_path)
-
-            # Generate a client order ID
-            timestamp = datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc)
-            client_order_id = tracker.generate_client_order_id('AAPL', timestamp, 100)
-
-            # Mark as submitted
-            tracker.mark_submitted(client_order_id)
-
-            # Verify it's marked
-            self.assertTrue(tracker.is_duplicate(client_order_id))
-
-            # Simulate broker failure - clear should rollback
-            tracker.clear_submitted(client_order_id)
-
-            # Verify it's cleared
-            self.assertFalse(tracker.is_duplicate(client_order_id))
-
-    def test_broker_failure_rolls_back_idempotency(self):
-        """Verify broker failure clears idempotency mark."""
+    def test_fresh_entries_detected_as_duplicates(self):
+        """Verify entries within expiration window are detected as duplicates."""
         from aistock.idempotency import OrderIdempotencyTracker
         import tempfile
         import os
 
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = os.path.join(tmpdir, 'submitted_orders.json')
-            tracker = OrderIdempotencyTracker(storage_path=storage_path)
+            # 5-minute expiration window (default)
+            tracker = OrderIdempotencyTracker(storage_path=storage_path, expiration_minutes=5)
 
-            timestamp = datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc)
+            # Submit an order
+            timestamp = datetime.now(timezone.utc)
             client_order_id = tracker.generate_client_order_id('AAPL', timestamp, 100)
-
-            # Mark submitted
             tracker.mark_submitted(client_order_id)
+
+            # Immediately checking should detect duplicate
             self.assertTrue(tracker.is_duplicate(client_order_id))
 
-            # Simulate broker failure and rollback
-            tracker.clear_submitted(client_order_id)
+    def test_stale_entries_not_duplicates(self):
+        """Verify entries older than expiration window are NOT duplicates."""
+        from aistock.idempotency import OrderIdempotencyTracker
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = os.path.join(tmpdir, 'submitted_orders.json')
+            # 1-second expiration for fast test
+            tracker = OrderIdempotencyTracker(storage_path=storage_path, expiration_minutes=0.017)  # ~1 sec
+
+            # Submit an order
+            timestamp = datetime.now(timezone.utc)
+            client_order_id = tracker.generate_client_order_id('AAPL', timestamp, 100)
+            tracker.mark_submitted(client_order_id)
+
+            # Should be duplicate immediately
+            self.assertTrue(tracker.is_duplicate(client_order_id))
+
+            # Wait for expiration
+            time.sleep(1.1)
+
+            # Should no longer be duplicate
             self.assertFalse(tracker.is_duplicate(client_order_id))
 
-            # Should be able to resubmit
+    def test_startup_cleanup_removes_stale_entries(self):
+        """Verify clear_stale_ids() removes expired entries on startup."""
+        from aistock.idempotency import OrderIdempotencyTracker
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = os.path.join(tmpdir, 'submitted_orders.json')
+
+            # Create tracker with 1-second expiration
+            tracker1 = OrderIdempotencyTracker(storage_path=storage_path, expiration_minutes=0.017)
+
+            # Submit an order
+            timestamp = datetime.now(timezone.utc)
+            client_order_id = tracker1.generate_client_order_id('AAPL', timestamp, 100)
+            tracker1.mark_submitted(client_order_id)
+
+            # Verify it's tracked
+            self.assertEqual(tracker1.count_submitted(), 1)
+
+            # Wait for expiration
+            time.sleep(1.1)
+
+            # Create new tracker instance (simulates restart)
+            tracker2 = OrderIdempotencyTracker(storage_path=storage_path, expiration_minutes=0.017)
+
+            # Stale entries should be cleaned up on init
+            self.assertEqual(tracker2.count_submitted(), 0)
+
+            # Should not be duplicate
+            self.assertFalse(tracker2.is_duplicate(client_order_id))
+
+    def test_prevents_same_session_duplicates(self):
+        """Verify time-boxed idempotency still prevents same-session duplicates."""
+        from aistock.idempotency import OrderIdempotencyTracker
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = os.path.join(tmpdir, 'submitted_orders.json')
+            tracker = OrderIdempotencyTracker(storage_path=storage_path, expiration_minutes=5)
+
+            timestamp = datetime.now(timezone.utc)
+            client_order_id = tracker.generate_client_order_id('AAPL', timestamp, 100)
+
+            # First submission
+            self.assertFalse(tracker.is_duplicate(client_order_id))
             tracker.mark_submitted(client_order_id)
+
+            # Second attempt within window should be blocked
             self.assertTrue(tracker.is_duplicate(client_order_id))
 
 
