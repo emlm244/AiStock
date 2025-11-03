@@ -73,7 +73,8 @@
       "Bash(git -C C:/Users/bc200/AiStock diff CLAUDE.md)",
       "Bash(git merge:*)",
       "Bash(git -C C:/Users/bc200/AiStock log --oneline --all --graph -15)",
-      "Bash(git -C C:/Users/bc200/AiStock log --all --oneline --grep=\"record_order_submission\" --grep=\"rate limit\" --grep=\"risk.*count\" -i)"
+      "Bash(git -C C:/Users/bc200/AiStock log --all --oneline --grep=\"record_order_submission\" --grep=\"rate limit\" --grep=\"risk.*count\" -i)",
+      "Bash(backtest_results_test/test1.json)"
     ],
     "deny": [],
     "ask": []
