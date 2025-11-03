@@ -6,6 +6,61 @@ Automation tools for AIStock trading system maintenance and operations.
 
 ## Backtest Management
 
+### `run_full_workflow.py` ⭐ **NEW**
+
+End-to-end workflow demonstration for the complete P&L fix process.
+
+**Usage**:
+```bash
+python run_full_workflow.py
+```
+
+**What it does**:
+1. Generates sample backtest with corrected P&L
+2. Compares old (broken) vs new (corrected) results
+3. Generates prioritized rerun plan
+4. Shows step-by-step walkthrough
+
+**Perfect for**: Testing, validation, and understanding the complete workflow.
+
+---
+
+### `run_sample_backtest.py` ⭐ **NEW**
+
+Generates sample backtest using corrected TradingEngine P&L calculation.
+
+**Usage**:
+```bash
+python run_sample_backtest.py
+```
+
+**Validates**: P&L calculation is correct (expected: $550, actual: $550 ✓)
+
+---
+
+### `compare_backtest_results.py` ⭐ **NEW**
+
+Compares old (INVALID) vs new (corrected) backtest results side-by-side.
+
+**Usage**:
+```bash
+python compare_backtest_results.py old.INVALID.json new.json --detailed
+```
+
+**Output**:
+- Side-by-side metric comparison
+- Percentage changes
+- Alerts for significant discrepancies
+- Trade-by-trade P&L diff (optional)
+
+**Example**:
+```
+Total Return:  6.00% -> 0.55% (-90.8%)
+[CRITICAL] Old results OVERSTATED performance by 90.8%
+```
+
+---
+
 ### `rerun_backtests.py`
 
 Automates backtest reruns after the critical P&L bug fix (commit da36960).
