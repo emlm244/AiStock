@@ -154,10 +154,14 @@ class OrderIdempotencyTracker:
 
         Should be called AFTER successful broker.submit() to record acceptance.
         Time-boxed: entries expire after expiration_minutes, allowing safe retries.
+
+        CRITICAL: Stores actual submission time (now), NOT bar timestamp.
+        This ensures TTL works correctly for delayed/backfilled bars.
         """
-        timestamp_ms = self._extract_timestamp_ms(client_order_id)
+        # Use actual submission time, not bar timestamp
+        submission_time_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         with self._lock:
-            self._submitted_ids[client_order_id] = timestamp_ms
+            self._submitted_ids[client_order_id] = submission_time_ms
             self._write_locked()
 
     def clear_old_ids(self, retention_count: int = 10000) -> None:

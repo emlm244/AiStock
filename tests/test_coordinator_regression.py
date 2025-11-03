@@ -286,6 +286,38 @@ class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
             # Second attempt within window should be blocked
             self.assertTrue(tracker.is_duplicate(client_order_id))
 
+    def test_delayed_bars_use_submission_time_not_bar_time(self):
+        """Verify delayed/backfilled bars use actual submission time for TTL."""
+        from aistock.idempotency import OrderIdempotencyTracker
+        import tempfile
+        import os
+        from datetime import timedelta
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = os.path.join(tmpdir, 'submitted_orders.json')
+            tracker = OrderIdempotencyTracker(storage_path=storage_path, expiration_minutes=5)
+
+            # Simulate delayed bar: bar timestamp is 10 minutes old
+            bar_timestamp = datetime.now(timezone.utc) - timedelta(minutes=10)
+            client_order_id = tracker.generate_client_order_id('AAPL', bar_timestamp, 100)
+
+            # Submit order NOW (even though bar is old)
+            tracker.mark_submitted(client_order_id)
+
+            # CRITICAL: Should be treated as duplicate (fresh submission)
+            # NOT as stale (old bar timestamp)
+            self.assertTrue(
+                tracker.is_duplicate(client_order_id),
+                'Delayed bar should use submission time, not bar time for TTL'
+            )
+
+            # Verify it's still fresh after 1 second (well within 5-min window)
+            time.sleep(1.0)
+            self.assertTrue(
+                tracker.is_duplicate(client_order_id),
+                'Submission should still be fresh after 1 second'
+            )
+
 
 class DrawdownDurationRegressionTests(unittest.TestCase):
     """Regression tests for drawdown duration reset bug."""
