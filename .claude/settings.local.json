@@ -71,7 +71,9 @@
       "Bash(git -C C:/Users/bc200/AiStock status)",
       "Bash(git -C C:/Users/bc200/AiStock log --oneline --graph feature/modular-architecture -10)",
       "Bash(git -C C:/Users/bc200/AiStock diff CLAUDE.md)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(git -C C:/Users/bc200/AiStock log --oneline --all --graph -15)",
+      "Bash(git -C C:/Users/bc200/AiStock log --all --oneline --grep=\"record_order_submission\" --grep=\"rate limit\" --grep=\"risk.*count\" -i)"
     ],
     "deny": [],
     "ask": []

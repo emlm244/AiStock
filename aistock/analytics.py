@@ -155,6 +155,9 @@ def calculate_drawdown_metrics(equity_curve: list[tuple[datetime, Decimal]]) -> 
         # Update current drawdown duration
         if equity < peak_equity:
             current_drawdown_duration_days = (timestamp - current_drawdown_start).total_seconds() / 86400
+        else:
+            # Reset drawdown duration when equity recovers
+            current_drawdown_duration_days = 0.0
 
     # Calculate max drawdown duration
     if max_drawdown_pct > 0:

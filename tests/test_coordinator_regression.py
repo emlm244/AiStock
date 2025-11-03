@@ -3,6 +3,9 @@
 These tests exercise specific bugs found in production code review:
 1. Checkpoint shutdown deadlock (task_done() not called on sentinel)
 2. Premature risk recording (counted before broker submit)
+3. Idempotency ordering (mark_submitted after broker.submit creates duplicate window)
+4. Drawdown duration not resetting on recovery
+5. Timezone-aware/naive datetime mixing in edge case checks
 """
 
 import queue
@@ -182,6 +185,198 @@ class BrokerFailureRegressionTests(unittest.TestCase):
         # This is a placeholder for a full integration test
         # Recommendation: Add this to integration test suite
         pass
+
+
+class IdempotencyOrderingRegressionTests(unittest.TestCase):
+    """Regression tests for idempotency ordering bug."""
+
+    def test_idempotency_marked_before_submission(self):
+        """Verify mark_submitted() is called BEFORE broker.submit()."""
+        from aistock.idempotency import OrderIdempotencyTracker
+        import tempfile
+        import os
+
+        # Create temp storage
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = os.path.join(tmpdir, 'submitted_orders.json')
+            tracker = OrderIdempotencyTracker(storage_path=storage_path)
+
+            # Generate a client order ID
+            timestamp = datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc)
+            client_order_id = tracker.generate_client_order_id('AAPL', timestamp, 100)
+
+            # Mark as submitted
+            tracker.mark_submitted(client_order_id)
+
+            # Verify it's marked
+            self.assertTrue(tracker.is_duplicate(client_order_id))
+
+            # Simulate broker failure - clear should rollback
+            tracker.clear_submitted(client_order_id)
+
+            # Verify it's cleared
+            self.assertFalse(tracker.is_duplicate(client_order_id))
+
+    def test_broker_failure_rolls_back_idempotency(self):
+        """Verify broker failure clears idempotency mark."""
+        from aistock.idempotency import OrderIdempotencyTracker
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = os.path.join(tmpdir, 'submitted_orders.json')
+            tracker = OrderIdempotencyTracker(storage_path=storage_path)
+
+            timestamp = datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc)
+            client_order_id = tracker.generate_client_order_id('AAPL', timestamp, 100)
+
+            # Mark submitted
+            tracker.mark_submitted(client_order_id)
+            self.assertTrue(tracker.is_duplicate(client_order_id))
+
+            # Simulate broker failure and rollback
+            tracker.clear_submitted(client_order_id)
+            self.assertFalse(tracker.is_duplicate(client_order_id))
+
+            # Should be able to resubmit
+            tracker.mark_submitted(client_order_id)
+            self.assertTrue(tracker.is_duplicate(client_order_id))
+
+
+class DrawdownDurationRegressionTests(unittest.TestCase):
+    """Regression tests for drawdown duration reset bug."""
+
+    def test_drawdown_duration_resets_on_recovery(self):
+        """Verify current_drawdown_duration_days resets when equity recovers."""
+        from aistock.analytics import calculate_drawdown_metrics
+
+        # Simulate equity curve: peak -> drawdown -> recovery
+        equity_curve = [
+            (datetime(2025, 1, 1, 9, 30, tzinfo=timezone.utc), Decimal('100000')),  # Peak
+            (datetime(2025, 1, 1, 10, 30, tzinfo=timezone.utc), Decimal('95000')),   # -5% drawdown
+            (datetime(2025, 1, 1, 11, 30, tzinfo=timezone.utc), Decimal('90000')),   # -10% drawdown
+            (datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc), Decimal('95000')),   # Partial recovery
+            (datetime(2025, 1, 1, 13, 30, tzinfo=timezone.utc), Decimal('100000')),  # Full recovery
+            (datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc), Decimal('105000')),  # New peak
+        ]
+
+        metrics = calculate_drawdown_metrics(equity_curve)
+
+        # After full recovery, current drawdown should be 0
+        self.assertEqual(metrics.current_drawdown_pct, 0.0)
+        self.assertEqual(metrics.current_drawdown_duration_days, 0.0)
+
+        # Max drawdown should still reflect the worst point
+        self.assertGreater(metrics.max_drawdown_pct, 0.0)
+        self.assertGreater(metrics.max_drawdown_duration_days, 0.0)
+
+    def test_drawdown_duration_calculates_correctly_during_drawdown(self):
+        """Verify drawdown duration calculates correctly while in drawdown."""
+        from aistock.analytics import calculate_drawdown_metrics
+
+        # Simulate equity curve with ongoing drawdown
+        equity_curve = [
+            (datetime(2025, 1, 1, 9, 30, tzinfo=timezone.utc), Decimal('100000')),  # Peak
+            (datetime(2025, 1, 2, 9, 30, tzinfo=timezone.utc), Decimal('95000')),   # Day 1
+            (datetime(2025, 1, 3, 9, 30, tzinfo=timezone.utc), Decimal('90000')),   # Day 2
+        ]
+
+        metrics = calculate_drawdown_metrics(equity_curve)
+
+        # Should be in drawdown
+        self.assertGreater(metrics.current_drawdown_pct, 0.0)
+        # Duration should be ~2 days
+        self.assertAlmostEqual(metrics.current_drawdown_duration_days, 2.0, places=1)
+
+
+class TimezoneMixingRegressionTests(unittest.TestCase):
+    """Regression tests for timezone-aware/naive datetime mixing."""
+
+    def test_timeframe_sync_handles_naive_timestamps(self):
+        """Verify _check_timeframe_sync handles naive bar timestamps defensively."""
+        from aistock.edge_cases import EdgeCaseHandler
+        from aistock.data import Bar
+
+        handler = EdgeCaseHandler()
+
+        # Create bars with naive timestamps (simulating legacy data source)
+        naive_bars_1m = [
+            Bar(
+                symbol='AAPL',
+                timestamp=datetime(2025, 1, 1, 14, 30),  # Naive
+                open=Decimal('100'),
+                high=Decimal('101'),
+                low=Decimal('99'),
+                close=Decimal('100.5'),
+                volume=1000,
+            ),
+        ]
+
+        naive_bars_5m = [
+            Bar(
+                symbol='AAPL',
+                timestamp=datetime(2025, 1, 1, 13, 55),  # Naive, 35 min behind (exceeds 30 min threshold)
+                open=Decimal('100'),
+                high=Decimal('101'),
+                low=Decimal('99'),
+                close=Decimal('100.5'),
+                volume=5000,
+            ),
+        ]
+
+        timeframe_data = {
+            '1m': naive_bars_1m,
+            '5m': naive_bars_5m,
+        }
+
+        # Should not raise TypeError (was the bug - mixing naive/aware would crash)
+        result = handler._check_timeframe_sync(timeframe_data)
+
+        # Should detect 35-minute sync issue (exceeds 30 min threshold)
+        self.assertTrue(result['has_issues'])
+        self.assertIn('35.0', result['issue'])
+
+    def test_timeframe_sync_works_with_aware_timestamps(self):
+        """Verify _check_timeframe_sync works correctly with tz-aware timestamps."""
+        from aistock.edge_cases import EdgeCaseHandler
+        from aistock.data import Bar
+
+        handler = EdgeCaseHandler()
+
+        # Create bars with timezone-aware timestamps
+        aware_bars_1m = [
+            Bar(
+                symbol='AAPL',
+                timestamp=datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc),
+                open=Decimal('100'),
+                high=Decimal('101'),
+                low=Decimal('99'),
+                close=Decimal('100.5'),
+                volume=1000,
+            ),
+        ]
+
+        aware_bars_5m = [
+            Bar(
+                symbol='AAPL',
+                timestamp=datetime(2025, 1, 1, 14, 28, tzinfo=timezone.utc),  # 2 min behind (OK)
+                open=Decimal('100'),
+                high=Decimal('101'),
+                low=Decimal('99'),
+                close=Decimal('100.5'),
+                volume=5000,
+            ),
+        ]
+
+        timeframe_data = {
+            '1m': aware_bars_1m,
+            '5m': aware_bars_5m,
+        }
+
+        result = handler._check_timeframe_sync(timeframe_data)
+
+        # Should not have issues (within 30-minute threshold)
+        self.assertFalse(result['has_issues'])
 
 
 if __name__ == '__main__':

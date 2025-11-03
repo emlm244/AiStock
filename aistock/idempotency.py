@@ -145,6 +145,17 @@ class OrderIdempotencyTracker:
             self._submitted_ids = dict(sorted_items[-retention_count:])
             self._write_locked()
 
+    def clear_submitted(self, client_order_id: str) -> None:
+        """
+        Remove a client order ID from submitted tracking.
+
+        Used for rollback when broker.submit() fails after mark_submitted().
+        """
+        with self._lock:
+            if client_order_id in self._submitted_ids:
+                del self._submitted_ids[client_order_id]
+                self._write_locked()
+
     def count_submitted(self) -> int:
         """Return the total number of tracked submitted order IDs."""
         with self._lock:

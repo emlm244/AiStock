@@ -246,12 +246,21 @@ class TradingCoordinator:
                 float(desired_qty),
             )
 
-            order_id = self.broker.submit(order)
-            self.risk.record_order_submission(timestamp)
+            # CRITICAL: Mark idempotent BEFORE submission to prevent duplicates on crash
             self.idempotency.mark_submitted(client_order_id)
-            self._order_submission_times[order_id] = timestamp
 
-            self.logger.info(f'Order submitted: {symbol} {order_id}')
+            try:
+                order_id = self.broker.submit(order)
+                # Only record successful submissions for rate limiting
+                self.risk.record_order_submission(timestamp)
+                self._order_submission_times[order_id] = timestamp
+
+                self.logger.info(f'Order submitted: {symbol} {order_id}')
+
+            except Exception as submit_exc:
+                # Rollback idempotency mark on failure
+                self.idempotency.clear_submitted(client_order_id)
+                raise submit_exc
 
         except Exception as exc:
             self.logger.error(f'Order submission failed: {exc}')

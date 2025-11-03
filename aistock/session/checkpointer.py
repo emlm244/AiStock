@@ -92,9 +92,11 @@ class CheckpointManager:
             return
 
         self.logger.info('Stopping checkpoint worker')
-        self._worker_running = False
 
-        # Send shutdown signal
+        # Send shutdown signal (sentinel will make worker exit via break)
+        # DO NOT set _worker_running = False here, as that would cause
+        # worker to exit on next loop iteration without processing sentinel
+        # or remaining items in queue
         try:
             self._checkpoint_queue.put(None, timeout=2.0)
         except queue.Full:

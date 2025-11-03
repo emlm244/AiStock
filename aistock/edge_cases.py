@@ -268,7 +268,12 @@ class EdgeCaseHandler:
         timestamps = {}
         for tf, bars in timeframe_data.items():
             if bars:
-                timestamps[tf] = bars[-1].timestamp
+                bar_ts = bars[-1].timestamp
+                # Defensive: Normalize naive timestamps to UTC (assume UTC source)
+                if bar_ts.tzinfo is None:
+                    from datetime import timezone
+                    bar_ts = bar_ts.replace(tzinfo=timezone.utc)
+                timestamps[tf] = bar_ts
 
         if not timestamps:
             return {'has_issues': True, 'issue': 'No timestamp data available'}

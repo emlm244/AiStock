@@ -1,27 +1,30 @@
 ## CLAUDE Playbook – AIStock Trading System
-**Last Updated**: 2025-11-02 (Timezone Bug #7 + Strict Enforcement)
+**Last Updated**: 2025-11-03 (Code Review Fix Round + Regression Tests)
 **Status**: ✅ Production-ready (`main`)
-**Production Code**: d99dc2a (comprehensive audit + all fixes)
+**Production Code**: HEAD (all critical code-review fixes applied + comprehensive tests)
 
 This document is the operating manual for Claude Code (and similar assistants) when working in the AIStock repository. It mirrors `AGENTS.md` but emphasises assistant-specific expectations, safety constraints, and verification steps.
 
 ---
 
-### 🔴 Critical Fix Snapshot (all merged into `main`)
+### 🔴 Critical Fix Snapshot (all in current working tree)
 
 | # | Issue | Location | Status | Regression Test |
 |---|-------|----------|--------|-----------------|
 | 1 | Risk timestamp missing (daily reset disabled) | `aistock/session/coordinator.py` | ✅ | `tests/test_coordinator_regression.py` |
-| 2 | Idempotency marked before broker submit | `aistock/session/coordinator.py` | ✅ | `tests/test_coordinator_regression.py` |
-| 3 | Checkpoint shutdown deadlock (missing `task_done`) | `aistock/session/checkpointer.py` | ✅ | `tests/test_coordinator_regression.py` |
-| 4 | Risk counters increment on failed submit | `aistock/session/coordinator.py` | ✅ | `tests/test_coordinator_regression.py` |
+| 2 | **Idempotency marked AFTER broker submit** (crash/restart duplicate orders) | `aistock/session/coordinator.py` + `aistock/idempotency.py` | ✅ | `tests/test_coordinator_regression.py::IdempotencyOrderingRegressionTests` |
+| 3 | **Checkpoint shutdown race condition** (worker exits before sentinel) | `aistock/session/checkpointer.py` | ✅ | `tests/test_coordinator_regression.py::CheckpointShutdownRegressionTests` |
+| 4 | **Risk counters increment on failed submit** | `aistock/session/coordinator.py` | ✅ | `tests/test_coordinator_regression.py::BrokerFailureRegressionTests` |
 | 5 | Profit triggered daily-loss halt | `aistock/risk.py` | ✅ | `tests/test_risk_engine.py::test_profit_does_not_trigger_daily_loss_halt` |
 | 6 | Naive vs tz-aware datetime crash | `aistock/edge_cases.py` | ✅ | Covered by existing edge-case tests |
 | 7 | Timezone bugs (5-hour stale-data underflow) | `aistock/fsd.py`, `aistock/professional.py`, `aistock/edge_cases.py` | ✅ | `tests/test_edge_cases.py`, `tests/test_professional_integration.py` |
+| 8 | **Drawdown duration never resets on recovery** | `aistock/analytics.py` | ✅ | `tests/test_coordinator_regression.py::DrawdownDurationRegressionTests` |
+| 9 | **Timeframe sync naive/aware timestamp mixing** | `aistock/edge_cases.py` | ✅ | `tests/test_coordinator_regression.py::TimezoneMixingRegressionTests` |
 
 **Must-run before handoff** (once dependencies installed):
 ```bash
 pytest tests/test_coordinator_regression.py tests/test_risk_engine.py -q
+# Expected: 22 passed
 ```
 
 ---
