@@ -10,7 +10,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from decimal import Decimal
 from threading import Lock
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -20,8 +20,8 @@ class Position:
     symbol: str
     quantity: Decimal = Decimal('0')
     average_price: Decimal = Decimal('0')
-    entry_time_utc: Optional[datetime] = None
-    last_update_utc: Optional[datetime] = None
+    entry_time_utc: datetime | None = None
+    last_update_utc: datetime | None = None
     total_volume: Decimal = Decimal('0')
 
     def __post_init__(self):
@@ -45,7 +45,7 @@ class Position:
         """Check if position is short."""
         return self.quantity < 0
 
-    def realise(self, quantity_delta: Decimal, price: Decimal, timestamp: Optional[datetime] = None):
+    def realise(self, quantity_delta: Decimal, price: Decimal, timestamp: datetime | None = None):
         """
         Update position with a fill (for paper broker).
 
@@ -94,7 +94,7 @@ class Portfolio:
     - Realized P&L
     """
 
-    def __init__(self, cash: Optional[Decimal] = None, initial_cash: Optional[Decimal] = None):
+    def __init__(self, cash: Decimal | None = None, initial_cash: Decimal | None = None):
         # P0-NEW-1 Fix: Add lock for thread safety (IBKR callbacks run on separate thread)
         self._lock = Lock()
 
@@ -117,7 +117,7 @@ class Portfolio:
             pos = self.positions.get(symbol)
             return pos.quantity if pos else Decimal('0')
 
-    def get_avg_price(self, symbol: str) -> Optional[Decimal]:
+    def get_avg_price(self, symbol: str) -> Decimal | None:
         """Get average entry price for symbol (thread-safe)."""
         with self._lock:
             pos = self.positions.get(symbol)
