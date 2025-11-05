@@ -4,6 +4,8 @@ Portfolio tracking for backtesting.
 P0-NEW-1 Fix: Thread-safe portfolio for concurrent access from IBKR callbacks.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from decimal import Decimal

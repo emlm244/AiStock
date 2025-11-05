@@ -13,6 +13,7 @@
     "data",
     "models",
     "aistock/ml",
+    "aistock/_legacy",
     "logs"
   ],
   "reportMissingImports": "error",
