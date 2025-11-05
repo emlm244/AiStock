@@ -258,9 +258,12 @@ class TestStaleDataDetection:
 class TestClockSkewInTTL:
     """Test idempotency TTL scenarios."""
 
-    def test_idempotency_basic_duplicate_detection(self):
+    def test_idempotency_basic_duplicate_detection(self, tmp_path):
         """Test basic duplicate order detection."""
-        tracker = OrderIdempotencyTracker(expiration_minutes=5)
+        tracker = OrderIdempotencyTracker(
+            storage_path=str(tmp_path / 'test_orders.json'),
+            expiration_minutes=5
+        )
 
         # Submit order (timestamp captured internally)
         tracker.mark_submitted('ORDER_001')
@@ -273,14 +276,17 @@ class TestClockSkewInTTL:
         is_dup_other = tracker.is_duplicate('ORDER_002')
         assert not is_dup_other
 
-    def test_ttl_expiration_detection(self):
+    def test_ttl_expiration_detection(self, tmp_path):
         """
         Test TTL expiration (cannot test exact timing without mocking).
 
         NOTE: This test documents the expected behavior. Full testing
         would require time mocking to advance clock 5+ minutes.
         """
-        tracker = OrderIdempotencyTracker(expiration_minutes=5)
+        tracker = OrderIdempotencyTracker(
+            storage_path=str(tmp_path / 'test_orders.json'),
+            expiration_minutes=5
+        )
 
         # Submit order
         tracker.mark_submitted('ORDER_001')
@@ -292,9 +298,12 @@ class TestClockSkewInTTL:
         # NOTE: After 5+ minutes, should NOT be duplicate (TTL expired)
         # This would require time.sleep(301) or mocking datetime.now()
 
-    def test_multiple_orders_tracked(self):
+    def test_multiple_orders_tracked(self, tmp_path):
         """Test multiple orders tracked independently."""
-        tracker = OrderIdempotencyTracker(expiration_minutes=5)
+        tracker = OrderIdempotencyTracker(
+            storage_path=str(tmp_path / 'test_orders.json'),
+            expiration_minutes=5
+        )
 
         # Submit multiple orders
         for i in range(10):
