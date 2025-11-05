@@ -11,7 +11,7 @@ from threading import Lock
 from typing import Any, Optional
 
 
-@dataclass(slots=True)
+@dataclass
 class Position:
     """Represents a position in a portfolio."""
 
