@@ -10,6 +10,7 @@ Usage:
 import logging
 import signal
 import sys
+import types
 
 # Global reference to GUI instance for signal handlers
 _gui_instance = None
@@ -17,7 +18,7 @@ _gui_instance = None
 logger = logging.getLogger(__name__)
 
 
-def _signal_handler(signum: int, frame) -> None:
+def _signal_handler(signum: int, frame: types.FrameType | None) -> None:
     """
     CRITICAL-3 Fix: Handle SIGINT (CTRL+C) and SIGTERM for clean shutdown.
 

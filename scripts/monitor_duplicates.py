@@ -123,14 +123,14 @@ def generate_alert(analysis: dict[str, Any]) -> str | None:
     # CRITICAL: Same-session duplicates
     if analysis['duplicates']['same_session']:
         alerts.append(
-            f"[CRITICAL] {len(analysis['duplicates']['same_session'])} "
+            f'[CRITICAL] {len(analysis["duplicates"]["same_session"])} '
             'same-session duplicates detected! Option D failed.'
         )
 
     # HIGH: Cross-restart duplicates <5min
     if analysis['duplicates']['cross_restart_under_5min']:
         alerts.append(
-            f"[HIGH] {len(analysis['duplicates']['cross_restart_under_5min'])} "
+            f'[HIGH] {len(analysis["duplicates"]["cross_restart_under_5min"])} '
             'cross-restart duplicates within 5-min window detected! Time-box failed.'
         )
 
@@ -138,7 +138,7 @@ def generate_alert(analysis: dict[str, Any]) -> str | None:
     retry_rate = analysis['metrics']['retry_rate']
     if retry_rate > 0.1:  # >10%
         alerts.append(
-            f'[WARNING] Retry rate at {retry_rate*100:.1f}% (threshold: 10%). ' 'Possible data lag or broker issues.'
+            f'[WARNING] Retry rate at {retry_rate * 100:.1f}% (threshold: 10%). Possible data lag or broker issues.'
         )
 
     return '\n'.join(alerts) if alerts else None
@@ -160,15 +160,15 @@ def main():
     analysis = analyze_duplicates(args.log_file)
 
     print('\nSummary:')
-    print(f"  Total submissions: {analysis['total_submissions']}")
-    print(f"  Unique clients: {analysis['unique_clients']}")
-    print(f"  Same-session duplicates: {len(analysis['duplicates']['same_session'])} [CRITICAL]")
-    print(f"  Cross-restart (<5min): {len(analysis['duplicates']['cross_restart_under_5min'])} [WARNING]")
-    print(f"  Retries (>5min): {len(analysis['duplicates']['retries_over_5min'])} [OK]")
+    print(f'  Total submissions: {analysis["total_submissions"]}')
+    print(f'  Unique clients: {analysis["unique_clients"]}')
+    print(f'  Same-session duplicates: {len(analysis["duplicates"]["same_session"])} [CRITICAL]')
+    print(f'  Cross-restart (<5min): {len(analysis["duplicates"]["cross_restart_under_5min"])} [WARNING]')
+    print(f'  Retries (>5min): {len(analysis["duplicates"]["retries_over_5min"])} [OK]')
     print('\nMetrics:')
-    print(f"  Same-session rate: {analysis['metrics']['same_session_rate']*100:.2f}%")
-    print(f"  Cross-restart rate: {analysis['metrics']['cross_restart_rate']*100:.2f}%")
-    print(f"  Retry rate: {analysis['metrics']['retry_rate']*100:.2f}%")
+    print(f'  Same-session rate: {analysis["metrics"]["same_session_rate"] * 100:.2f}%')
+    print(f'  Cross-restart rate: {analysis["metrics"]["cross_restart_rate"] * 100:.2f}%')
+    print(f'  Retry rate: {analysis["metrics"]["retry_rate"] * 100:.2f}%')
 
     if args.alert:
         alert = generate_alert(analysis)

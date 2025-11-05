@@ -65,9 +65,7 @@ def run_sample_backtest():
         price=bars[0]['price'],
         timestamp=bars[0]['timestamp'],
     )
-    print(
-        f"\n{bars[0]['timestamp']} - BUY 100 AAPL @ ${bars[0]['price']} " f"(Cost basis: ${engine.cost_basis['AAPL']})"
-    )
+    print(f'\n{bars[0]["timestamp"]} - BUY 100 AAPL @ ${bars[0]["price"]} (Cost basis: ${engine.cost_basis["AAPL"]})')
 
     # Bar 4: Sell 50 shares at $110 (profit = (110-102)*50 = $400)
     trade2 = engine.execute_trade(
@@ -77,7 +75,7 @@ def run_sample_backtest():
         timestamp=bars[4]['timestamp'],
     )
     print(
-        f"{bars[4]['timestamp']} - SELL 50 AAPL @ ${bars[4]['price']} "
+        f'{bars[4]["timestamp"]} - SELL 50 AAPL @ ${bars[4]["price"]} '
         f'-> P&L: ${trade2.realised_pnl} (Cost basis still: ${engine.cost_basis["AAPL"]})'
     )
 
@@ -89,8 +87,7 @@ def run_sample_backtest():
         timestamp=bars[9]['timestamp'],
     )
     print(
-        f"{bars[9]['timestamp']} - SELL 50 AAPL @ ${bars[9]['price']} "
-        f'-> P&L: ${trade3.realised_pnl} (Position closed)'
+        f'{bars[9]["timestamp"]} - SELL 50 AAPL @ ${bars[9]["price"]} -> P&L: ${trade3.realised_pnl} (Position closed)'
     )
 
     # Calculate total P&L
@@ -157,8 +154,8 @@ def main():
     else:
         print(
             '\n[ERROR] P&L calculation mismatch! '
-            f"Expected ${result['validation']['expected_pnl']}, "
-            f"got ${result['validation']['actual_pnl']}"
+            f'Expected ${result["validation"]["expected_pnl"]}, '
+            f'got ${result["validation"]["actual_pnl"]}'
         )
         return 1
 

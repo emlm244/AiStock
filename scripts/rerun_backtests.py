@@ -196,8 +196,8 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
     logger.info('Top 5 priorities:')
     for i, item in enumerate(rerun_plan[:5], 1):
         logger.info(
-            f"  {i}. {item['file']} (score={item['impact_score']:.1f}, "
-            f"return={item['total_return']}, trades={item['num_trades']})"
+            f'  {i}. {item["file"]} (score={item["impact_score"]:.1f}, '
+            f'return={item["total_return"]}, trades={item["num_trades"]})'
         )
 
 
