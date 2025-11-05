@@ -37,10 +37,10 @@ def run(symbol: str, data_path: str, limit: int) -> int:
         print('--- Smoke Backtest Summary ---')
         print(f'Symbol: {symbol}')
         print(f'Bars processed: {fed}')
-        print(f"Equity: {snap['equity']:.2f}")
-        print(f"Cash: {snap['cash']:.2f}")
-        print(f"Positions: {len(snap['positions'])}")
-        print(f"Trades: {len(snap['trades'])}")
+        print(f'Equity: {snap["equity"]:.2f}')
+        print(f'Cash: {snap["cash"]:.2f}')
+        print(f'Positions: {len(snap["positions"])}')
+        print(f'Trades: {len(snap["trades"])}')
         return 0
     finally:
         session.stop()

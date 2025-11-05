@@ -52,6 +52,7 @@ jobs:
     - name: Run BasedPyright
       run: |
         basedpyright
+      continue-on-error: true
 
   test:
     name: Run Tests

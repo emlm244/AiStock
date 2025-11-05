@@ -138,9 +138,9 @@ class TestMultiSymbolEquityRegression:
         t3 = engine.execute_trade('AAPL', Decimal('1'), Decimal('110'), now + timedelta(seconds=2))
         # Cash: 98000 - 110 = 97890
         # Equity: 97890 + (11 * 110) + (5 * 200) = 100100
-        assert t3.equity == Decimal(
-            '100100'
-        ), 'Equity should value MSFT at last known price (200) even though we traded AAPL'
+        assert t3.equity == Decimal('100100'), (
+            'Equity should value MSFT at last known price (200) even though we traded AAPL'
+        )
 
     def test_equity_with_three_symbols(self):
         """Test equity calculation with multiple symbols."""

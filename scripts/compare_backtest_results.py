@@ -98,7 +98,7 @@ def generate_alerts(metrics: dict[str, Any]) -> list[str]:
     wr_diff = abs(metrics['win_rate']['diff'])
     if wr_diff > WIN_RATE_THRESHOLD / 100:
         alerts.append(
-            f'[WARNING] Win rate changed by {wr_diff*100:.1f} percentage points '
+            f'[WARNING] Win rate changed by {wr_diff * 100:.1f} percentage points '
             f'({metrics["win_rate"]["old"]:.1%} -> {metrics["win_rate"]["new"]:.1%})'
         )
 
@@ -126,9 +126,9 @@ def print_comparison_table(metrics: dict[str, Any]) -> None:
 
         # Format values based on metric type
         if metric in ['total_return', 'max_drawdown', 'win_rate']:
-            old_str = f'{values["old"]*100:.2f}%'
-            new_str = f'{values["new"]*100:.2f}%'
-            diff_str = f'{values["diff"]*100:+.2f}% ({values["pct_change"]:+.1f}%)'
+            old_str = f'{values["old"] * 100:.2f}%'
+            new_str = f'{values["new"] * 100:.2f}%'
+            diff_str = f'{values["diff"] * 100:+.2f}% ({values["pct_change"]:+.1f}%)'
         else:
             old_str = f'{values["old"]}'
             new_str = f'{values["new"]}'
@@ -229,7 +229,7 @@ def main():
             new_pnl = new_trade.get('realised_pnl', 0)
             if abs(old_pnl - new_pnl) > 0.01:  # Non-zero difference
                 pct_diff = calculate_percentage_diff(old_pnl, new_pnl)
-                print(f'  Trade {i+1}: P&L changed {old_pnl:.2f} -> {new_pnl:.2f} ({pct_diff:+.1f}%)')
+                print(f'  Trade {i + 1}: P&L changed {old_pnl:.2f} -> {new_pnl:.2f} ({pct_diff:+.1f}%)')
 
     return 0
 

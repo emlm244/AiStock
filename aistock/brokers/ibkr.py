@@ -85,7 +85,9 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._order_symbol: dict[int, str] = {}
 
         # P1-1 Fix: Track subscription details for re-subscription after reconnect
-        self._active_subscriptions: dict[str, tuple[Callable, int]] = {}  # symbol -> (handler, bar_size)
+        self._active_subscriptions: dict[
+            str, tuple[Callable[[datetime, str, float, float, float, float, float], None], int]
+        ] = {}  # symbol -> (handler, bar_size)
 
         # P0 Fix: Position reconciliation state
         self._positions: dict[str, tuple[float, float]] = {}  # symbol -> (quantity, avg_price)
