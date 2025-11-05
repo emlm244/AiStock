@@ -10,7 +10,12 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Protocol, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict
+
+try:
+    from typing import Unpack  # Python 3.11+
+except ImportError:
+    from typing_extensions import Unpack  # Python 3.9-3.10
 
 from .logging import configure_logger
 

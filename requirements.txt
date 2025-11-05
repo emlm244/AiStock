@@ -9,4 +9,7 @@ numpy>=1.24.0,<3.0.0  # Python 3.9+ compatible
 # Interactive Brokers API (TWS/Gateway)
 ibapi>=9.81.1
 
+# Typing backports for Python 3.9-3.10
+typing-extensions>=4.0.0  # Provides Unpack for Python < 3.11
+
 # For dev/test tools, see requirements-dev.txt
