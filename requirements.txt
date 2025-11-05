@@ -2,8 +2,9 @@
 # Python 3.9+
 
 # Core data stack
+# Note: numpy 2.x requires Python 3.10+, pandas 2.2+ requires Python 3.9+
 pandas>=2.2.3
-numpy>=2.1.0
+numpy>=1.24.0,<3.0.0  # Python 3.9+ compatible
 
 # Interactive Brokers API (TWS/Gateway)
 ibapi>=9.81.1
