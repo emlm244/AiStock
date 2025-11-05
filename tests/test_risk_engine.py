@@ -187,8 +187,6 @@ class RiskEngineTests(unittest.TestCase):
             risk.check_pre_trade('AAPL', Decimal('1'), Decimal('100'), Decimal('100000'), last_prices, timestamp=ts)
             risk._record_order_submission(ts)
 
-
-
     def test_profit_does_not_trigger_daily_loss_halt(self):
         """Regression test: positive P&L should NOT halt trading (profit is good!).
 
@@ -212,7 +210,7 @@ class RiskEngineTests(unittest.TestCase):
             Decimal('0'),
             timestamp,
             equity + Decimal('2000'),
-            last_prices
+            last_prices,
         )
 
         # Should NOT be halted (profit is good, not a loss!)
@@ -234,7 +232,7 @@ class RiskEngineTests(unittest.TestCase):
             Decimal('0'),
             timestamp,
             equity + Decimal('-2000'),
-            last_prices
+            last_prices,
         )
 
         # Should be halted (loss exceeds limit)

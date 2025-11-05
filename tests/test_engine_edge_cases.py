@@ -178,9 +178,7 @@ class TestMultiSymbolEquityEdgeCases:
 
         # Expected: cash + (100 * 155) + (50 * 295) + (-20 * 2750)
         expected_positions_value = (
-            Decimal('100') * Decimal('155.00')
-            + Decimal('50') * Decimal('295.00')
-            + Decimal('-20') * Decimal('2750.00')
+            Decimal('100') * Decimal('155.00') + Decimal('50') * Decimal('295.00') + Decimal('-20') * Decimal('2750.00')
         )
 
         expected_equity = engine.cash + expected_positions_value

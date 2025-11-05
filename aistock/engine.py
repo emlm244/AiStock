@@ -136,9 +136,7 @@ class TradingEngine:
                     # Edge case: both quantities are zero (shouldn't happen but defensive)
                     self.cost_basis[symbol] = price
                 else:
-                    weighted_basis = (
-                        (abs(current_position) * current_basis + added_qty * price) / total_qty
-                    )
+                    weighted_basis = (abs(current_position) * current_basis + added_qty * price) / total_qty
                     self.cost_basis[symbol] = weighted_basis
         # else: reducing position - cost basis stays the same
 

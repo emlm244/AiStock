@@ -313,16 +313,12 @@ class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
             # CRITICAL: Should be treated as duplicate (fresh submission)
             # NOT as stale (old bar timestamp)
             self.assertTrue(
-                tracker.is_duplicate(client_order_id),
-                'Delayed bar should use submission time, not bar time for TTL'
+                tracker.is_duplicate(client_order_id), 'Delayed bar should use submission time, not bar time for TTL'
             )
 
             # Verify it's still fresh after 1 second (well within 5-min window)
             time.sleep(1.0)
-            self.assertTrue(
-                tracker.is_duplicate(client_order_id),
-                'Submission should still be fresh after 1 second'
-            )
+            self.assertTrue(tracker.is_duplicate(client_order_id), 'Submission should still be fresh after 1 second')
 
 
 class DrawdownDurationRegressionTests(unittest.TestCase):
@@ -335,9 +331,9 @@ class DrawdownDurationRegressionTests(unittest.TestCase):
         # Simulate equity curve: peak -> drawdown -> recovery
         equity_curve = [
             (datetime(2025, 1, 1, 9, 30, tzinfo=timezone.utc), Decimal('100000')),  # Peak
-            (datetime(2025, 1, 1, 10, 30, tzinfo=timezone.utc), Decimal('95000')),   # -5% drawdown
-            (datetime(2025, 1, 1, 11, 30, tzinfo=timezone.utc), Decimal('90000')),   # -10% drawdown
-            (datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc), Decimal('95000')),   # Partial recovery
+            (datetime(2025, 1, 1, 10, 30, tzinfo=timezone.utc), Decimal('95000')),  # -5% drawdown
+            (datetime(2025, 1, 1, 11, 30, tzinfo=timezone.utc), Decimal('90000')),  # -10% drawdown
+            (datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc), Decimal('95000')),  # Partial recovery
             (datetime(2025, 1, 1, 13, 30, tzinfo=timezone.utc), Decimal('100000')),  # Full recovery
             (datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc), Decimal('105000')),  # New peak
         ]
@@ -359,8 +355,8 @@ class DrawdownDurationRegressionTests(unittest.TestCase):
         # Simulate equity curve with ongoing drawdown
         equity_curve = [
             (datetime(2025, 1, 1, 9, 30, tzinfo=timezone.utc), Decimal('100000')),  # Peak
-            (datetime(2025, 1, 2, 9, 30, tzinfo=timezone.utc), Decimal('95000')),   # Day 1
-            (datetime(2025, 1, 3, 9, 30, tzinfo=timezone.utc), Decimal('90000')),   # Day 2
+            (datetime(2025, 1, 2, 9, 30, tzinfo=timezone.utc), Decimal('95000')),  # Day 1
+            (datetime(2025, 1, 3, 9, 30, tzinfo=timezone.utc), Decimal('90000')),  # Day 2
         ]
 
         metrics = calculate_drawdown_metrics(equity_curve)

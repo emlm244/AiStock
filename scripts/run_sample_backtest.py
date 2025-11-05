@@ -66,8 +66,7 @@ def run_sample_backtest():
         timestamp=bars[0]['timestamp'],
     )
     print(
-        f"\n{bars[0]['timestamp']} - BUY 100 AAPL @ ${bars[0]['price']} "
-        f"(Cost basis: ${engine.cost_basis['AAPL']})"
+        f"\n{bars[0]['timestamp']} - BUY 100 AAPL @ ${bars[0]['price']} " f"(Cost basis: ${engine.cost_basis['AAPL']})"
     )
 
     # Bar 4: Sell 50 shares at $110 (profit = (110-102)*50 = $400)

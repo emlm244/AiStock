@@ -352,9 +352,9 @@ class ProfessionalSafeguards:
         """
         if timestamp.tzinfo is None:
             raise TypeError(
-                "ProfessionalSafeguards.record_trade received naive datetime. "
-                "All callers must use datetime.now(timezone.utc) or ensure timezone awareness. "
-                "This prevents comparison errors with timezone-aware timestamps."
+                'ProfessionalSafeguards.record_trade received naive datetime. '
+                'All callers must use datetime.now(timezone.utc) or ensure timezone awareness. '
+                'This prevents comparison errors with timezone-aware timestamps.'
             )
 
         self._trade_times.append(timestamp)

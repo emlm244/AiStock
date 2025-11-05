@@ -83,7 +83,7 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
             t.join(timeout=5)
 
         # No errors should have occurred
-        self.assertEqual(len(errors), 0, f"Concurrent updates had errors: {errors}")
+        self.assertEqual(len(errors), 0, f'Concurrent updates had errors: {errors}')
 
         # Should have 10 positions
         self.assertEqual(portfolio.position_count(), 10)
@@ -103,7 +103,7 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
                     snapshots.append(snapshot)
                     time.sleep(0.001)  # Small delay
             except Exception as e:
-                errors.append(f"Snapshot error: {e}")
+                errors.append(f'Snapshot error: {e}')
 
         def update_worker():
             try:
@@ -112,7 +112,7 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
                     portfolio.update_position('AAPL', qty, Decimal('150'))
                     time.sleep(0.001)
             except Exception as e:
-                errors.append(f"Update error: {e}")
+                errors.append(f'Update error: {e}')
 
         # Run snapshot and update threads concurrently
         t1 = threading.Thread(target=snapshot_worker)
@@ -125,7 +125,7 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
         t2.join(timeout=10)
 
         # No errors should have occurred
-        self.assertEqual(len(errors), 0, f"Concurrent operations had errors: {errors}")
+        self.assertEqual(len(errors), 0, f'Concurrent operations had errors: {errors}')
 
         # All snapshots should be valid
         self.assertGreater(len(snapshots), 0)
@@ -142,14 +142,12 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
         def writer():
             try:
                 for i in range(50):
-                    portfolio.trade_log.append({
-                        'symbol': f'SYM{i}',
-                        'realised_pnl': float(i),
-                        'timestamp': time.time()
-                    })
+                    portfolio.trade_log.append(
+                        {'symbol': f'SYM{i}', 'realised_pnl': float(i), 'timestamp': time.time()}
+                    )
                     time.sleep(0.001)
             except Exception as e:
-                errors.append(f"Writer error: {e}")
+                errors.append(f'Writer error: {e}')
 
         def reader():
             try:
@@ -158,7 +156,7 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
                     self.assertIsInstance(snapshot, list)
                     time.sleep(0.001)
             except Exception as e:
-                errors.append(f"Reader error: {e}")
+                errors.append(f'Reader error: {e}')
 
         threads = [
             threading.Thread(target=writer),
@@ -172,7 +170,7 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
         for t in threads:
             t.join(timeout=10)
 
-        self.assertEqual(len(errors), 0, f"Trade log operations had errors: {errors}")
+        self.assertEqual(len(errors), 0, f'Trade log operations had errors: {errors}')
         self.assertEqual(len(portfolio.trade_log), 50)
 
     def test_no_deadlocks_under_load(self):
@@ -194,7 +192,7 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
                     time.sleep(0.0001)
                 completed['count'] += 1
             except Exception as e:
-                errors.append(f"Worker {worker_id} error: {e}")
+                errors.append(f'Worker {worker_id} error: {e}')
 
         # Spawn 20 workers doing mixed operations
         threads = []
@@ -209,7 +207,7 @@ class PortfolioConcurrencyStressTests(unittest.TestCase):
 
         # All workers should have completed
         self.assertEqual(completed['count'], 20, "Some workers didn't complete (possible deadlock)")
-        self.assertEqual(len(errors), 0, f"Workers had errors: {errors}")
+        self.assertEqual(len(errors), 0, f'Workers had errors: {errors}')
 
 
 if __name__ == '__main__':

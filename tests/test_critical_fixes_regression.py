@@ -47,9 +47,7 @@ class TestReversalCostBasisRegression:
         t2 = engine.execute_trade('AAPL', Decimal('-15'), Decimal('110'), now + timedelta(seconds=1))
 
         # CRITICAL: Cost basis should reset to 110, not remain at 100
-        assert engine.cost_basis['AAPL'] == Decimal('110'), (
-            'Reversal should reset cost basis to new entry price'
-        )
+        assert engine.cost_basis['AAPL'] == Decimal('110'), 'Reversal should reset cost basis to new entry price'
         assert engine.positions['AAPL'] == Decimal('-5')
 
         # Realized P&L from closing long should be: 10 * (110 - 100) = 100
@@ -57,9 +55,7 @@ class TestReversalCostBasisRegression:
 
         # Cover at 105: profit = (110 - 105) * 5 = 25
         t3 = engine.execute_trade('AAPL', Decimal('5'), Decimal('105'), now + timedelta(seconds=2))
-        assert t3.realised_pnl == Decimal('25'), (
-            'Short P&L should use reset basis (110), not old long basis (100)'
-        )
+        assert t3.realised_pnl == Decimal('25'), 'Short P&L should use reset basis (110), not old long basis (100)'
 
     def test_short_to_long_reversal_resets_basis(self):
         """Verify cost basis resets when going short → long."""
@@ -135,18 +131,16 @@ class TestMultiSymbolEquityRegression:
         # Cash: 99000 - 1000 = 98000
         # CRITICAL: Equity should include BOTH positions at their last known prices
         # Expected: 98000 + (10 * 100) + (5 * 200) = 100000
-        assert t2.equity == Decimal('100000'), (
-            'Equity after MSFT trade should value AAPL at last known price (100)'
-        )
+        assert t2.equity == Decimal('100000'), 'Equity after MSFT trade should value AAPL at last known price (100)'
 
         # Price moves: AAPL to 110, MSFT stays at 200
         # Trade 1 more AAPL share to update AAPL price
         t3 = engine.execute_trade('AAPL', Decimal('1'), Decimal('110'), now + timedelta(seconds=2))
         # Cash: 98000 - 110 = 97890
         # Equity: 97890 + (11 * 110) + (5 * 200) = 100100
-        assert t3.equity == Decimal('100100'), (
-            'Equity should value MSFT at last known price (200) even though we traded AAPL'
-        )
+        assert t3.equity == Decimal(
+            '100100'
+        ), 'Equity should value MSFT at last known price (200) even though we traded AAPL'
 
     def test_equity_with_three_symbols(self):
         """Test equity calculation with multiple symbols."""
@@ -155,7 +149,7 @@ class TestMultiSymbolEquityRegression:
 
         # Open three positions
         engine.execute_trade('AAPL', Decimal('10'), Decimal('100'), now)  # 1000
-        engine.execute_trade('MSFT', Decimal('5'), Decimal('200'), now)   # 1000
+        engine.execute_trade('MSFT', Decimal('5'), Decimal('200'), now)  # 1000
         t3 = engine.execute_trade('GOOGL', Decimal('2'), Decimal('150'), now)  # 300
 
         # Cash: 100000 - 1000 - 1000 - 300 = 97700
@@ -166,7 +160,12 @@ class TestMultiSymbolEquityRegression:
         # Now prices move and we trade only AAPL
         t4 = engine.execute_trade('AAPL', Decimal('0'), Decimal('120'), now + timedelta(seconds=1))
         # Equity should still include MSFT @ 200 and GOOGL @ 150
-        expected = Decimal('97700') + Decimal('10') * Decimal('120') + Decimal('5') * Decimal('200') + Decimal('2') * Decimal('150')
+        expected = (
+            Decimal('97700')
+            + Decimal('10') * Decimal('120')
+            + Decimal('5') * Decimal('200')
+            + Decimal('2') * Decimal('150')
+        )
         assert t4.equity == expected
 
 
@@ -193,6 +192,7 @@ class TestStaleOrderRateTimestampsRegression:
         #
         # This is verified by reading the source file
         from pathlib import Path
+
         coordinator_path = Path('aistock/session/coordinator.py')
         source = coordinator_path.read_text()
         assert 'submission_time = datetime.now(timezone.utc)' in source
@@ -219,10 +219,14 @@ class TestTimeframeStateRaceRegression:
         #
         # This is verified by reading the source file
         from pathlib import Path
+
         timeframes_path = Path('aistock/timeframes.py')
         source = timeframes_path.read_text()
         # Updated assertion to match new comment
-        assert 'CRITICAL FIX: Keep lock held through state calculations' in source or 'Hold lock for entire state update' in source
+        assert (
+            'CRITICAL FIX: Keep lock held through state calculations' in source
+            or 'Hold lock for entire state update' in source
+        )
         assert 'with self._lock:' in source
         assert 'bars = self.bars[symbol][timeframe].copy()' in source
 

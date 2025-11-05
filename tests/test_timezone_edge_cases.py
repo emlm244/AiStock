@@ -260,10 +260,7 @@ class TestClockSkewInTTL:
 
     def test_idempotency_basic_duplicate_detection(self, tmp_path):
         """Test basic duplicate order detection."""
-        tracker = OrderIdempotencyTracker(
-            storage_path=str(tmp_path / 'test_orders.json'),
-            expiration_minutes=5
-        )
+        tracker = OrderIdempotencyTracker(storage_path=str(tmp_path / 'test_orders.json'), expiration_minutes=5)
 
         # Submit order (timestamp captured internally)
         tracker.mark_submitted('ORDER_001')
@@ -283,10 +280,7 @@ class TestClockSkewInTTL:
         NOTE: This test documents the expected behavior. Full testing
         would require time mocking to advance clock 5+ minutes.
         """
-        tracker = OrderIdempotencyTracker(
-            storage_path=str(tmp_path / 'test_orders.json'),
-            expiration_minutes=5
-        )
+        tracker = OrderIdempotencyTracker(storage_path=str(tmp_path / 'test_orders.json'), expiration_minutes=5)
 
         # Submit order
         tracker.mark_submitted('ORDER_001')
@@ -300,10 +294,7 @@ class TestClockSkewInTTL:
 
     def test_multiple_orders_tracked(self, tmp_path):
         """Test multiple orders tracked independently."""
-        tracker = OrderIdempotencyTracker(
-            storage_path=str(tmp_path / 'test_orders.json'),
-            expiration_minutes=5
-        )
+        tracker = OrderIdempotencyTracker(storage_path=str(tmp_path / 'test_orders.json'), expiration_minutes=5)
 
         # Submit multiple orders
         for i in range(10):

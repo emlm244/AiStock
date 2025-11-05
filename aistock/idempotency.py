@@ -203,9 +203,7 @@ class OrderIdempotencyTracker:
         current_ts_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         with self._lock:
             stale_ids = [
-                cid
-                for cid, ts_ms in self._submitted_ids.items()
-                if (current_ts_ms - ts_ms) >= self.expiration_ms
+                cid for cid, ts_ms in self._submitted_ids.items() if (current_ts_ms - ts_ms) >= self.expiration_ms
             ]
 
             for cid in stale_ids:

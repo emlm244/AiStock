@@ -152,9 +152,7 @@ def analyze_direction(metrics: dict[str, Any]) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Compare old (INVALID) vs new (corrected) backtest results'
-    )
+    parser = argparse.ArgumentParser(description='Compare old (INVALID) vs new (corrected) backtest results')
     parser.add_argument('old_file', type=Path, help='Old backtest result (INVALID)')
     parser.add_argument('new_file', type=Path, help='New backtest result (corrected)')
     parser.add_argument(
@@ -231,9 +229,7 @@ def main():
             new_pnl = new_trade.get('realised_pnl', 0)
             if abs(old_pnl - new_pnl) > 0.01:  # Non-zero difference
                 pct_diff = calculate_percentage_diff(old_pnl, new_pnl)
-                print(
-                    f'  Trade {i+1}: P&L changed {old_pnl:.2f} -> {new_pnl:.2f} ({pct_diff:+.1f}%)'
-                )
+                print(f'  Trade {i+1}: P&L changed {old_pnl:.2f} -> {new_pnl:.2f} ({pct_diff:+.1f}%)')
 
     return 0
 

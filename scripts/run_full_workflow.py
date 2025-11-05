@@ -67,7 +67,10 @@ def main():
     old_result = results_dir / 'sample_old_INVALID.json'
     new_results = list(results_dir.glob('sample_backtest_*.json'))
 
-    if old_result.exists() and new_results and not run_command(
+    if (
+        old_result.exists()
+        and new_results
+        and not run_command(
             [
                 sys.executable,
                 str(scripts_dir / 'compare_backtest_results.py'),
@@ -76,8 +79,9 @@ def main():
                 '--detailed',
             ],
             'Step 2: Compare old (INVALID) vs new (corrected) results',
-        ):
-            print('[WARNING] Comparison failed, continuing...')
+        )
+    ):
+        print('[WARNING] Comparison failed, continuing...')
 
     # Step 3: Generate rerun plan
     plan_file = results_dir / 'rerun_plan.json'

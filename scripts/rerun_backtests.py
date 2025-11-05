@@ -202,9 +202,7 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Bulk backtest rerun automation (post P&L fix)'
-    )
+    parser = argparse.ArgumentParser(description='Bulk backtest rerun automation (post P&L fix)')
     parser.add_argument(
         '--results-dir',
         type=Path,

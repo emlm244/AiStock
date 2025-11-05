@@ -72,9 +72,9 @@ class TestTimeframeManager:
         # Max drift = 0 minutes (perfect alignment)
 
         timeframe_configs = [
-            ('1m', 60, 150),    # 150 bars of 1-minute
-            ('5m', 300, 30),    # 30 bars of 5-minute
-            ('15m', 900, 10),   # 10 bars of 15-minute
+            ('1m', 60, 150),  # 150 bars of 1-minute
+            ('5m', 300, 30),  # 30 bars of 5-minute
+            ('15m', 900, 10),  # 10 bars of 15-minute
         ]
 
         for timeframe, interval, count in timeframe_configs:

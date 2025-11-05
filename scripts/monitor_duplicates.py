@@ -109,10 +109,8 @@ def analyze_duplicates(log_file: Path) -> dict[str, Any]:
         'unique_clients': len(submissions),
         'duplicates': duplicates,
         'metrics': {
-            'same_session_rate': len(duplicates['same_session'])
-            / max(len(submissions), 1),
-            'cross_restart_rate': len(duplicates['cross_restart_under_5min'])
-            / max(len(submissions), 1),
+            'same_session_rate': len(duplicates['same_session']) / max(len(submissions), 1),
+            'cross_restart_rate': len(duplicates['cross_restart_under_5min']) / max(len(submissions), 1),
             'retry_rate': len(duplicates['retries_over_5min']) / max(len(submissions), 1),
         },
     }
@@ -140,8 +138,7 @@ def generate_alert(analysis: dict[str, Any]) -> str | None:
     retry_rate = analysis['metrics']['retry_rate']
     if retry_rate > 0.1:  # >10%
         alerts.append(
-            f'[WARNING] Retry rate at {retry_rate*100:.1f}% (threshold: 10%). '
-            'Possible data lag or broker issues.'
+            f'[WARNING] Retry rate at {retry_rate*100:.1f}% (threshold: 10%). ' 'Possible data lag or broker issues.'
         )
 
     return '\n'.join(alerts) if alerts else None
@@ -150,12 +147,8 @@ def generate_alert(analysis: dict[str, Any]) -> str | None:
 def main():
     parser = argparse.ArgumentParser(description='Monitor duplicate order patterns')
     parser.add_argument('log_file', type=Path, help='Log file to analyze')
-    parser.add_argument(
-        '--output', type=Path, help='Save analysis to JSON file'
-    )
-    parser.add_argument(
-        '--alert', action='store_true', help='Print alerts to stdout'
-    )
+    parser.add_argument('--output', type=Path, help='Save analysis to JSON file')
+    parser.add_argument('--alert', action='store_true', help='Print alerts to stdout')
 
     args = parser.parse_args()
 
@@ -166,21 +159,15 @@ def main():
     print(f'Analyzing {args.log_file}...')
     analysis = analyze_duplicates(args.log_file)
 
-    print("\nSummary:")
+    print('\nSummary:')
     print(f"  Total submissions: {analysis['total_submissions']}")
     print(f"  Unique clients: {analysis['unique_clients']}")
     print(f"  Same-session duplicates: {len(analysis['duplicates']['same_session'])} [CRITICAL]")
-    print(
-        f"  Cross-restart (<5min): {len(analysis['duplicates']['cross_restart_under_5min'])} [WARNING]"
-    )
-    print(
-        f"  Retries (>5min): {len(analysis['duplicates']['retries_over_5min'])} [OK]"
-    )
-    print("\nMetrics:")
+    print(f"  Cross-restart (<5min): {len(analysis['duplicates']['cross_restart_under_5min'])} [WARNING]")
+    print(f"  Retries (>5min): {len(analysis['duplicates']['retries_over_5min'])} [OK]")
+    print('\nMetrics:')
     print(f"  Same-session rate: {analysis['metrics']['same_session_rate']*100:.2f}%")
-    print(
-        f"  Cross-restart rate: {analysis['metrics']['cross_restart_rate']*100:.2f}%"
-    )
+    print(f"  Cross-restart rate: {analysis['metrics']['cross_restart_rate']*100:.2f}%")
     print(f"  Retry rate: {analysis['metrics']['retry_rate']*100:.2f}%")
 
     if args.alert:

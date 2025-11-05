@@ -208,14 +208,15 @@ class EdgeCaseHandler:
         # All callers MUST pass timezone-aware datetimes.
         if current_time.tzinfo is None:
             raise TypeError(
-                "EdgeCaseHandler._check_stale_data received naive datetime. "
-                "All callers must use datetime.now(timezone.utc) or ensure timezone awareness. "
-                "This prevents silent 5-hour errors on non-UTC machines."
+                'EdgeCaseHandler._check_stale_data received naive datetime. '
+                'All callers must use datetime.now(timezone.utc) or ensure timezone awareness. '
+                'This prevents silent 5-hour errors on non-UTC machines.'
             )
 
         # If bar is naive but current_time is tz-aware, make bar tz-aware (assume UTC)
         if last_bar.timestamp.tzinfo is None and current_time.tzinfo is not None:
             from datetime import timezone
+
             last_bar_timestamp = last_bar.timestamp.replace(tzinfo=timezone.utc)
         else:
             last_bar_timestamp = last_bar.timestamp
@@ -272,6 +273,7 @@ class EdgeCaseHandler:
                 # Defensive: Normalize naive timestamps to UTC (assume UTC source)
                 if bar_ts.tzinfo is None:
                     from datetime import timezone
+
                     bar_ts = bar_ts.replace(tzinfo=timezone.utc)
                 timestamps[tf] = bar_ts
 
