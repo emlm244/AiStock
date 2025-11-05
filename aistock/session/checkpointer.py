@@ -38,8 +38,9 @@ class CheckpointManager:
 
         self.logger = logging.getLogger(__name__)
 
-        # Background worker
-        self._checkpoint_queue: queue.Queue[dict[str, Any] | None] = queue.Queue(maxsize=10)
+        # SIMPLIFIED: Unlimited queue (no throttling)
+        # Since trades are infrequent (30+ seconds), checkpoints won't overwhelm queue
+        self._checkpoint_queue: queue.Queue[dict[str, Any] | None] = queue.Queue()  # No maxsize
         self._worker_running = True
         self._worker = threading.Thread(target=self._worker_loop, daemon=True, name='CheckpointWorker')
         self._worker.start()
@@ -50,10 +51,8 @@ class CheckpointManager:
         if not self.enabled:
             return
 
-        try:
-            self._checkpoint_queue.put_nowait({})
-        except queue.Full:
-            self.logger.warning('Checkpoint queue full, skipping save')
+        # SIMPLIFIED: Always queue (no Full exception possible with unlimited queue)
+        self._checkpoint_queue.put_nowait({})
 
     def _worker_loop(self) -> None:
         """Background worker that processes checkpoint saves."""

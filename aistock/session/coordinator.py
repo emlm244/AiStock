@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -249,12 +249,14 @@ class TradingCoordinator:
             # Submit to broker first (source of truth)
             order_id = self.broker.submit(order)
 
-            # Only record successful submissions
-            self.risk.record_order_submission(timestamp)
+            # Record submission with wall-clock time (not bar time)
+            submission_time = datetime.now(timezone.utc)
+            self.risk.record_order_submission(submission_time)
             self.idempotency.mark_submitted(client_order_id)
-            self._order_submission_times[order_id] = timestamp
+            self._order_submission_times[order_id] = submission_time
 
             self.logger.info(f'Order submitted: {symbol} {order_id}')
+            self.logger.debug(f'Bar time: {timestamp}, submission time: {submission_time}')
 
         except Exception as exc:
             self.logger.error(f'Order submission failed: {exc}')

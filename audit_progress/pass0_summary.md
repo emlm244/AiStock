@@ -1,0 +1,32 @@
+# Pass-0 Index Summary
+
+- Timestamp: 2025-11-03T09:15:54.806818+00:00
+- Total files indexed: 115
+- Top-level distribution:
+  - aistock: 49
+  - tests: 27
+  - scripts: 8
+  - backtest_results: 4
+  - data: 4
+  - docs: 3
+  - .env.example: 1
+  - AGENTS.md: 1
+  - CLAUDE.md: 1
+  - CODE_REVIEW_FIXES.md: 1
+  - CONCURRENCY_EDGE_CASES_AUDIT.md: 1
+  - EDGE_CASE_FIXES_SUMMARY.md: 1
+  - FINAL_AUDIT_REPORT.md: 1
+  - IBKR_REQUIREMENTS_CHECKLIST.md: 1
+  - LICENSE: 1
+  - README.md: 1
+  - audit_progress: 1
+  - configs: 1
+  - launch_gui.py: 1
+  - models: 1
+  - pyrightconfig.json: 1
+  - requirements-dev.txt: 1
+  - requirements.txt: 1
+  - ruff.toml: 1
+  - state: 1
+  - test_ibkr_connection.py: 1
+- Notes: Initial manifest captured via `rg --files`. Includes audit_progress artifacts for resume-safe tracking.

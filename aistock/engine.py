@@ -69,6 +69,7 @@ class TradingEngine:
         self.cash = initial_cash
         self.positions: dict[str, Decimal] = {}
         self.cost_basis: dict[str, Decimal] = {}  # Average entry price per symbol
+        self.last_known_prices: dict[str, Decimal] = {}  # Track last price for equity calc
         self.trades: list[Trade] = []
         self.equity_curve: list[tuple[datetime, float]] = []
 
@@ -116,6 +117,10 @@ class TradingEngine:
             # Fully closed - remove cost basis
             if symbol in self.cost_basis:
                 del self.cost_basis[symbol]
+        elif (current_position > 0 and new_position < 0) or (current_position < 0 and new_position > 0):
+            # REVERSAL: position crossed zero, reset cost basis for new direction
+            # CHECK THIS BEFORE magnitude comparison to catch reversals that also increase abs(position)
+            self.cost_basis[symbol] = price
         elif abs(new_position) > abs(current_position):
             # Opening or adding to position - update weighted average basis
             if current_position == 0:
@@ -125,16 +130,25 @@ class TradingEngine:
                 # Adding to existing position - weighted average
                 added_qty = abs(quantity)
                 total_qty = abs(current_position) + added_qty
-                weighted_basis = (
-                    (abs(current_position) * current_basis + added_qty * price) / total_qty
-                )
-                self.cost_basis[symbol] = weighted_basis
+
+                # CRITICAL FIX: Guard against division by zero
+                if total_qty == 0:
+                    # Edge case: both quantities are zero (shouldn't happen but defensive)
+                    self.cost_basis[symbol] = price
+                else:
+                    weighted_basis = (
+                        (abs(current_position) * current_basis + added_qty * price) / total_qty
+                    )
+                    self.cost_basis[symbol] = weighted_basis
         # else: reducing position - cost basis stays the same
+
+        # Track last known price for this symbol
+        self.last_known_prices[symbol] = price
 
         self.positions[symbol] = new_position
 
-        # Calculate current equity
-        equity = self.calculate_equity({symbol: price})
+        # Calculate current equity using all last known prices
+        equity = self.calculate_equity(self.last_known_prices)
 
         # Create trade record
         trade = Trade(
@@ -162,12 +176,20 @@ class TradingEngine:
 
         Returns:
             Total equity value
+
+        Raises:
+            ValueError: If current_prices missing required symbol
         """
         equity = self.cash
 
         for symbol, quantity in self.positions.items():
-            if symbol in current_prices:
-                equity += quantity * current_prices[symbol]
+            # CRITICAL FIX: Validate that price exists for all open positions
+            if symbol not in current_prices:
+                raise ValueError(
+                    f'Missing price for symbol {symbol} (position: {quantity}). '
+                    f'Available prices: {list(current_prices.keys())}'
+                )
+            equity += quantity * current_prices[symbol]
 
         return equity
 

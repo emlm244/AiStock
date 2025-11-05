@@ -40,15 +40,14 @@ class PositionReconciler:
 
     def should_reconcile(self, current_time: datetime) -> bool:
         """Check if it's time for reconciliation."""
+        if current_time.tzinfo is None:
+            raise ValueError(f'Naive datetime not allowed: {current_time}')
+
         if self._last_reconciliation is None:
             return True
 
-        current_utc = current_time if current_time.tzinfo else current_time.replace(tzinfo=timezone.utc)
-        last_utc = (
-            self._last_reconciliation
-            if self._last_reconciliation.tzinfo
-            else self._last_reconciliation.replace(tzinfo=timezone.utc)
-        )
+        current_utc = current_time.astimezone(timezone.utc)
+        last_utc = self._last_reconciliation.astimezone(timezone.utc)
 
         if current_utc <= last_utc:
             return False
@@ -57,8 +56,11 @@ class PositionReconciler:
 
     def reconcile(self, as_of: datetime) -> None:
         """Reconcile positions and halt if critical mismatch."""
+        if as_of.tzinfo is None:
+            raise ValueError(f'Naive datetime not allowed: {as_of}')
+
         try:
-            as_of_utc = as_of.astimezone(timezone.utc) if as_of.tzinfo else as_of.replace(tzinfo=timezone.utc)
+            as_of_utc = as_of.astimezone(timezone.utc)
 
             broker_positions = self.broker.get_positions()
             portfolio_positions = self.portfolio.snapshot_positions()

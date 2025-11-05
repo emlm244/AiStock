@@ -189,31 +189,38 @@ class TimeframeManager:
             return bars[-lookback:].copy() if bars else []
 
     def _update_timeframe_state(self, symbol: str, timeframe: str) -> None:
-        """Update state for a specific symbol/timeframe."""
-        bars = self.bars[symbol][timeframe]
-        if len(bars) < 10:
-            return  # Need minimum bars for analysis
+        """
+        Update state for a specific symbol/timeframe.
 
-        # Calculate trend
-        trend = self._calculate_trend(bars[-20:])
+        CRITICAL FIX: Keep lock held through state calculations to prevent race conditions.
+        """
+        # CRITICAL FIX: Hold lock for entire state update, not just bar copy
+        with self._lock:
+            bars = self.bars[symbol][timeframe].copy()
 
-        # Calculate momentum (rate of change)
-        momentum = self._calculate_momentum(bars[-20:])
+            if len(bars) < 10:
+                return  # Need minimum bars for analysis
 
-        # Calculate volatility
-        volatility = self._calculate_volatility(bars[-20:])
+            # Calculate trend
+            trend = self._calculate_trend(bars[-20:])
 
-        # Calculate volume ratio
-        volume_ratio = self._calculate_volume_ratio(bars[-20:])
+            # Calculate momentum (rate of change)
+            momentum = self._calculate_momentum(bars[-20:])
 
-        # Store state
-        self._states[symbol][timeframe] = TimeframeState(
-            trend=trend,
-            momentum=momentum,
-            volatility=volatility,
-            volume_ratio=volume_ratio,
-            last_bar=bars[-1],
-        )
+            # Calculate volatility
+            volatility = self._calculate_volatility(bars[-20:])
+
+            # Calculate volume ratio
+            volume_ratio = self._calculate_volume_ratio(bars[-20:])
+
+            # Store state (still under lock)
+            self._states[symbol][timeframe] = TimeframeState(
+                trend=trend,
+                momentum=momentum,
+                volatility=volatility,
+                volume_ratio=volume_ratio,
+                last_bar=bars[-1],
+            )
 
     def _calculate_trend(self, bars: list[Bar]) -> Trend:
         """

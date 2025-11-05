@@ -168,10 +168,10 @@ class RLAgent:
     def __init__(self, config: FSDConfig):
         self.config = config
 
-        # P1-1 Fix: Q-value table with LRU eviction (OrderedDict preserves insertion order)
-        # Cap at 10K states to prevent memory bloat during long runs
+        # SIMPLIFIED: Unlimited Q-value table (no LRU eviction)
+        # Since trades happen every 30+ seconds, memory usage is minimal
+        # OrderedDict still used for deterministic iteration order
         self.q_values: OrderedDict[str, dict[str, float]] = OrderedDict()
-        self.max_q_table_size = 10_000
         self._lock = threading.Lock()  # P0-3 Fix: Protect Q-value updates from concurrent access
 
         # Statistics
@@ -182,20 +182,18 @@ class RLAgent:
 
         # Episode tracking
         self.current_episode_rewards: list[float] = []
-        # Experience buffer capped to prevent unbounded growth (future replay support)
-        self.experience_buffer: deque[dict[str, Any]] = deque(maxlen=10_000)
+        # SIMPLIFIED: Unlimited experience buffer (trades are infrequent)
+        self.experience_buffer: deque[dict[str, Any]] = deque()
 
     def _ensure_q_table_capacity(self) -> None:
         """
-        P1-1 Fix: Evict oldest states if Q-table exceeds size limit.
+        SIMPLIFIED: No capacity limits (trades are infrequent ~30s+).
 
-        IMPORTANT: Must be called with self._lock held.
-        Uses LRU eviction to prevent memory bloat during long runs.
+        Memory usage is minimal for realistic trading scenarios.
+        This method is now a no-op for backward compatibility.
         """
-        while len(self.q_values) >= self.max_q_table_size:
-            # Evict oldest (least recently used) state
-            oldest_state = next(iter(self.q_values))
-            del self.q_values[oldest_state]
+        # No-op: unlimited Q-table
+        pass
 
     def _hash_state(self, state: dict[str, object]) -> str:
         """Create hashable state representation."""
@@ -336,6 +334,8 @@ class RLAgent:
         Get confidence score for an action in a state.
 
         Returns value between 0 and 1.
+
+        CRITICAL FIX: Guards against sigmoid overflow with extreme Q-values.
         """
         state_hash = self._hash_state(state)
 
@@ -347,8 +347,15 @@ class RLAgent:
             q_vals = self.q_values[state_hash]
             action_q = q_vals.get(action, 0.0)
 
-        # Normalize Q-values to [0, 1] using sigmoid (outside lock)
-        confidence: float = 1.0 / (1.0 + math.exp(-action_q))
+        # CRITICAL FIX: Guard against sigmoid overflow
+        # math.exp() overflows for values > 700, underflows for values < -700
+        if action_q > 700:
+            confidence = 1.0  # Extreme positive Q-value → max confidence
+        elif action_q < -700:
+            confidence = 0.0  # Extreme negative Q-value → min confidence
+        else:
+            # Normalize Q-values to [0, 1] using sigmoid (outside lock)
+            confidence = 1.0 / (1.0 + math.exp(-action_q))
 
         return confidence
 
