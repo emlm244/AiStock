@@ -39,7 +39,7 @@ class TestReversalCostBasisRegression:
         now = datetime.now(timezone.utc)
 
         # Buy 10 @ 100
-        t1 = engine.execute_trade('AAPL', Decimal('10'), Decimal('100'), now)
+        engine.execute_trade('AAPL', Decimal('10'), Decimal('100'), now)
         assert engine.cost_basis['AAPL'] == Decimal('100')
         assert engine.positions['AAPL'] == Decimal('10')
 
@@ -67,7 +67,7 @@ class TestReversalCostBasisRegression:
         now = datetime.now(timezone.utc)
 
         # Sell short 10 @ 200
-        t1 = engine.execute_trade('MSFT', Decimal('-10'), Decimal('200'), now)
+        engine.execute_trade('MSFT', Decimal('-10'), Decimal('200'), now)
         assert engine.cost_basis['MSFT'] == Decimal('200')
         assert engine.positions['MSFT'] == Decimal('-10')
 
@@ -94,7 +94,7 @@ class TestReversalCostBasisRegression:
         quantities = [Decimal('10'), Decimal('-15'), Decimal('20'), Decimal('-25'), Decimal('10')]
 
         for i, (qty, price) in enumerate(zip(quantities, prices)):
-            trade = engine.execute_trade('TEST', qty, price, now + timedelta(seconds=i))
+            engine.execute_trade('TEST', qty, price, now + timedelta(seconds=i))
 
             # After each reversal, basis should match the reversal price
             if i == 1:  # First reversal (long → short -5)

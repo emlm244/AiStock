@@ -21,7 +21,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aistock.engine import TradingEngine
+from aistock.engine import TradingEngine  # noqa: E402
 
 
 def generate_sample_bars():
@@ -59,7 +59,7 @@ def run_sample_backtest():
     print(f'\nInitial capital: ${engine.cash}')
 
     # Bar 0: Buy 100 shares at $102
-    trade1 = engine.execute_trade(
+    engine.execute_trade(
         symbol='AAPL',
         quantity=Decimal('100'),
         price=bars[0]['price'],
@@ -99,7 +99,7 @@ def run_sample_backtest():
     expected_pnl = Decimal('400') + Decimal('150')  # $550
 
     print(f'\n{"=" * 60}')
-    print(f'BACKTEST RESULTS:')
+    print('BACKTEST RESULTS:')
     print(f'{"=" * 60}')
     print(f'Total trades: {len(engine.trades)}')
     print(f'Total realized P&L: ${total_pnl}')

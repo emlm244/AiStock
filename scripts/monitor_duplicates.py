@@ -20,7 +20,7 @@ import argparse
 import json
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -166,7 +166,7 @@ def main():
     print(f'Analyzing {args.log_file}...')
     analysis = analyze_duplicates(args.log_file)
 
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"  Total submissions: {analysis['total_submissions']}")
     print(f"  Unique clients: {analysis['unique_clients']}")
     print(f"  Same-session duplicates: {len(analysis['duplicates']['same_session'])} [CRITICAL]")
@@ -176,7 +176,7 @@ def main():
     print(
         f"  Retries (>5min): {len(analysis['duplicates']['retries_over_5min'])} [OK]"
     )
-    print(f"\nMetrics:")
+    print("\nMetrics:")
     print(f"  Same-session rate: {analysis['metrics']['same_session_rate']*100:.2f}%")
     print(
         f"  Cross-restart rate: {analysis['metrics']['cross_restart_rate']*100:.2f}%"

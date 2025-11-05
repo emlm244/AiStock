@@ -31,7 +31,7 @@ def run_command(cmd: list[str], description: str) -> bool:
     print()
 
     try:
-        result = subprocess.run(cmd, check=True, capture_output=False, text=True)
+        subprocess.run(cmd, check=True, capture_output=False, text=True)
         print(f'[OK] {description} completed successfully')
         return True
     except subprocess.CalledProcessError as e:
@@ -67,8 +67,7 @@ def main():
     old_result = results_dir / 'sample_old_INVALID.json'
     new_results = list(results_dir.glob('sample_backtest_*.json'))
 
-    if old_result.exists() and new_results:
-        if not run_command(
+    if old_result.exists() and new_results and not run_command(
             [
                 sys.executable,
                 str(scripts_dir / 'compare_backtest_results.py'),
@@ -105,7 +104,7 @@ def main():
 
         print(f'Total backtest results found: {plan["total_results"]}')
         print(f'Pre-fix (INVALID) results: {plan["pre_fix_results"]}')
-        print(f'\nTop 5 priorities:')
+        print('\nTop 5 priorities:')
         for i, item in enumerate(plan['rerun_plan'][:5], 1):
             print(
                 f'  {i}. {Path(item["file"]).name} '

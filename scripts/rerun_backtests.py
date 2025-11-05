@@ -193,7 +193,7 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
         json.dump(plan_data, f, indent=2)
 
     logger.info(f'Rerun plan saved to: {output_file}')
-    logger.info(f'Top 5 priorities:')
+    logger.info('Top 5 priorities:')
     for i, item in enumerate(rerun_plan[:5], 1):
         logger.info(
             f"  {i}. {item['file']} (score={item['impact_score']:.1f}, "

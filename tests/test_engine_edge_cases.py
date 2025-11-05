@@ -49,7 +49,7 @@ class TestCostBasisEdgeCases:
         engine = TradingEngine(initial_cash=Decimal('100000'))
 
         # 1. Open long position: 100 shares @ $100
-        trade1 = engine.execute_trade(
+        engine.execute_trade(
             symbol='AAPL',
             quantity=Decimal('100'),
             price=Decimal('100.00'),
@@ -104,7 +104,7 @@ class TestCostBasisEdgeCases:
         # Add position in small increments
         prices = [Decimal('100.00'), Decimal('101.50'), Decimal('99.75'), Decimal('102.25')]
 
-        for i, price in enumerate(prices):
+        for _i, price in enumerate(prices):
             engine.execute_trade(
                 symbol='AAPL', quantity=Decimal('10'), price=price, timestamp=datetime.now(timezone.utc)
             )
@@ -314,7 +314,7 @@ class TestZeroAndNegativeEdgeCases:
         engine = TradingEngine(initial_cash=Decimal('10000'))
 
         # Negative quantity = sell/short
-        trade = engine.execute_trade(
+        engine.execute_trade(
             symbol='SHORT',
             quantity=Decimal('-50'),
             price=Decimal('100.00'),

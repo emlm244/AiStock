@@ -345,7 +345,7 @@ class TestIdempotencyTrackerConcurrency:
         assert len(errors) == 0, f'Errors: {errors}'
 
         # All orders should be tracked
-        total_orders = num_workers * orders_per_worker
+        num_workers * orders_per_worker
         # (Note: We can't directly check count, but verify no corruption occurred)
 
 

@@ -63,10 +63,10 @@ def _atomic_write_json(data: Any, filepath: Path) -> None:
             # P2-1 Fix: Always cleanup temp file if it still exists
             # (shouldn't exist if rename succeeded, but handle edge cases)
             if temp_path.exists():
-                try:
+                import contextlib
+
+                with contextlib.suppress(Exception):
                     temp_path.unlink()
-                except Exception:
-                    pass  # Best effort cleanup
 
 
 def write_trades(trades: Iterable[Trade], path: str) -> None:

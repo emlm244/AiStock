@@ -491,9 +491,8 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         # Check positions in portfolio but not in broker
         portfolio_positions = portfolio.snapshot_positions()
         for symbol, position in portfolio_positions.items():
-            if symbol not in positions_snapshot:
-                if abs(float(position.quantity)) > 0.01:
-                    discrepancies.append(f'Extra in portfolio: {symbol} (qty={position.quantity}, not in broker)')
+            if symbol not in positions_snapshot and abs(float(position.quantity)) > 0.01:
+                discrepancies.append(f'Extra in portfolio: {symbol} (qty={position.quantity}, not in broker)')
 
         # Log results
         if discrepancies:

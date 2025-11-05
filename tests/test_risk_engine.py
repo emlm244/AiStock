@@ -191,21 +191,21 @@ class RiskEngineTests(unittest.TestCase):
 
     def test_profit_does_not_trigger_daily_loss_halt(self):
         """Regression test: positive P&L should NOT halt trading (profit is good!).
-        
+
         This tests the fix for the critical bug where abs(daily_pnl) was used,
         causing profitable days to trigger the 'daily loss limit' halt.
-        
+
         Before fix: +2% profit would halt trading (treated as 2% loss)
         After fix: +2% profit is allowed, only actual losses halt
         """
         portfolio = Portfolio(cash=Decimal('100000'))
         limits = RiskLimits(max_daily_loss_pct=0.01, max_drawdown_pct=0.5)  # 1% loss limit
         risk = RiskEngine(limits, portfolio, bar_interval=timedelta(minutes=1))
-        
+
         timestamp = datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc)
         equity = Decimal('100000')
         last_prices = {'AAPL': Decimal('100')}
-        
+
         # Register a PROFITABLE trade (+$2000 = +2% gain, exceeds 1% limit if abs() used)
         risk.register_trade(
             Decimal('2000'),  # Positive P&L (profit!)
@@ -214,20 +214,20 @@ class RiskEngineTests(unittest.TestCase):
             equity + Decimal('2000'),
             last_prices
         )
-        
+
         # Should NOT be halted (profit is good, not a loss!)
         self.assertFalse(risk.is_halted(), 'Profit should not trigger daily loss halt')
-        
+
     def test_loss_exceeding_limit_triggers_halt(self):
         """Verify that actual losses (negative P&L) DO halt trading."""
         portfolio = Portfolio(cash=Decimal('100000'))
         limits = RiskLimits(max_daily_loss_pct=0.01, max_drawdown_pct=0.5)  # 1% loss limit
         risk = RiskEngine(limits, portfolio, bar_interval=timedelta(minutes=1))
-        
+
         timestamp = datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc)
         equity = Decimal('100000')
         last_prices = {'AAPL': Decimal('100')}
-        
+
         # Register a LOSING trade (-$2000 = -2% loss, exceeds 1% limit)
         risk.register_trade(
             Decimal('-2000'),  # Negative P&L (loss)
@@ -236,7 +236,7 @@ class RiskEngineTests(unittest.TestCase):
             equity + Decimal('-2000'),
             last_prices
         )
-        
+
         # Should be halted (loss exceeds limit)
         self.assertTrue(risk.is_halted(), 'Loss exceeding limit should trigger halt')
         self.assertIn('Daily loss', risk.halt_reason())

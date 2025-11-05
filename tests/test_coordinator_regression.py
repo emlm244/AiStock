@@ -128,10 +128,11 @@ class BrokerFailureRegressionTests(unittest.TestCase):
 
     def test_broker_failure_does_not_increment_rate_limits(self):
         """Verify failed broker.submit() does not count toward rate limits."""
+        from datetime import timedelta
+
         from aistock.config import RiskLimits
         from aistock.portfolio import Portfolio
         from aistock.risk import RiskEngine
-        from datetime import timedelta
 
         # Create portfolio and risk engine
         portfolio = Portfolio(cash=Decimal('100000'))
@@ -192,9 +193,10 @@ class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
 
     def test_fresh_entries_detected_as_duplicates(self):
         """Verify entries within expiration window are detected as duplicates."""
-        from aistock.idempotency import OrderIdempotencyTracker
-        import tempfile
         import os
+        import tempfile
+
+        from aistock.idempotency import OrderIdempotencyTracker
 
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = os.path.join(tmpdir, 'submitted_orders.json')
@@ -211,9 +213,10 @@ class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
 
     def test_stale_entries_not_duplicates(self):
         """Verify entries older than expiration window are NOT duplicates."""
-        from aistock.idempotency import OrderIdempotencyTracker
-        import tempfile
         import os
+        import tempfile
+
+        from aistock.idempotency import OrderIdempotencyTracker
 
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = os.path.join(tmpdir, 'submitted_orders.json')
@@ -236,9 +239,10 @@ class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
 
     def test_startup_cleanup_removes_stale_entries(self):
         """Verify clear_stale_ids() removes expired entries on startup."""
-        from aistock.idempotency import OrderIdempotencyTracker
-        import tempfile
         import os
+        import tempfile
+
+        from aistock.idempotency import OrderIdempotencyTracker
 
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = os.path.join(tmpdir, 'submitted_orders.json')
@@ -268,9 +272,10 @@ class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
 
     def test_prevents_same_session_duplicates(self):
         """Verify time-boxed idempotency still prevents same-session duplicates."""
-        from aistock.idempotency import OrderIdempotencyTracker
-        import tempfile
         import os
+        import tempfile
+
+        from aistock.idempotency import OrderIdempotencyTracker
 
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = os.path.join(tmpdir, 'submitted_orders.json')
@@ -288,10 +293,11 @@ class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
 
     def test_delayed_bars_use_submission_time_not_bar_time(self):
         """Verify delayed/backfilled bars use actual submission time for TTL."""
-        from aistock.idempotency import OrderIdempotencyTracker
-        import tempfile
         import os
+        import tempfile
         from datetime import timedelta
+
+        from aistock.idempotency import OrderIdempotencyTracker
 
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = os.path.join(tmpdir, 'submitted_orders.json')
@@ -370,8 +376,8 @@ class TimezoneMixingRegressionTests(unittest.TestCase):
 
     def test_timeframe_sync_handles_naive_timestamps(self):
         """Verify _check_timeframe_sync handles naive bar timestamps defensively."""
-        from aistock.edge_cases import EdgeCaseHandler
         from aistock.data import Bar
+        from aistock.edge_cases import EdgeCaseHandler
 
         handler = EdgeCaseHandler()
 
@@ -414,8 +420,8 @@ class TimezoneMixingRegressionTests(unittest.TestCase):
 
     def test_timeframe_sync_works_with_aware_timestamps(self):
         """Verify _check_timeframe_sync works correctly with tz-aware timestamps."""
-        from aistock.edge_cases import EdgeCaseHandler
         from aistock.data import Bar
+        from aistock.edge_cases import EdgeCaseHandler
 
         handler = EdgeCaseHandler()
 

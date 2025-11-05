@@ -18,7 +18,6 @@ OUTPUT:
 import argparse
 import json
 import sys
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -62,7 +61,7 @@ def compare_metrics(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
     }
 
     # Calculate differences
-    for metric, values in metrics.items():
+    for _metric, values in metrics.items():
         values['diff'] = values['new'] - values['old']
         values['pct_change'] = calculate_percentage_diff(values['old'], values['new'])
 
@@ -193,17 +192,17 @@ def main():
     print_comparison_table(metrics)
 
     # Print analysis
-    print(f'\nANALYSIS:')
+    print('\nANALYSIS:')
     print(f'  {analyze_direction(metrics)}')
 
     # Generate and print alerts
     alerts = generate_alerts(metrics)
     if alerts:
-        print(f'\nALERTS:')
+        print('\nALERTS:')
         for alert in alerts:
             print(f'  {alert}')
     else:
-        print(f'\n[OK] No significant discrepancies detected')
+        print('\n[OK] No significant discrepancies detected')
 
     # Save to file if requested
     if args.output:
@@ -220,7 +219,7 @@ def main():
 
     # Detailed trade comparison (if requested)
     if args.detailed and 'trades' in old_result and 'trades' in new_result:
-        print(f'\nDETAILED TRADE COMPARISON:')
+        print('\nDETAILED TRADE COMPARISON:')
         old_trades = old_result['trades']
         new_trades = new_result['trades']
 

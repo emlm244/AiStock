@@ -218,7 +218,7 @@ class TestStaleDataDetection:
         current_time = datetime(2025, 1, 15, 10, 40, 0, tzinfo=timezone.utc)
 
         # EdgeCaseHandler should handle this gracefully
-        result = handler.check_edge_cases(
+        handler.check_edge_cases(
             symbol='AAPL',
             bars=bars_out_of_order,
             current_time=current_time,
