@@ -11,6 +11,8 @@ Critical edge cases:
 - Timeframe sync issues
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
