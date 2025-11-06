@@ -210,8 +210,27 @@ class RLAgent:
         """
         Monitor Q-table size and log warnings if it grows too large.
 
+        This method tracks the growth of the Q-value lookup table and emits
+        log messages at various thresholds to warn about memory usage. It's
+        automatically called during save_state() to provide visibility into
+        the agent's memory footprint.
+
+        Thresholds:
+            - Normal: < 10K states (no logging)
+            - Low: 10K - 50K states (DEBUG log)
+            - Medium: 50K - 100K states (INFO log)
+            - High: 100K - 200K states (WARNING log, monitor usage)
+            - Critical: >= 200K states (WARNING log, consider pruning)
+
         Returns:
-            Stats about Q-table size and memory usage estimate
+            dict[str, Any]: Dictionary containing:
+                - num_states (int): Total number of learned states
+                - estimated_memory_mb (float): Approximate memory usage in MB
+                - level (str): Warning level ('normal', 'low', 'medium', 'high', 'critical')
+                - thresholds (dict): Threshold values used for classification
+
+        Thread Safety:
+            Thread-safe. Uses internal lock when accessing Q-table size.
         """
         import logging
 
@@ -228,10 +247,10 @@ class RLAgent:
 
         # Define thresholds
         thresholds = {
-            'low': 10000,      # 10K states
-            'medium': 50000,   # 50K states
-            'high': 100000,    # 100K states
-            'critical': 200000 # 200K states
+            'low': 10000,  # 10K states
+            'medium': 50000,  # 50K states
+            'high': 100000,  # 100K states
+            'critical': 200000,  # 200K states
         }
 
         # Determine warning level
@@ -244,8 +263,7 @@ class RLAgent:
         elif num_states >= thresholds['high']:
             level = 'high'
             logger.warning(
-                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
-                'Monitor memory usage.'
+                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). ' 'Monitor memory usage.'
             )
         elif num_states >= thresholds['medium']:
             level = 'medium'
@@ -271,8 +289,37 @@ class RLAgent:
         that may no longer be relevant. Q-values gradually fade if states aren't
         revisited, allowing the agent to adapt to new market regimes.
 
+        The decay is exponential: Q(s,a) *= decay_factor^days_elapsed, where
+        decay_factor is config.q_value_decay_per_day (default 0.9999).
+
+        Example with default settings:
+            - After 30 days: Q-values *= 0.9999^30 ≈ 0.997 (0.3% decay)
+            - After 365 days: Q-values *= 0.9999^365 ≈ 0.965 (3.5% decay)
+
+        The decay is applied to ALL states in the Q-table, regardless of
+        whether they've been visited recently. This encourages the agent to
+        re-evaluate old states if market conditions change.
+
+        Args:
+            None (uses config.enable_q_value_decay and config.q_value_decay_per_day)
+
         Returns:
-            Stats about the decay operation (days_elapsed, states_decayed, etc.)
+            dict[str, Any]: Dictionary containing:
+                - enabled (bool): Whether decay is enabled in config
+                - first_run (bool): True if this is the first decay call (timestamp init)
+                - skipped (bool): True if decay was skipped (too soon since last decay)
+                - reason (str): Reason for skip (if skipped=True)
+                - days_elapsed (float): Days since last decay
+                - decay_factor (float): Actual decay multiplier applied
+                - states_decayed (int): Number of states processed
+                - timestamp (str): ISO timestamp of decay operation
+
+        Thread Safety:
+            Thread-safe. Uses internal lock when modifying Q-values.
+
+        Side Effects:
+            - Updates self.last_decay_timestamp to current time
+            - Modifies all Q-values in self.q_values (if enabled and not skipped)
         """
         if not self.config.enable_q_value_decay:
             return {'enabled': False}
@@ -293,7 +340,7 @@ class RLAgent:
             return {'enabled': True, 'skipped': True, 'reason': 'too_soon'}
 
         # Calculate decay factor based on days elapsed
-        decay_factor = self.config.q_value_decay_per_day ** days_elapsed
+        decay_factor = self.config.q_value_decay_per_day**days_elapsed
 
         # Apply decay to all Q-values (thread-safe)
         with self._lock:
