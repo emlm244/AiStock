@@ -366,14 +366,33 @@ class FileStateManager:
         if not target.exists() and not backup.exists():
             raise FileNotFoundError(f'State file not found: {filepath}')
 
-        try:
-            with target.open('r', encoding='utf-8') as handle:
-                return json.load(handle)
-        except (FileNotFoundError, json.JSONDecodeError):
-            if backup.exists():
+        snapshot = None
+        load_error = None
+
+        # Try primary file first
+        if target.exists():
+            try:
+                with target.open('r', encoding='utf-8') as handle:
+                    snapshot = json.load(handle)
+            except json.JSONDecodeError as exc:
+                load_error = exc
+                # Primary corrupted, will try backup
+
+        # If primary failed or doesn't exist, try backup
+        if snapshot is None and backup.exists():
+            try:
                 with backup.open('r', encoding='utf-8') as handle:
-                    return json.load(handle)
-            raise
+                    snapshot = json.load(handle)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f'Both primary and backup state files corrupted: {filepath}') from exc
+
+        if snapshot is None:
+            raise ValueError(f'Failed to load state file: {filepath}') from load_error
+
+        if not isinstance(snapshot, dict):
+            raise ValueError(f'State file does not contain a JSON object: {filepath}')
+
+        return snapshot
 
 
 def load_checkpoint(checkpoint_dir: str = 'state') -> tuple[Portfolio, RiskState]:
