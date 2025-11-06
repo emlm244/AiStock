@@ -42,7 +42,12 @@ class FSDConfig:
     discount_factor: float = 0.95
     exploration_rate: float = 0.1
     exploration_decay: float = 0.995
-    min_exploration_rate: float = 0.01
+    min_exploration_rate: float = 0.05  # 5% floor (was 1%) to maintain adaptability
+
+    # Q-value decay for regime adaptation (prevents "nostalgia" for old market patterns)
+    # Q-values decay by this factor per day (0.9999 = ~3.5% decay per month)
+    enable_q_value_decay: bool = True
+    q_value_decay_per_day: float = 0.9999
 
     # Constraints
     max_capital: float = 10000.0
@@ -103,6 +108,10 @@ class FSDConfig:
                 f'min_exploration_rate must be in [0, exploration_rate], '
                 f'got {self.min_exploration_rate} (exploration_rate={self.exploration_rate})'
             )
+
+        # Q-value decay
+        if not 0.0 < self.q_value_decay_per_day <= 1.0:
+            raise ValueError(f'q_value_decay_per_day must be in (0, 1], got {self.q_value_decay_per_day}')
 
         # Constraints
         if self.max_capital <= 0:
@@ -180,10 +189,12 @@ class RLAgent:
         self.total_pnl = 0.0
         self.exploration_rate = config.exploration_rate
 
+        # Q-value decay tracking (for regime adaptation)
+        self.last_decay_timestamp: datetime | None = None
+
         # Episode tracking
         self.current_episode_rewards: list[float] = []
-        # SIMPLIFIED: Unlimited experience buffer (trades are infrequent)
-        self.experience_buffer: deque[dict[str, Any]] = deque()
+        # REMOVED: Zombie experience buffer (was never used for learning)
 
     def _ensure_q_table_capacity(self) -> None:
         """
@@ -194,6 +205,114 @@ class RLAgent:
         """
         # No-op: unlimited Q-table
         pass
+
+    def check_q_table_size(self) -> dict[str, Any]:
+        """
+        Monitor Q-table size and log warnings if it grows too large.
+
+        Returns:
+            Stats about Q-table size and memory usage estimate
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        with self._lock:
+            num_states = len(self.q_values)
+            num_actions = len(self.get_actions())
+
+        # Estimate memory usage (rough approximation)
+        # Each Q-value is ~8 bytes (float), plus ~100 bytes overhead per state for dict/hash
+        bytes_per_state = (num_actions * 8) + 100
+        estimated_memory_mb = (num_states * bytes_per_state) / (1024 * 1024)
+
+        # Define thresholds
+        thresholds = {
+            'low': 10000,      # 10K states
+            'medium': 50000,   # 50K states
+            'high': 100000,    # 100K states
+            'critical': 200000 # 200K states
+        }
+
+        # Determine warning level
+        if num_states >= thresholds['critical']:
+            level = 'critical'
+            logger.warning(
+                f'Q-table size CRITICAL: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
+                'Consider enabling Q-value decay or implementing state pruning.'
+            )
+        elif num_states >= thresholds['high']:
+            level = 'high'
+            logger.warning(
+                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
+                'Monitor memory usage.'
+            )
+        elif num_states >= thresholds['medium']:
+            level = 'medium'
+            logger.info(f'Q-table size MEDIUM: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
+        elif num_states >= thresholds['low']:
+            level = 'low'
+            logger.debug(f'Q-table size: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
+        else:
+            level = 'normal'
+
+        return {
+            'num_states': num_states,
+            'estimated_memory_mb': estimated_memory_mb,
+            'level': level,
+            'thresholds': thresholds,
+        }
+
+    def apply_q_value_decay(self) -> dict[str, Any]:
+        """
+        Apply time-based decay to Q-values for regime adaptation.
+
+        This prevents the agent from being "nostalgic" for old market patterns
+        that may no longer be relevant. Q-values gradually fade if states aren't
+        revisited, allowing the agent to adapt to new market regimes.
+
+        Returns:
+            Stats about the decay operation (days_elapsed, states_decayed, etc.)
+        """
+        if not self.config.enable_q_value_decay:
+            return {'enabled': False}
+
+        current_time = datetime.now(timezone.utc)
+
+        # Initialize timestamp if this is the first decay
+        if self.last_decay_timestamp is None:
+            self.last_decay_timestamp = current_time
+            return {'enabled': True, 'first_run': True, 'states_decayed': 0}
+
+        # Calculate time elapsed since last decay
+        elapsed = current_time - self.last_decay_timestamp
+        days_elapsed = elapsed.total_seconds() / 86400.0  # 86400 seconds in a day
+
+        # Only apply decay if at least some time has passed
+        if days_elapsed < 0.01:  # Less than ~15 minutes
+            return {'enabled': True, 'skipped': True, 'reason': 'too_soon'}
+
+        # Calculate decay factor based on days elapsed
+        decay_factor = self.config.q_value_decay_per_day ** days_elapsed
+
+        # Apply decay to all Q-values (thread-safe)
+        with self._lock:
+            states_decayed = 0
+            for state_hash in self.q_values:
+                for action in self.q_values[state_hash]:
+                    self.q_values[state_hash][action] *= decay_factor
+                states_decayed += 1
+
+        # Update timestamp
+        self.last_decay_timestamp = current_time
+
+        return {
+            'enabled': True,
+            'days_elapsed': days_elapsed,
+            'decay_factor': decay_factor,
+            'states_decayed': states_decayed,
+            'timestamp': current_time.isoformat(),
+        }
 
     def _hash_state(self, state: dict[str, object]) -> str:
         """Create hashable state representation."""
@@ -405,7 +524,8 @@ class FSDEngine:
         # Trading state
         self.current_positions: dict[str, Decimal] = {}
         self.trade_intents: list[dict[str, Any]] = []
-        self.trade_history: list[dict[str, Any]] = []  # History of all trades
+        # Trade history (capped at 10k to prevent unbounded memory growth)
+        self.trade_history: deque[dict[str, Any]] = deque(maxlen=10000)
 
         # Performance tracking
         self.episode_start_equity = float(portfolio.initial_cash)
@@ -973,6 +1093,12 @@ class FSDEngine:
 
         from .persistence import _atomic_write_json
 
+        # Check Q-table size and log warnings if needed
+        self.rl_agent.check_q_table_size()
+
+        # Apply Q-value decay before saving (regime adaptation)
+        self.rl_agent.apply_q_value_decay()
+
         state = {
             'q_values': self.rl_agent.q_values,
             'total_trades': self.rl_agent.total_trades,
@@ -981,6 +1107,10 @@ class FSDEngine:
             'exploration_rate': self.rl_agent.exploration_rate,
             # NEW: Per-symbol performance for adaptive trading
             'symbol_performance': self.symbol_performance,
+            # Q-value decay timestamp for regime adaptation
+            'last_decay_timestamp': self.rl_agent.last_decay_timestamp.isoformat()
+            if self.rl_agent.last_decay_timestamp
+            else None,
         }
 
         # P0-NEW-2 Fix: Use atomic write instead of direct json.dump()
@@ -1047,6 +1177,16 @@ class FSDEngine:
             # NEW: Restore per-symbol performance
             sp_obj: object = payload.get('symbol_performance', {})
             self.symbol_performance = sp_obj if isinstance(sp_obj, dict) else {}
+
+            # Restore Q-value decay timestamp (regime adaptation)
+            ldt_obj: object = payload.get('last_decay_timestamp')
+            if ldt_obj and isinstance(ldt_obj, str):
+                try:
+                    self.rl_agent.last_decay_timestamp = datetime.fromisoformat(ldt_obj)
+                except (ValueError, TypeError):
+                    self.rl_agent.last_decay_timestamp = None
+            else:
+                self.rl_agent.last_decay_timestamp = None
 
             return True
         except (FileNotFoundError, json.JSONDecodeError):
