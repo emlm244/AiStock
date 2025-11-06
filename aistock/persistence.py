@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .engine import Trade
+from .interfaces.portfolio import PortfolioProtocol
 from .portfolio import Portfolio, Position
 from .risk import RiskState
 
@@ -114,7 +115,7 @@ def _serialize_decimal(obj: Any) -> Any:
     return obj
 
 
-def save_portfolio_snapshot(portfolio: Portfolio, path: str) -> None:
+def save_portfolio_snapshot(portfolio: PortfolioProtocol, path: str) -> None:
     """
     Persist portfolio state to JSON for crash recovery.
 
@@ -329,7 +330,7 @@ def load_risk_state(path: str) -> RiskState:
     )
 
 
-def save_checkpoint(portfolio: Portfolio, risk_state: RiskState, checkpoint_dir: str = 'state') -> None:
+def save_checkpoint(portfolio: PortfolioProtocol, risk_state: RiskState, checkpoint_dir: str = 'state') -> None:
     """
     Save both portfolio and risk state to a checkpoint directory.
 
@@ -344,6 +345,54 @@ def save_checkpoint(portfolio: Portfolio, risk_state: RiskState, checkpoint_dir:
     """
     save_portfolio_snapshot(portfolio, f'{checkpoint_dir}/portfolio.json')
     save_risk_state(risk_state, f'{checkpoint_dir}/risk_state.json')
+
+
+class FileStateManager:
+    """Filesystem-backed implementation of StateManagerProtocol."""
+
+    def save_checkpoint(self, portfolio: PortfolioProtocol, risk_state: RiskState, checkpoint_dir: str) -> None:
+        save_checkpoint(portfolio, risk_state, checkpoint_dir)
+
+    def load_checkpoint(self, checkpoint_dir: str) -> tuple[Portfolio, RiskState]:
+        return load_checkpoint(checkpoint_dir)
+
+    def save_state(self, state: dict[str, Any], filepath: str) -> None:
+        _atomic_write_json(state, Path(filepath))
+
+    def load_state(self, filepath: str) -> dict[str, Any]:
+        target = Path(filepath)
+        backup = target.with_suffix('.backup')
+
+        if not target.exists() and not backup.exists():
+            raise FileNotFoundError(f'State file not found: {filepath}')
+
+        snapshot = None
+        load_error = None
+
+        # Try primary file first
+        if target.exists():
+            try:
+                with target.open('r', encoding='utf-8') as handle:
+                    snapshot = json.load(handle)
+            except json.JSONDecodeError as exc:
+                load_error = exc
+                # Primary corrupted, will try backup
+
+        # If primary failed or doesn't exist, try backup
+        if snapshot is None and backup.exists():
+            try:
+                with backup.open('r', encoding='utf-8') as handle:
+                    snapshot = json.load(handle)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f'Both primary and backup state files corrupted: {filepath}') from exc
+
+        if snapshot is None:
+            raise ValueError(f'Failed to load state file: {filepath}') from load_error
+
+        if not isinstance(snapshot, dict):
+            raise ValueError(f'State file does not contain a JSON object: {filepath}')
+
+        return snapshot
 
 
 def load_checkpoint(checkpoint_dir: str = 'state') -> tuple[Portfolio, RiskState]:

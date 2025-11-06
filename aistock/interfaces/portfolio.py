@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import Any, Protocol
 
 from ..portfolio import Position
 
@@ -49,4 +49,20 @@ class PortfolioProtocol(Protocol):
 
     def snapshot_positions(self) -> dict[str, Position]:
         """Get a snapshot of all positions."""
+        ...
+
+    def replace_positions(self, positions: dict[str, Position]) -> None:
+        """Replace internal positions with provided snapshot."""
+        ...
+
+    def get_trade_log_snapshot(self, limit: int | None = None) -> list[dict[str, Any]]:
+        """Return a copy of recent trade log entries."""
+        ...
+
+    def get_realised_pnl(self) -> Decimal:
+        """Return realised profit and loss."""
+        ...
+
+    def get_commissions_paid(self) -> Decimal:
+        """Return total commissions paid."""
         ...

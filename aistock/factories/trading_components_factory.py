@@ -12,6 +12,7 @@ from ..edge_cases import EdgeCaseHandler
 from ..fsd import FSDConfig, FSDEngine
 from ..idempotency import OrderIdempotencyTracker
 from ..patterns import PatternDetector
+from ..persistence import FileStateManager
 from ..portfolio import Portfolio
 from ..professional import ProfessionalSafeguards
 from ..risk import RiskEngine
@@ -151,20 +152,11 @@ class TradingComponentsFactory:
         enabled: bool = True,
     ) -> CheckpointManager:
         """Create checkpoint manager."""
-        from ..persistence import load_checkpoint, save_checkpoint
-
-        # Simple state manager for checkpointing
-        class StateManager:
-            def save_checkpoint(self, port, risk_state, dir):
-                save_checkpoint(port, risk_state, dir)
-
-            def load_checkpoint(self, dir):
-                return load_checkpoint(dir)
 
         return CheckpointManager(
             portfolio,
             risk_engine,
-            StateManager(),  # type: ignore
+            FileStateManager(),
             checkpoint_dir,
             enabled,
         )

@@ -6,11 +6,14 @@ P0-NEW-1 Fix: Thread-safe portfolio for concurrent access from IBKR callbacks.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from decimal import Decimal
 from threading import Lock
 from typing import Any
+
+from .performance import calculate_realized_pnl
 
 
 @dataclass
@@ -105,6 +108,7 @@ class Portfolio:
         self.realised_pnl = Decimal('0')
         self.commissions_paid = Decimal('0')
         self.trade_log: list[dict[str, Any]] = []
+        self.logger = logging.getLogger(__name__)
 
     def get_cash(self) -> Decimal:
         """Get current cash balance (thread-safe)."""
@@ -139,8 +143,10 @@ class Portfolio:
             # CRITICAL FIX: Calculate cash delta but don't apply yet
             cash_delta = -(quantity_delta * price) - commission
 
-            # Get or create position
-            if symbol not in self.positions:
+            existing_position = self.positions.get(symbol)
+            original_state = replace(existing_position) if existing_position else None
+
+            if existing_position is None:
                 self.positions[symbol] = Position(symbol=symbol)
 
             pos = self.positions[symbol]
@@ -156,14 +162,24 @@ class Portfolio:
                 if pos.quantity == 0:
                     del self.positions[symbol]
 
-            except Exception:
-                # Position update failed - rollback by recreating clean position
-                if symbol in self.positions:
-                    # Restore original position (before realise() was called)
-                    # Note: realise() modifies position in-place, so we can't fully rollback
-                    # Best we can do is not commit cash change and re-raise
-                    pass
-                raise  # Re-raise exception to caller
+            except Exception as exc:
+                # Position update failed - restore previous state and surface detailed context
+                if original_state is None:
+                    self.positions.pop(symbol, None)
+                else:
+                    self.positions[symbol] = original_state
+
+                self.logger.error(
+                    'Position update failed',
+                    exc_info=True,
+                    extra={
+                        'symbol': symbol,
+                        'quantity_delta': str(quantity_delta),
+                        'price': str(price),
+                        'commission': str(commission),
+                    },
+                )
+                raise exc
 
     def record_pnl(self, pnl: Decimal):
         """Record realized P&L (thread-safe)."""
@@ -210,21 +226,18 @@ class Portfolio:
             Realized P&L from this fill
         """
         with self._lock:
-            # Compute realized P&L using current position snapshot
+            # Compute realized P&L using current position snapshot via shared helper
             existing_position = self.positions.get(symbol)
-            realized_pnl = Decimal('0')
-
-            if existing_position and existing_position.quantity != 0:
-                current_qty = existing_position.quantity
-                avg_price = existing_position.average_price
-
-                is_closing = (current_qty > 0 and quantity < 0) or (current_qty < 0 and quantity > 0)
-                if is_closing:
-                    closing_qty = min(abs(quantity), abs(current_qty))
-                    if current_qty > 0:
-                        realized_pnl = (price - avg_price) * closing_qty
-                    else:
-                        realized_pnl = (avg_price - price) * closing_qty
+            realized_pnl = (
+                calculate_realized_pnl(
+                    position_quantity=existing_position.quantity,
+                    average_price=existing_position.average_price,
+                    fill_quantity=quantity,
+                    fill_price=price,
+                )
+                if existing_position
+                else Decimal('0')
+            )
 
             # Update cash and position atomically
             cash_delta = -(quantity * price) - commission

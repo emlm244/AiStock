@@ -12,6 +12,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from .performance import calculate_realized_pnl
+
 
 @dataclass
 class Trade:
@@ -27,6 +29,11 @@ class Trade:
     equity: Decimal
     order_id: str = ''
     strategy: str = 'FSD'
+
+    def __post_init__(self) -> None:
+        """Validate timestamp includes timezone info for downstream audit consistency."""
+        if self.timestamp.tzinfo is None or self.timestamp.tzinfo.utcoffset(self.timestamp) is None:
+            raise ValueError('Trade timestamp must be timezone-aware')
 
 
 @dataclass
@@ -96,18 +103,13 @@ class TradingEngine:
         current_position = self.positions.get(symbol, Decimal('0'))
         current_basis = self.cost_basis.get(symbol, Decimal('0'))
 
-        # Calculate realized P&L using cost basis
-        realised_pnl = Decimal('0')
-        if (current_position > 0 and quantity < 0) or (current_position < 0 and quantity > 0):
-            # Closing or reducing position - calculate P&L from cost basis
-            closed_qty = min(abs(quantity), abs(current_position))
-
-            if current_position > 0:
-                # Closing long: profit = (exit_price - entry_price) * qty
-                realised_pnl = closed_qty * (price - current_basis)
-            else:
-                # Closing short: profit = (entry_price - exit_price) * qty
-                realised_pnl = closed_qty * (current_basis - price)
+        # Calculate realized P&L using shared helper to keep logic consistent with Portfolio.
+        realised_pnl = calculate_realized_pnl(
+            position_quantity=current_position,
+            average_price=current_basis,
+            fill_quantity=quantity,
+            fill_price=price,
+        )
 
         # Update position
         new_position = current_position + quantity
