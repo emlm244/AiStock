@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
+import logging
 import numpy as np
 
 from .data import Bar
@@ -238,8 +239,6 @@ class RLAgent:
         Thread Safety:
             Thread-safe. Uses internal lock when accessing Q-table size.
         """
-        import logging
-
         logger = logging.getLogger(__name__)
 
         with self._lock:
@@ -275,20 +274,29 @@ class RLAgent:
         if num_states >= thresholds['critical']:
             level = 'critical'
             logger.warning(
-                f'Q-table size CRITICAL: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
-                'Consider enabling additional pruning.'
+                (
+                    f'Q-table size CRITICAL: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
+                    'Consider enabling additional pruning.'
+                )
             )
         elif num_states >= thresholds['high']:
             level = 'high'
             logger.warning(
-                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). Monitor memory usage.'
+                (
+                    f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
+                    'Monitor memory usage.'
+                )
             )
         elif num_states >= thresholds['medium']:
             level = 'medium'
-            logger.info(f'Q-table size MEDIUM: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
+            logger.info(
+                f'Q-table size MEDIUM: {num_states:,} states (~{estimated_memory_mb:.1f} MB).'
+            )
         elif num_states >= thresholds['low']:
             level = 'low'
-            logger.debug(f'Q-table size LOW: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
+            logger.debug(
+                f'Q-table size LOW: {num_states:,} states (~{estimated_memory_mb:.1f} MB).'
+            )
         else:
             level = 'normal'
 
@@ -1171,7 +1179,6 @@ class FSDEngine:
 
         P0-NEW-2 Fix: Uses atomic writes to prevent Q-value corruption on crash.
         """
-        import logging
         from pathlib import Path
 
         from .persistence import _atomic_write_json
@@ -1184,7 +1191,8 @@ class FSDEngine:
             level = q_table_info['level']
             message = (
                 f"Q-table diagnostics: states={q_table_info['num_states']:,}, "
-                f"estimated_mem={q_table_info['estimated_memory_mb']:.1f} MB, level={level}"
+                f"estimated_mem={q_table_info['estimated_memory_mb']:.1f} MB, "
+                f"level={level}"
             )
             if level == 'low':
                 logger.debug(message)
@@ -1209,7 +1217,9 @@ class FSDEngine:
                     f"factor={decay_info['decay_factor']:.6f}, days={decay_info['days_elapsed']:.2f}"
                 )
         elif decay_info.get('skipped'):
-            logger.debug(f"Q-value decay skipped: {decay_info.get('reason', 'unknown')}")
+            logger.debug(
+                f"Q-value decay skipped: {decay_info.get('reason', 'unknown')}"
+            )
 
         state = {
             'q_values': self.rl_agent.q_values,
