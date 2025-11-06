@@ -309,10 +309,12 @@ class RLAgent:
                 - first_run (bool): True if this is the first decay call (timestamp init)
                 - skipped (bool): True if decay was skipped (too soon since last decay)
                 - reason (str): Reason for skip (if skipped=True)
-                - days_elapsed (float): Days since last decay
+                - days_elapsed (float): Days since last decay (clamped if > 90 days)
                 - decay_factor (float): Actual decay multiplier applied
                 - states_decayed (int): Number of states processed
                 - timestamp (str): ISO timestamp of decay operation
+                - clamped (bool): True if days_elapsed was clamped to prevent extreme decay
+                - original_days_elapsed (float): Original unclamped value (only if clamped=True)
 
         Thread Safety:
             Thread-safe. Uses internal lock when modifying Q-values.
@@ -335,12 +337,31 @@ class RLAgent:
         elapsed = current_time - self.last_decay_timestamp
         days_elapsed = elapsed.total_seconds() / 86400.0  # 86400 seconds in a day
 
+        # Guard against negative time (clock adjustments/timezone issues)
+        if days_elapsed < 0:
+            # Clock went backward - reset timestamp and skip decay
+            self.last_decay_timestamp = current_time
+            return {'enabled': True, 'skipped': True, 'reason': 'negative_time_elapsed'}
+
         # Only apply decay if at least some time has passed
         if days_elapsed < 0.01:  # Less than ~15 minutes
             return {'enabled': True, 'skipped': True, 'reason': 'too_soon'}
 
+        # Guard against extreme decay (e.g., multi-year gap after long downtime)
+        # Cap at 90 days to prevent underflow and preserve some learned knowledge
+        original_days = days_elapsed
+        clamped = False
+        if days_elapsed > 90:
+            days_elapsed = 90
+            clamped = True
+
         # Calculate decay factor based on days elapsed
         decay_factor = self.config.q_value_decay_per_day**days_elapsed
+
+        # Floor decay factor to prevent complete zeroing of Q-values
+        MIN_DECAY_FACTOR = 1e-12
+        if decay_factor < MIN_DECAY_FACTOR:
+            decay_factor = MIN_DECAY_FACTOR
 
         # Apply decay to all Q-values (thread-safe)
         with self._lock:
@@ -353,13 +374,20 @@ class RLAgent:
         # Update timestamp
         self.last_decay_timestamp = current_time
 
-        return {
+        result = {
             'enabled': True,
             'days_elapsed': days_elapsed,
             'decay_factor': decay_factor,
             'states_decayed': states_decayed,
             'timestamp': current_time.isoformat(),
+            'clamped': clamped,
         }
+
+        # Include original_days if clamped
+        if clamped:
+            result['original_days_elapsed'] = original_days
+
+        return result
 
     def _hash_state(self, state: dict[str, object]) -> str:
         """Create hashable state representation."""
@@ -1136,15 +1164,34 @@ class FSDEngine:
 
         P0-NEW-2 Fix: Uses atomic writes to prevent Q-value corruption on crash.
         """
+        import logging
         from pathlib import Path
 
         from .persistence import _atomic_write_json
 
+        logger = logging.getLogger(__name__)
+
         # Check Q-table size and log warnings if needed
-        self.rl_agent.check_q_table_size()
+        q_table_info = self.rl_agent.check_q_table_size()
 
         # Apply Q-value decay before saving (regime adaptation)
-        self.rl_agent.apply_q_value_decay()
+        decay_info = self.rl_agent.apply_q_value_decay()
+
+        # Log decay operation if it occurred
+        if decay_info.get('enabled') and not decay_info.get('first_run') and not decay_info.get('skipped'):
+            if decay_info.get('clamped'):
+                logger.warning(
+                    f"Q-value decay applied (CLAMPED): {decay_info['states_decayed']} states, "
+                    f"factor={decay_info['decay_factor']:.6f}, "
+                    f"days={decay_info['days_elapsed']:.2f} (original: {decay_info['original_days_elapsed']:.2f})"
+                )
+            else:
+                logger.info(
+                    f"Q-value decay applied: {decay_info['states_decayed']} states, "
+                    f"factor={decay_info['decay_factor']:.6f}, days={decay_info['days_elapsed']:.2f}"
+                )
+        elif decay_info.get('skipped'):
+            logger.debug(f"Q-value decay skipped: {decay_info.get('reason', 'unknown')}")
 
         state = {
             'q_values': self.rl_agent.q_values,
