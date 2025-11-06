@@ -1173,6 +1173,18 @@ class FSDEngine:
 
         # Check Q-table size and log warnings if needed
         q_table_info = self.rl_agent.check_q_table_size()
+        if q_table_info['level'] != 'normal':
+            level = q_table_info['level']
+            message = (
+                f"Q-table diagnostics: states={q_table_info['num_states']:,}, "
+                f"estimated_mem={q_table_info['estimated_memory_mb']:.1f} MB, level={level}"
+            )
+            if level == 'low':
+                logger.debug(message)
+            elif level == 'medium':
+                logger.info(message)
+            else:  # high or critical
+                logger.warning(message)
 
         # Apply Q-value decay before saving (regime adaptation)
         decay_info = self.rl_agent.apply_q_value_decay()
