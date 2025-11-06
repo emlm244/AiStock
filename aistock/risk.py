@@ -100,7 +100,7 @@ class RiskEngine:
         symbol: str,
         quantity_delta: Decimal,
         price: Decimal,
-        current_equity: Decimal,
+        equity: Decimal,
         last_prices: dict[str, Decimal],
         timestamp: datetime | None = None,
     ):
@@ -113,7 +113,7 @@ class RiskEngine:
             symbol: Trading symbol
             quantity_delta: Proposed quantity change
             price: Execution price
-            current_equity: Current portfolio equity
+            equity: Current portfolio equity
             last_prices: Dict of current prices for all symbols
             timestamp: Current timestamp (for rate limiting)
 
@@ -123,7 +123,7 @@ class RiskEngine:
         with self._lock:  # P0 Fix: Thread safety
             # Ensure reset for new day
             if timestamp:
-                self._ensure_reset(timestamp, current_equity)
+                self._ensure_reset(timestamp, equity)
 
             # Check if trading is halted
             if self._is_halted:
@@ -142,7 +142,7 @@ class RiskEngine:
                 trade_cost = abs(quantity_delta * price)
 
                 # For buy orders, cash decreases; for sell orders, equity stays same (converting position to cash)
-                projected_equity = current_equity - trade_cost if quantity_delta > 0 else current_equity
+                projected_equity = equity - trade_cost if quantity_delta > 0 else equity
 
                 # Check if projected EQUITY would fall below minimum
                 if projected_equity < self.minimum_balance:
@@ -158,7 +158,7 @@ class RiskEngine:
             # Check per-trade notional cap if configured
             per_trade_cap_pct = getattr(self.config, 'per_trade_risk_pct', 0.0)
             if per_trade_cap_pct and per_trade_cap_pct > 0:
-                per_trade_cap = current_equity * Decimal(str(per_trade_cap_pct))
+                per_trade_cap = equity * Decimal(str(per_trade_cap_pct))
                 trade_notional = abs(quantity_delta * price)
                 is_closing_trade = (current_pos > 0 and quantity_delta < 0) or (current_pos < 0 and quantity_delta > 0)
                 if not is_closing_trade and trade_notional > per_trade_cap:
@@ -172,17 +172,17 @@ class RiskEngine:
                 self._check_rate_limits(timestamp)
 
             # Check daily loss limit
-            daily_loss = (self.daily_start_equity - current_equity) / self.daily_start_equity
+            daily_loss = (self.daily_start_equity - equity) / self.daily_start_equity
             if daily_loss >= self.config.max_daily_loss_pct:
                 self.halt('Daily loss limit exceeded')
                 raise RiskViolation(f'Daily loss limit exceeded: {daily_loss:.2%}')
 
             # Check maximum drawdown
-            if current_equity > self.peak_equity:
-                self.peak_equity = current_equity
-                self.state.peak_equity = current_equity
+            if equity > self.peak_equity:
+                self.peak_equity = equity
+                self.state.peak_equity = equity
 
-            drawdown = (self.peak_equity - current_equity) / self.peak_equity
+            drawdown = (self.peak_equity - equity) / self.peak_equity
             if drawdown >= self.config.max_drawdown_pct:
                 self.halt('Maximum drawdown exceeded')
                 raise RiskViolation(f'Maximum drawdown exceeded: {drawdown:.2%}')
@@ -193,7 +193,7 @@ class RiskEngine:
             # Calculate projected position value
             new_pos = current_pos + quantity_delta
             position_value = abs(new_pos * price)
-            position_pct = position_value / current_equity if current_equity > 0 else 0
+            position_pct = position_value / equity if equity > 0 else 0
 
             if position_pct > max_pos_pct:
                 raise RiskViolation(f'Position size {position_pct:.2%} exceeds limit {max_pos_pct:.2%}')

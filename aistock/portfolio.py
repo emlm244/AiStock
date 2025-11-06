@@ -28,9 +28,12 @@ class Position:
     total_volume: Decimal = Decimal('0')
 
     def __post_init__(self):
-        if self.entry_time_utc is None:
-            self.entry_time_utc = datetime.now(timezone.utc)
-        if self.last_update_utc is None:
+        """Normalize timestamps without inventing synthetic entry times."""
+        if self.entry_time_utc is not None and self.entry_time_utc.tzinfo is None:
+            self.entry_time_utc = self.entry_time_utc.replace(tzinfo=timezone.utc)
+        if self.last_update_utc is not None and self.last_update_utc.tzinfo is None:
+            self.last_update_utc = self.last_update_utc.replace(tzinfo=timezone.utc)
+        if self.last_update_utc is None and self.entry_time_utc is not None:
             self.last_update_utc = self.entry_time_utc
 
     @property
@@ -59,31 +62,41 @@ class Position:
         """
         new_qty = self.quantity + quantity_delta
 
-        # Update average price
+        # Update average price and entry time
         if new_qty == 0:
+            # Flatten position - clear entry time
             self.quantity = Decimal('0')
             self.average_price = Decimal('0')
+            self.entry_time_utc = None
         elif (self.quantity > 0 and new_qty < 0) or (self.quantity < 0 and new_qty > 0):
-            # Reversal - new basis
+            # Reversal - new basis and new entry time
             self.quantity = new_qty
             self.average_price = price
+            self.entry_time_utc = timestamp if timestamp else None
         elif (self.quantity >= 0 and quantity_delta > 0) or (self.quantity <= 0 and quantity_delta < 0):
             # Adding to position
             if self.quantity == 0:
+                # Opening new position
                 self.average_price = price
+                self.entry_time_utc = timestamp if timestamp else None
             else:
+                # Adding to existing position - keep entry time
                 total_cost = (self.quantity * self.average_price) + (quantity_delta * price)
                 self.average_price = total_cost / new_qty
             self.quantity = new_qty
         else:
-            # Reducing position - keep average price
+            # Reducing position - keep average price and entry time
             self.quantity = new_qty
 
-        # Update timestamps
+        # Update last update timestamp
         if timestamp:
-            if self.entry_time_utc is None:
+            if self.entry_time_utc is None and self.quantity != 0:
+                # Fallback for missing entry time on existing position
                 self.entry_time_utc = timestamp
             self.last_update_utc = timestamp
+
+        # Track cumulative traded volume regardless of direction changes.
+        self.total_volume += abs(quantity_delta)
 
 
 class Portfolio:
@@ -153,14 +166,29 @@ class Portfolio:
 
             # CRITICAL FIX: Try position update first (may raise exception)
             try:
-                pos.realise(quantity_delta, price, datetime.now(timezone.utc))
+                timestamp = datetime.now(timezone.utc)
+                pos.realise(quantity_delta, price, timestamp)
 
                 # Only update cash if position update succeeded
                 self.cash += cash_delta
+                self.commissions_paid += commission
 
                 # Remove position if closed
                 if pos.quantity == 0:
                     del self.positions[symbol]
+
+                trade_entry = {
+                    'timestamp': timestamp,
+                    'symbol': symbol,
+                    'quantity': quantity_delta,
+                    'price': price,
+                    'commission': commission,
+                    'realised_pnl': Decimal('0'),
+                    'cash': self.cash,
+                }
+                self.trade_log.append(trade_entry)
+                if len(self.trade_log) > 1000:
+                    self.trade_log = self.trade_log[-1000:]
 
             except Exception as exc:
                 # Position update failed - restore previous state and surface detailed context
@@ -186,12 +214,12 @@ class Portfolio:
         with self._lock:
             self.realised_pnl += pnl
 
-    def get_equity(self, current_prices: dict[str, Decimal]) -> Decimal:
+    def get_equity(self, last_prices: dict[str, Decimal]) -> Decimal:
         """
         Calculate total equity (cash + position values) [thread-safe].
 
         Args:
-            current_prices: Dict of symbol -> current price
+            last_prices: Dict of symbol -> last known price
 
         Returns:
             Total equity value
@@ -200,14 +228,14 @@ class Portfolio:
             position_value = Decimal('0')
 
             for symbol, pos in self.positions.items():
-                if symbol in current_prices:
-                    position_value += pos.quantity * current_prices[symbol]
+                if symbol in last_prices:
+                    position_value += pos.quantity * last_prices[symbol]
 
             return self.cash + position_value
 
-    def total_equity(self, current_prices: dict[str, Decimal]) -> Decimal:
+    def total_equity(self, last_prices: dict[str, Decimal]) -> Decimal:
         """Alias for get_equity for compatibility (thread-safe)."""
-        return self.get_equity(current_prices)
+        return self.get_equity(last_prices)
 
     def apply_fill(
         self, symbol: str, quantity: Decimal, price: Decimal, commission: Decimal, timestamp: datetime
@@ -242,6 +270,7 @@ class Portfolio:
             # Update cash and position atomically
             cash_delta = -(quantity * price) - commission
             self.cash += cash_delta
+            self.commissions_paid += commission
 
             if symbol not in self.positions:
                 self.positions[symbol] = Position(symbol=symbol)
@@ -253,6 +282,19 @@ class Portfolio:
 
             if realized_pnl:
                 self.realised_pnl += realized_pnl
+
+            trade_entry = {
+                'timestamp': timestamp,
+                'symbol': symbol,
+                'quantity': quantity,
+                'price': price,
+                'commission': commission,
+                'realised_pnl': realized_pnl,
+                'cash': self.cash,
+            }
+            self.trade_log.append(trade_entry)
+            if len(self.trade_log) > 1000:
+                self.trade_log = self.trade_log[-1000:]
 
             return realized_pnl
 

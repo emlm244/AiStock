@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from ..config import BacktestConfig
 from ..fsd import FSDConfig
+from ..portfolio import Portfolio
+from ..risk import RiskEngine
 from ..session.coordinator import TradingCoordinator
 from ..universe import UniverseSelector
 from .trading_components_factory import TradingComponentsFactory
@@ -36,29 +38,18 @@ class SessionFactory:
 
         self.components_factory = TradingComponentsFactory(config, fsd_config)
 
-    def create_trading_session(
-        self,
-        symbols: list[str] | None = None,
-        checkpoint_dir: str = 'state',
-        minimum_balance: float = 0.0,
-        minimum_balance_enabled: bool = True,
-        timeframes: list[str] | None = None,
-        safeguard_config: dict | None = None,
-    ) -> TradingCoordinator:
-        """Create a fully configured trading session.
+    def _resolve_symbols(self, symbols: list[str] | None) -> list[str]:
+        """Resolve symbols from config or universe selector.
 
         Args:
-            symbols: Trading symbols (or None to use universe selector)
-            checkpoint_dir: Directory for state persistence
-            minimum_balance: Minimum balance protection
-            minimum_balance_enabled: Enable minimum balance check
-            timeframes: Trading timeframes
-            safeguard_config: Professional safeguards configuration
+            symbols: Optional list of symbols
 
         Returns:
-            TradingCoordinator ready to start trading
+            Resolved list of symbols
+
+        Raises:
+            ValueError: If symbols cannot be resolved
         """
-        # Resolve symbols
         if symbols is None:
             if not self.config.universe:
                 raise ValueError('Must provide symbols or universe config')
@@ -69,11 +60,30 @@ class SessionFactory:
                 raise ValueError('Universe selector returned no symbols')
             symbols = selection.symbols
 
-        timeframes = timeframes or ['1m']
+        return symbols
 
-        # Create core components (order matters for dependencies)
-        portfolio = self.components_factory.create_portfolio()
-        risk_engine = self.components_factory.create_risk_engine(portfolio, minimum_balance, minimum_balance_enabled)
+    def _wire_components(
+        self,
+        portfolio: Portfolio,
+        risk_engine: RiskEngine,
+        symbols: list[str],
+        timeframes: list[str],
+        safeguard_config: dict[str, float | int] | None,
+        checkpoint_dir: str,
+    ) -> TradingCoordinator:
+        """Wire components into a trading coordinator.
+
+        Args:
+            portfolio: Portfolio instance
+            risk_engine: Risk engine instance
+            symbols: Trading symbols
+            timeframes: Trading timeframes
+            safeguard_config: Professional safeguards configuration
+            checkpoint_dir: Directory for state persistence
+
+        Returns:
+            Fully wired TradingCoordinator
+        """
         broker = self.components_factory.create_broker()
 
         # Create professional features
@@ -121,18 +131,83 @@ class SessionFactory:
 
         return coordinator
 
-    # TODO(Phase-7): Implement proper checkpoint restore
-    # Current implementation doesn't actually use restored state.
-    # Need to refactor factory to accept pre-built Portfolio/RiskEngine
-    # or add restore_checkpoint() method to TradingCoordinator.
-    #
-    # def create_with_checkpoint_restore(
-    #     self,
-    #     checkpoint_dir: str = 'state',
-    #     **kwargs,
-    # ) -> TradingCoordinator:
-    #     """Create session and restore from checkpoint."""
-    #     from ..persistence import load_checkpoint
-    #     portfolio, risk_state = load_checkpoint(checkpoint_dir)
-    #     # TODO: Actually use restored portfolio/risk_state!
-    #     return self.create_trading_session(checkpoint_dir=checkpoint_dir, **kwargs)
+    def create_trading_session(
+        self,
+        symbols: list[str] | None = None,
+        checkpoint_dir: str = 'state',
+        minimum_balance: float = 0.0,
+        minimum_balance_enabled: bool = True,
+        timeframes: list[str] | None = None,
+        safeguard_config: dict[str, float | int] | None = None,
+    ) -> TradingCoordinator:
+        """Create a fully configured trading session.
+
+        Args:
+            symbols: Trading symbols (or None to use universe selector)
+            checkpoint_dir: Directory for state persistence
+            minimum_balance: Minimum balance protection
+            minimum_balance_enabled: Enable minimum balance check
+            timeframes: Trading timeframes
+            safeguard_config: Professional safeguards configuration
+
+        Returns:
+            TradingCoordinator ready to start trading
+        """
+        # Resolve symbols
+        symbols = self._resolve_symbols(symbols)
+        timeframes = timeframes or ['1m']
+
+        # Create core components
+        portfolio = self.components_factory.create_portfolio()
+        risk_engine = self.components_factory.create_risk_engine(portfolio, minimum_balance, minimum_balance_enabled)
+
+        # Wire all components together
+        return self._wire_components(portfolio, risk_engine, symbols, timeframes, safeguard_config, checkpoint_dir)
+
+    def create_with_checkpoint_restore(
+        self,
+        checkpoint_dir: str = 'state',
+        symbols: list[str] | None = None,
+        minimum_balance: float = 0.0,
+        minimum_balance_enabled: bool = True,
+        timeframes: list[str] | None = None,
+        safeguard_config: dict[str, float | int] | None = None,
+    ) -> TradingCoordinator:
+        """Create session and restore from checkpoint.
+
+        This method loads portfolio and risk state from a checkpoint directory
+        and creates a trading session with the restored state, enabling crash recovery.
+
+        Args:
+            checkpoint_dir: Directory containing checkpoint files
+            symbols: Trading symbols (or None to use universe selector)
+            minimum_balance: Minimum balance protection
+            minimum_balance_enabled: Enable minimum balance check
+            timeframes: Trading timeframes
+            safeguard_config: Professional safeguards configuration
+
+        Returns:
+            TradingCoordinator with restored state
+
+        Raises:
+            FileNotFoundError: If checkpoint files don't exist
+            ValueError: If checkpoint is corrupted
+        """
+        from ..persistence import load_checkpoint
+
+        # Load checkpoint
+        restored_portfolio, restored_risk_state = load_checkpoint(checkpoint_dir)
+
+        # Resolve symbols
+        symbols = self._resolve_symbols(symbols)
+        timeframes = timeframes or ['1m']
+
+        # Create risk engine with restored state
+        risk_engine = self.components_factory.create_risk_engine(
+            restored_portfolio, minimum_balance, minimum_balance_enabled, restored_state=restored_risk_state
+        )
+
+        # Wire all components together
+        return self._wire_components(
+            restored_portfolio, risk_engine, symbols, timeframes, safeguard_config, checkpoint_dir
+        )
