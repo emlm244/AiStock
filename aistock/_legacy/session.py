@@ -1156,7 +1156,6 @@ class LiveTradingSession:
                 'exploration_rate': self.fsd_engine.rl_agent.exploration_rate,
                 'win_rate': self._compute_fsd_win_rate(),
                 'avg_pnl': self._compute_fsd_avg_pnl(),
-                'experience_buffer': len(self.fsd_engine.rl_agent.experience_buffer),
                 'last_trade_time': self.fsd_engine.last_trade_timestamp.isoformat()
                 if self.fsd_engine.last_trade_timestamp
                 else None,

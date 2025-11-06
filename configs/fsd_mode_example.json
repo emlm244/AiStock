@@ -18,7 +18,10 @@
     "discount_factor": 0.95,
     "exploration_rate": 0.20,
     "exploration_decay": 0.995,
-    "min_exploration_rate": 0.01,
+    "min_exploration_rate": 0.05,
+    "enable_q_value_decay": true,
+    "q_value_decay_per_day": 0.9999,
+    "max_q_table_states": 200000,
 
     "_MARKET_SCANNER": "AI scans stocks and picks opportunities",
     "max_stocks_to_scan": 500,
@@ -28,7 +31,6 @@
 
     "_STATE_PERSISTENCE": "AI saves learning between sessions",
     "state_save_path": "state/fsd/ai_state.json",
-    "experience_buffer_path": "state/fsd/experience_buffer.json",
     "performance_history_path": "state/fsd/performance_history.json"
   },
 
