@@ -77,11 +77,12 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._connected = threading.Event()
         self._next_order_id_ready = threading.Event()
         self._next_order_id = 1
-        self._order_lock = threading.Lock()
+        self._order_lock = threading.Lock()  # Protects _next_order_id and _order_symbol
         self._req_id_seq = itertools.count(start=1000)
         self._market_handlers: dict[
             int, tuple[str, Callable[[datetime, str, float, float, float, float, float], None]]
         ] = {}
+        self._market_lock = threading.Lock()  # Protects _market_handlers
         self._order_symbol: dict[int, str] = {}
 
         # P1-1 Fix: Track subscription details for re-subscription after reconnect
@@ -197,15 +198,20 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
             extra={'subscription_count': len(self._active_subscriptions)},
         )
 
-        # Clear old handlers (old request IDs are invalid after reconnect)
-        self._market_handlers.clear()
+        # Clear old handlers (old request IDs are invalid after reconnect) - thread-safe
+        with self._market_lock:
+            self._market_handlers.clear()
 
         # Re-subscribe to each symbol with stored handler and bar_size
         for symbol, (handler, bar_size) in list(self._active_subscriptions.items()):
             try:
                 contract = self._build_contract(symbol)
                 req_id = next(self._req_id_seq)
-                self._market_handlers[req_id] = (symbol, handler)
+
+                # Thread-safe handler registration
+                with self._market_lock:
+                    self._market_handlers[req_id] = (symbol, handler)
+
                 self.reqRealTimeBars(req_id, contract, bar_size, 'TRADES', True, [])
                 self._logger.info(
                     'resubscribed_realtime_bars',
@@ -259,10 +265,11 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         with self._order_lock:
             order_id = self._next_order_id
             self._next_order_id += 1
+            # Store order symbol mapping while holding lock
+            self._order_symbol[order_id] = order.symbol
         contract = self._build_contract(order.symbol)
         ib_order = self._build_order(order)
         self.placeOrder(order_id, contract, ib_order)
-        self._order_symbol[order_id] = order.symbol
         return order_id
 
     def cancel(self, order_id: int) -> bool:
@@ -285,7 +292,10 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._ensure_connected()
         contract = self._build_contract(symbol)
         req_id = next(self._req_id_seq)
-        self._market_handlers[req_id] = (symbol, handler)
+
+        # Thread-safe handler registration
+        with self._market_lock:
+            self._market_handlers[req_id] = (symbol, handler)
 
         # P1-1 Fix: Store subscription details for reconnection
         self._active_subscriptions[symbol] = (handler, bar_size)
@@ -296,14 +306,15 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
 
     def unsubscribe(self, req_id: int) -> None:
         """Unsubscribe from real-time bars."""
-        # P1-1 Fix: Remove from active subscriptions
-        entry = self._market_handlers.get(req_id)
-        if entry:
-            symbol = entry[0]
-            self._active_subscriptions.pop(symbol, None)
+        # P1-1 Fix: Remove from active subscriptions (thread-safe)
+        with self._market_lock:
+            entry = self._market_handlers.get(req_id)
+            if entry:
+                symbol = entry[0]
+                self._active_subscriptions.pop(symbol, None)
+            self._market_handlers.pop(req_id, None)
 
         self.cancelRealTimeBars(req_id)
-        self._market_handlers.pop(req_id, None)
 
     # --- IBAPI Callbacks ------------------------------------------------
     def managedAccounts(self, accountsList: str) -> None:  # noqa: N802,N803 - IBKR API callback name
@@ -354,14 +365,20 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
             },
         )
         if status.lower() in {'filled', 'cancelled', 'inactive'}:
-            self._order_symbol.pop(orderId, None)
+            with self._order_lock:
+                self._order_symbol.pop(orderId, None)
 
     def execDetails(self, reqId: int, contract: Any, execution: Any) -> None:  # noqa: N802 - IBKR API callback name
         action = execution.side.upper()
         side = OrderSide.BUY if action in {'BOT', 'BUY'} else OrderSide.SELL
+
+        # Get symbol from order tracking (thread-safe)
+        with self._order_lock:
+            symbol = self._order_symbol.get(execution.orderId, contract.symbol or contract.localSymbol or '')
+
         report = ExecutionReport(
             order_id=execution.orderId,
-            symbol=self._order_symbol.get(execution.orderId, contract.symbol or contract.localSymbol or ''),
+            symbol=symbol,
             quantity=Decimal(str(execution.shares)) if hasattr(execution, 'shares') else Decimal(str(execution.cumQty)),
             price=Decimal(str(execution.price)),
             side=side,
@@ -388,7 +405,10 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._last_heartbeat = now
         self._logger.debug('heartbeat', extra={'timestamp': now.isoformat(), 'req_id': reqId})
 
-        entry = self._market_handlers.get(reqId)
+        # Thread-safe handler lookup
+        with self._market_lock:
+            entry = self._market_handlers.get(reqId)
+
         if entry:
             symbol, handler = entry
             handler(datetime.fromtimestamp(time, tz=timezone.utc), symbol, open_, high, low, close, volume)

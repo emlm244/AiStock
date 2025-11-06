@@ -48,16 +48,17 @@ class OrderIdempotencyTracker:
 
     # ------------------------------------------------------------------
     def _load_from_disk(self) -> None:
-        """Load previously submitted order IDs from persistent storage."""
-        path = Path(self.storage_path)
-        if not path.exists():
-            return
-
-        with path.open('r') as handle:
-            data: Any = json.load(handle)
-
-        submitted_payload: Any = data.get('submitted_ids', [])
+        """Load previously submitted order IDs from persistent storage (thread-safe)."""
+        # Acquire lock BEFORE file I/O to prevent race conditions
         with self._lock:
+            path = Path(self.storage_path)
+            if not path.exists():
+                return
+
+            with path.open('r') as handle:
+                data: Any = json.load(handle)
+
+            submitted_payload: Any = data.get('submitted_ids', [])
             self._submitted_ids.clear()
             if submitted_payload and isinstance(submitted_payload[0], dict):
                 for entry in submitted_payload:

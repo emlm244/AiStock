@@ -665,8 +665,22 @@ class FSDEngine:
         # Apply edge case adjustments (if edge case handler detected non-blocking issues)
         edge_case_position_multiplier = 1.0
         if self.edge_case_handler:
+            # Get timeframe data if available (reuse from earlier check)
+            timeframe_data = None
+            if self.timeframe_manager:
+                timeframe_data = {}
+                for tf in self.timeframe_manager.timeframes:
+                    tf_bars = self.timeframe_manager.get_bars(symbol, tf, lookback=50)
+                    if tf_bars:
+                        timeframe_data[tf] = tf_bars
+
             # Re-run edge case check to get adjustments
-            edge_result = self.edge_case_handler.check_edge_cases(symbol, bars)
+            edge_result = self.edge_case_handler.check_edge_cases(
+                symbol=symbol,
+                bars=bars,
+                timeframe_data=timeframe_data,
+                current_time=datetime.now(timezone.utc),
+            )
             if edge_result.is_edge_case and edge_result.action != 'block':
                 adjusted_confidence += edge_result.confidence_adjustment
                 edge_case_position_multiplier = edge_result.position_size_multiplier
