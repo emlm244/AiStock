@@ -41,8 +41,9 @@ def _atomic_write_json(data: Any, filepath: Path) -> None:
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
         # Write to temporary file first
-        temp_path = filepath.with_suffix('.tmp')
-        backup_path = filepath.with_suffix('.backup')
+        # Append .tmp and .backup to preserve original filename (including any extension)
+        temp_path = filepath.with_name(f'{filepath.name}.tmp')
+        backup_path = filepath.with_name(f'{filepath.name}.backup')
 
         try:
             # Step 1: Write data to temp file

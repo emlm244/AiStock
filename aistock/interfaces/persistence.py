@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from ..portfolio import Portfolio
-from .portfolio import PortfolioProtocol
 from ..risk import RiskState
+from .portfolio import PortfolioProtocol
 
 
 class StateManagerProtocol(Protocol):
