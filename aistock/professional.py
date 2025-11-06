@@ -11,6 +11,7 @@ Anti-mistake mechanisms used by professional traders:
 
 from __future__ import annotations
 
+import threading
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -80,9 +81,10 @@ class ProfessionalSafeguards:
 
         self.logger = configure_logger('ProfessionalSafeguards', structured=True)
 
-        # Trade tracking
+        # Trade tracking (protected by lock for thread safety)
         self._trade_times: deque[datetime] = deque(maxlen=1000)
         self._symbol_trade_times: dict[str, deque[datetime]] = defaultdict(lambda: deque(maxlen=100))
+        self._trade_lock = threading.Lock()  # Protects _trade_times and _symbol_trade_times
 
     def check_trading_allowed(
         self,
@@ -216,15 +218,16 @@ class ProfessionalSafeguards:
         cutoff_day = current_time - timedelta(days=1)
         cutoff_hour = current_time - timedelta(hours=1)
 
-        # Clean up old trades
-        while self._trade_times and self._trade_times[0] < cutoff_day:
-            self._trade_times.popleft()
+        # Clean up old trades and count (thread-safe)
+        with self._trade_lock:
+            while self._trade_times and self._trade_times[0] < cutoff_day:
+                self._trade_times.popleft()
 
-        # Count trades in last hour
-        trades_last_hour = sum(1 for t in self._trade_times if t >= cutoff_hour)
+            # Count trades in last hour
+            trades_last_hour = sum(1 for t in self._trade_times if t >= cutoff_hour)
 
-        # Count trades today
-        trades_today = len(self._trade_times)
+            # Count trades today
+            trades_today = len(self._trade_times)
 
         # Block if exceeded limits
         if trades_last_hour >= self.max_trades_per_hour:
@@ -357,15 +360,18 @@ class ProfessionalSafeguards:
                 'This prevents comparison errors with timezone-aware timestamps.'
             )
 
-        self._trade_times.append(timestamp)
-        self._symbol_trade_times[symbol].append(timestamp)
+        # Record trade (thread-safe)
+        with self._trade_lock:
+            self._trade_times.append(timestamp)
+            self._symbol_trade_times[symbol].append(timestamp)
+            total_trades = len(self._trade_times)
 
         self.logger.debug(
             'trade_recorded',
             extra={
                 'symbol': symbol,
                 'timestamp': timestamp.isoformat(),
-                'total_trades': len(self._trade_times),
+                'total_trades': total_trades,
             },
         )
 
@@ -380,7 +386,10 @@ class ProfessionalSafeguards:
             Dictionary with trade statistics
         """
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-        recent_trades = [t for t in self._trade_times if t >= cutoff]
+
+        # Get trade statistics (thread-safe)
+        with self._trade_lock:
+            recent_trades = [t for t in self._trade_times if t >= cutoff]
 
         return {
             'total_trades': len(recent_trades),

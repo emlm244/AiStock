@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -27,7 +28,7 @@ class AnalyticsReporter:
 
         # Track state
         self.trade_log: list[dict] = []
-        self.equity_curve: list[tuple[datetime, Decimal]] = []
+        self.equity_curve: deque[tuple[datetime, Decimal]] = deque(maxlen=10000)  # Bounded to prevent memory leak
         self.symbols: list[str] = []
 
     def record_trade(

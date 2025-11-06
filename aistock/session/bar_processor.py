@@ -96,6 +96,14 @@ class BarProcessor:
         with self._lock:
             return dict(self.last_prices)
 
+    def update_price(self, symbol: str, price: Decimal) -> None:
+        """Update last price for a symbol (thread-safe).
+
+        Used for fill price updates when fills occur between bars.
+        """
+        with self._lock:
+            self.last_prices[symbol] = price
+
     def warmup_from_historical(
         self,
         symbol: str,

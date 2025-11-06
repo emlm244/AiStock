@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
@@ -69,8 +70,9 @@ class TradingCoordinator:
         # Idempotency tracker
         self.idempotency = OrderIdempotencyTracker(storage_path=f'{checkpoint_dir}/submitted_orders.json')
 
-        # Track order submissions
+        # Track order submissions (protected by lock for thread safety)
         self._order_submission_times: dict[int, datetime] = {}
+        self._submission_lock = threading.Lock()  # Protects _order_submission_times
 
         # State
         self._running = False
@@ -108,8 +110,9 @@ class TradingCoordinator:
             return
 
         # Report orphaned orders
-        if self._order_submission_times:
-            self.logger.warning(f'Orphaned orders: {len(self._order_submission_times)}')
+        with self._submission_lock:
+            if self._order_submission_times:
+                self.logger.warning(f'Orphaned orders: {len(self._order_submission_times)}')
 
         # Save decision engine state
         try:
@@ -122,15 +125,16 @@ class TradingCoordinator:
         end_stats = self.decision_engine.end_session()
         self.logger.info(f'Decision engine ended: {end_stats}')
 
-        # Shutdown components
+        # Stop broker FIRST (prevents fills from arriving during shutdown)
+        self.broker.stop()
+
+        # Shutdown checkpoint worker (now safe - no more fills can arrive)
         self.checkpointer.shutdown()
 
         # Generate analytics
         last_prices = self.bar_processor.get_all_prices()
         self.analytics.generate_reports(last_prices)
 
-        # Stop broker
-        self.broker.stop()
         self._running = False
 
     def process_bar(self, bar: Bar) -> None:
@@ -253,7 +257,10 @@ class TradingCoordinator:
             submission_time = datetime.now(timezone.utc)
             self.risk.record_order_submission(submission_time)
             self.idempotency.mark_submitted(client_order_id)
-            self._order_submission_times[order_id] = submission_time
+
+            # Thread-safe tracking of order submission times
+            with self._submission_lock:
+                self._order_submission_times[order_id] = submission_time
 
             self.logger.info(f'Order submitted: {symbol} {order_id}')
             self.logger.debug(f'Bar time: {timestamp}, submission time: {submission_time}')
@@ -262,7 +269,11 @@ class TradingCoordinator:
             self.logger.error(f'Order submission failed: {exc}')
 
     def _handle_fill(self, report: ExecutionReport) -> None:
-        """Handle order fill."""
+        """Handle order fill (CALLBACK - runs on IBKR thread, not main thread).
+
+        This method is called from broker callbacks and must be thread-safe.
+        All shared state accesses are protected by appropriate locks.
+        """
         signed_qty = report.quantity if report.side == OrderSide.BUY else -report.quantity
         pos_before = float(self.portfolio.position(report.symbol).quantity)
 
@@ -277,9 +288,9 @@ class TradingCoordinator:
 
         pos_after = float(self.portfolio.position(report.symbol).quantity)
 
-        # Update prices
+        # Update prices - use bar_processor's thread-safe method
+        self.bar_processor.update_price(report.symbol, report.price)
         last_prices = self.bar_processor.get_all_prices()
-        last_prices[report.symbol] = report.price
 
         # Risk tracking
         equity = self.portfolio.total_equity(last_prices)
@@ -313,9 +324,10 @@ class TradingCoordinator:
         # Async checkpoint
         self.checkpointer.save_async()
 
-        # Remove from tracking
-        if report.order_id in self._order_submission_times:
-            del self._order_submission_times[report.order_id]
+        # Remove from tracking (thread-safe)
+        with self._submission_lock:
+            if report.order_id in self._order_submission_times:
+                del self._order_submission_times[report.order_id]
 
         self.logger.info(f'Fill: {report.symbol} {float(signed_qty)} @ {float(report.price)}')
 
