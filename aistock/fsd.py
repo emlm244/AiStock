@@ -42,12 +42,13 @@ class FSDConfig:
     discount_factor: float = 0.95
     exploration_rate: float = 0.1
     exploration_decay: float = 0.995
-    min_exploration_rate: float = 0.05  # 5% floor (was 1%) to maintain adaptability
+    min_exploration_rate: float = 0.05  # Maintain at least 5% exploration for adaptability
 
     # Q-value decay for regime adaptation (prevents "nostalgia" for old market patterns)
-    # Q-values decay by this factor per day (0.9999 = ~3.5% decay per month)
+    # Q-values decay by this factor per day (0.9999 ≈ 3.5% decay per year)
     enable_q_value_decay: bool = True
     q_value_decay_per_day: float = 0.9999
+    max_q_table_states: int = 200_000
 
     # Constraints
     max_capital: float = 10000.0
@@ -113,6 +114,9 @@ class FSDConfig:
         if not 0.0 < self.q_value_decay_per_day <= 1.0:
             raise ValueError(f'q_value_decay_per_day must be in (0, 1], got {self.q_value_decay_per_day}')
 
+        if self.max_q_table_states <= 0:
+            raise ValueError(f'max_q_table_states must be positive, got {self.max_q_table_states}')
+
         # Constraints
         if self.max_capital <= 0:
             raise ValueError(f'max_capital must be positive, got {self.max_capital}')
@@ -177,9 +181,8 @@ class RLAgent:
     def __init__(self, config: FSDConfig):
         self.config = config
 
-        # SIMPLIFIED: Unlimited Q-value table (no LRU eviction)
-        # Since trades happen every 30+ seconds, memory usage is minimal
-        # OrderedDict still used for deterministic iteration order
+        # Q-value table with LRU eviction to prevent unbounded growth
+        # OrderedDict provides deterministic iteration order and LRU support
         self.q_values: OrderedDict[str, dict[str, float]] = OrderedDict()
         self._lock = threading.Lock()  # P0-3 Fix: Protect Q-value updates from concurrent access
 
@@ -194,17 +197,19 @@ class RLAgent:
 
         # Episode tracking
         self.current_episode_rewards: list[float] = []
-        # REMOVED: Zombie experience buffer (was never used for learning)
 
     def _ensure_q_table_capacity(self) -> None:
         """
-        SIMPLIFIED: No capacity limits (trades are infrequent ~30s+).
+        Ensure Q-table stays within configured capacity.
 
-        Memory usage is minimal for realistic trading scenarios.
-        This method is now a no-op for backward compatibility.
+        Uses LRU eviction (oldest state removed first) once the configured
+        max_q_table_states threshold is reached. Maintains backward
+        compatibility by only activating when the threshold is positive.
         """
-        # No-op: unlimited Q-table
-        pass
+        max_states = getattr(self.config, 'max_q_table_states', 0)
+        if max_states and len(self.q_values) >= max_states:
+            # Remove oldest state (least recently updated/visited)
+            self.q_values.popitem(last=False)
 
     def check_q_table_size(self) -> dict[str, Any]:
         """
@@ -215,19 +220,20 @@ class RLAgent:
         automatically called during save_state() to provide visibility into
         the agent's memory footprint.
 
-        Thresholds:
+        Thresholds (derived from config.max_q_table_states; defaults shown for
+        200K states):
             - Normal: < 10K states (no logging)
-            - Low: 10K - 50K states (DEBUG log)
-            - Medium: 50K - 100K states (INFO log)
-            - High: 100K - 200K states (WARNING log, monitor usage)
-            - Critical: >= 200K states (WARNING log, consider pruning)
+            - Low: ~25% of max states (DEBUG log)
+            - Medium: ~50% of max states (INFO log)
+            - High: ~75% of max states (WARNING log)
+            - Critical: Reaches max states (WARNING log, consider pruning)
 
         Returns:
             dict[str, Any]: Dictionary containing:
                 - num_states (int): Total number of learned states
                 - estimated_memory_mb (float): Approximate memory usage in MB
                 - level (str): Warning level ('normal', 'low', 'medium', 'high', 'critical')
-                - thresholds (dict): Threshold values used for classification
+                - thresholds (dict[str, int]): Threshold values used for classification
 
         Thread Safety:
             Thread-safe. Uses internal lock when accessing Q-table size.
@@ -245,32 +251,44 @@ class RLAgent:
         bytes_per_state = (num_actions * 8) + 100
         estimated_memory_mb = (num_states * bytes_per_state) / (1024 * 1024)
 
-        # Define thresholds
-        thresholds = {
-            'low': 10000,  # 10K states
-            'medium': 50000,  # 50K states
-            'high': 100000,  # 100K states
-            'critical': 200000,  # 200K states
-        }
+        critical_threshold = getattr(self.config, 'max_q_table_states', 200_000)
+        if critical_threshold:
+            thresholds = {
+                'normal': 0,
+                'low': min(10_000, max(critical_threshold // 4, 1)),
+                'medium': min(50_000, max(critical_threshold // 2, 2)),
+                'high': min(100_000, max((critical_threshold * 3) // 4, 3)),
+                'critical': critical_threshold,
+            }
+            # Ensure monotonic increase
+            thresholds['medium'] = max(thresholds['medium'], thresholds['low'])
+            thresholds['high'] = max(thresholds['high'], thresholds['medium'])
+        else:
+            thresholds = {
+                'normal': 0,
+                'low': 10_000,
+                'medium': 50_000,
+                'high': 100_000,
+                'critical': 200_000,
+            }
 
-        # Determine warning level
         if num_states >= thresholds['critical']:
             level = 'critical'
             logger.warning(
                 f'Q-table size CRITICAL: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
-                'Consider enabling Q-value decay or implementing state pruning.'
+                'Consider enabling additional pruning.'
             )
         elif num_states >= thresholds['high']:
             level = 'high'
             logger.warning(
-                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). ' 'Monitor memory usage.'
+                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). Monitor memory usage.'
             )
         elif num_states >= thresholds['medium']:
             level = 'medium'
             logger.info(f'Q-table size MEDIUM: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
         elif num_states >= thresholds['low']:
             level = 'low'
-            logger.debug(f'Q-table size: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
+            logger.debug(f'Q-table size LOW: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
         else:
             level = 'normal'
 
@@ -300,9 +318,6 @@ class RLAgent:
         whether they've been visited recently. This encourages the agent to
         re-evaluate old states if market conditions change.
 
-        Args:
-            None (uses config.enable_q_value_decay and config.q_value_decay_per_day)
-
         Returns:
             dict[str, Any]: Dictionary containing:
                 - enabled (bool): Whether decay is enabled in config
@@ -314,7 +329,7 @@ class RLAgent:
                 - states_decayed (int): Number of states processed
                 - timestamp (str): ISO timestamp of decay operation
                 - clamped (bool): True if days_elapsed was clamped to prevent extreme decay
-                - original_days_elapsed (float): Original unclamped value (only if clamped=True)
+                - original_days_elapsed (float): Original unclamped value (if clamped=True)
 
         Thread Safety:
             Thread-safe. Uses internal lock when modifying Q-values.
@@ -328,42 +343,32 @@ class RLAgent:
 
         current_time = datetime.now(timezone.utc)
 
-        # Initialize timestamp if this is the first decay
         if self.last_decay_timestamp is None:
             self.last_decay_timestamp = current_time
             return {'enabled': True, 'first_run': True, 'states_decayed': 0}
 
-        # Calculate time elapsed since last decay
         elapsed = current_time - self.last_decay_timestamp
         days_elapsed = elapsed.total_seconds() / 86400.0  # 86400 seconds in a day
 
-        # Guard against negative time (clock adjustments/timezone issues)
         if days_elapsed < 0:
-            # Clock went backward - reset timestamp and skip decay
             self.last_decay_timestamp = current_time
             return {'enabled': True, 'skipped': True, 'reason': 'negative_time_elapsed'}
 
-        # Only apply decay if at least some time has passed
-        if days_elapsed < 0.01:  # Less than ~15 minutes
+        if days_elapsed < 0.01:
             return {'enabled': True, 'skipped': True, 'reason': 'too_soon'}
 
-        # Guard against extreme decay (e.g., multi-year gap after long downtime)
-        # Cap at 90 days to prevent underflow and preserve some learned knowledge
         original_days = days_elapsed
         clamped = False
         if days_elapsed > 90:
             days_elapsed = 90
             clamped = True
 
-        # Calculate decay factor based on days elapsed
-        decay_factor = self.config.q_value_decay_per_day**days_elapsed
+        decay_factor = self.config.q_value_decay_per_day ** days_elapsed
 
-        # Floor decay factor to prevent complete zeroing of Q-values
-        MIN_DECAY_FACTOR = 1e-12
-        if decay_factor < MIN_DECAY_FACTOR:
-            decay_factor = MIN_DECAY_FACTOR
+        min_decay_factor = 1e-12
+        if decay_factor < min_decay_factor:
+            decay_factor = min_decay_factor
 
-        # Apply decay to all Q-values (thread-safe)
         with self._lock:
             states_decayed = 0
             for state_hash in self.q_values:
@@ -371,10 +376,9 @@ class RLAgent:
                     self.q_values[state_hash][action] *= decay_factor
                 states_decayed += 1
 
-        # Update timestamp
         self.last_decay_timestamp = current_time
 
-        result = {
+        result: dict[str, Any] = {
             'enabled': True,
             'days_elapsed': days_elapsed,
             'decay_factor': decay_factor,
@@ -383,7 +387,6 @@ class RLAgent:
             'clamped': clamped,
         }
 
-        # Include original_days if clamped
         if clamped:
             result['original_days_elapsed'] = original_days
 
@@ -471,6 +474,8 @@ class RLAgent:
                 # P1-1 Fix: Evict old states if necessary before adding new one
                 self._ensure_q_table_capacity()
                 self.q_values[state_hash] = dict.fromkeys(self.get_actions(), 0.0)
+            # Mark as recently accessed for LRU ordering
+            self.q_values.move_to_end(state_hash)
 
             # Epsilon-greedy
             if training and np.random.random() < self.exploration_rate:
@@ -499,10 +504,12 @@ class RLAgent:
                 # P1-1 Fix: Evict old states if necessary before adding new one
                 self._ensure_q_table_capacity()
                 self.q_values[state_hash] = dict.fromkeys(self.get_actions(), 0.0)
+            self.q_values.move_to_end(state_hash)
             if next_state_hash not in self.q_values:
                 # P1-1 Fix: Evict old states if necessary before adding new one
                 self._ensure_q_table_capacity()
                 self.q_values[next_state_hash] = dict.fromkeys(self.get_actions(), 0.0)
+            self.q_values.move_to_end(next_state_hash)
 
             # Current Q-value
             current_q = self.q_values[state_hash][action]
@@ -599,8 +606,8 @@ class FSDEngine:
         # Trading state
         self.current_positions: dict[str, Decimal] = {}
         self.trade_intents: list[dict[str, Any]] = []
-        # Trade history (capped at 10k to prevent unbounded memory growth)
-        self.trade_history: deque[dict[str, Any]] = deque(maxlen=10000)
+        # Cap trade history to prevent unbounded memory growth
+        self.trade_history: deque[dict[str, Any]] = deque(maxlen=10_000)
 
         # Performance tracking
         self.episode_start_equity = float(portfolio.initial_cash)
@@ -1171,7 +1178,7 @@ class FSDEngine:
 
         logger = logging.getLogger(__name__)
 
-        # Check Q-table size and log warnings if needed
+        # Check Q-table diagnostics (also emits internal logs)
         q_table_info = self.rl_agent.check_q_table_size()
         if q_table_info['level'] != 'normal':
             level = q_table_info['level']
@@ -1183,19 +1190,18 @@ class FSDEngine:
                 logger.debug(message)
             elif level == 'medium':
                 logger.info(message)
-            else:  # high or critical
+            else:
                 logger.warning(message)
 
-        # Apply Q-value decay before saving (regime adaptation)
+        # Apply Q-value decay before persistence
         decay_info = self.rl_agent.apply_q_value_decay()
-
-        # Log decay operation if it occurred
         if decay_info.get('enabled') and not decay_info.get('first_run') and not decay_info.get('skipped'):
             if decay_info.get('clamped'):
                 logger.warning(
                     f"Q-value decay applied (CLAMPED): {decay_info['states_decayed']} states, "
                     f"factor={decay_info['decay_factor']:.6f}, "
-                    f"days={decay_info['days_elapsed']:.2f} (original: {decay_info['original_days_elapsed']:.2f})"
+                    f"days={decay_info['days_elapsed']:.2f} "
+                    f"(original: {decay_info['original_days_elapsed']:.2f})"
                 )
             else:
                 logger.info(
@@ -1213,7 +1219,6 @@ class FSDEngine:
             'exploration_rate': self.rl_agent.exploration_rate,
             # NEW: Per-symbol performance for adaptive trading
             'symbol_performance': self.symbol_performance,
-            # Q-value decay timestamp for regime adaptation
             'last_decay_timestamp': self.rl_agent.last_decay_timestamp.isoformat()
             if self.rl_agent.last_decay_timestamp
             else None,
@@ -1266,6 +1271,22 @@ class FSDEngine:
             else:
                 self.rl_agent.q_values = OrderedDict()
 
+            max_states = getattr(self.config, 'max_q_table_states', 0)
+            if max_states and len(self.rl_agent.q_values) > max_states:
+                # Trim oldest states to respect configured capacity
+                while len(self.rl_agent.q_values) > max_states:
+                    self.rl_agent.q_values.popitem(last=False)
+
+            # Restore Q-value decay timestamp (regime adaptation)
+            ldt_obj: object = payload.get('last_decay_timestamp')
+            if ldt_obj and isinstance(ldt_obj, str):
+                try:
+                    self.rl_agent.last_decay_timestamp = datetime.fromisoformat(ldt_obj)
+                except (ValueError, TypeError):
+                    self.rl_agent.last_decay_timestamp = None
+            else:
+                self.rl_agent.last_decay_timestamp = None
+
             tt_obj: object = payload.get('total_trades', 0)
             self.rl_agent.total_trades = int(tt_obj) if isinstance(tt_obj, (int, float)) else 0
 
@@ -1283,16 +1304,6 @@ class FSDEngine:
             # NEW: Restore per-symbol performance
             sp_obj: object = payload.get('symbol_performance', {})
             self.symbol_performance = sp_obj if isinstance(sp_obj, dict) else {}
-
-            # Restore Q-value decay timestamp (regime adaptation)
-            ldt_obj: object = payload.get('last_decay_timestamp')
-            if ldt_obj and isinstance(ldt_obj, str):
-                try:
-                    self.rl_agent.last_decay_timestamp = datetime.fromisoformat(ldt_obj)
-                except (ValueError, TypeError):
-                    self.rl_agent.last_decay_timestamp = None
-            else:
-                self.rl_agent.last_decay_timestamp = None
 
             return True
         except (FileNotFoundError, json.JSONDecodeError):
