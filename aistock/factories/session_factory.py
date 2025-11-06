@@ -208,4 +208,6 @@ class SessionFactory:
         )
 
         # Wire all components together
-        return self._wire_components(restored_portfolio, risk_engine, symbols, timeframes, safeguard_config, checkpoint_dir)
+        return self._wire_components(
+            restored_portfolio, risk_engine, symbols, timeframes, safeguard_config, checkpoint_dir
+        )
