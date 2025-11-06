@@ -15,7 +15,7 @@ from ..patterns import PatternDetector
 from ..persistence import FileStateManager
 from ..portfolio import Portfolio
 from ..professional import ProfessionalSafeguards
-from ..risk import RiskEngine
+from ..risk import RiskEngine, RiskState
 from ..session.analytics_reporter import AnalyticsReporter
 from ..session.bar_processor import BarProcessor
 from ..session.checkpointer import CheckpointManager
@@ -44,12 +44,24 @@ class TradingComponentsFactory:
         portfolio: Portfolio,
         minimum_balance: float = 0.0,
         minimum_balance_enabled: bool = True,
+        restored_state: RiskState | None = None,
     ) -> RiskEngine:
-        """Create risk engine."""
+        """Create risk engine, optionally with restored state from checkpoint.
+
+        Args:
+            portfolio: Portfolio instance
+            minimum_balance: Minimum balance protection threshold
+            minimum_balance_enabled: Enable minimum balance check
+            restored_state: Optional restored RiskState from checkpoint
+
+        Returns:
+            RiskEngine instance
+        """
         return RiskEngine(
             self.config.engine.risk,
             portfolio,
             self.config.data.bar_interval,
+            state=restored_state,
             minimum_balance=Decimal(str(minimum_balance)),
             minimum_balance_enabled=minimum_balance_enabled,
         )
@@ -84,7 +96,7 @@ class TradingComponentsFactory:
         """Create pattern detector."""
         return PatternDetector(body_threshold=0.3, wick_ratio=2.0)
 
-    def create_safeguards(self, config: dict | None = None) -> ProfessionalSafeguards:
+    def create_safeguards(self, config: dict[str, float | int] | None = None) -> ProfessionalSafeguards:
         """Create professional safeguards."""
         config = config or {}
         return ProfessionalSafeguards(

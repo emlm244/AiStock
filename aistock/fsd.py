@@ -12,6 +12,7 @@ PROFESSIONAL ENHANCEMENTS:
 
 import hashlib
 import json
+import logging
 import math
 import random
 import threading
@@ -21,7 +22,6 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
-import logging
 import numpy as np
 
 from .data import Bar
@@ -274,29 +274,20 @@ class RLAgent:
         if num_states >= thresholds['critical']:
             level = 'critical'
             logger.warning(
-                (
-                    f'Q-table size CRITICAL: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
-                    'Consider enabling additional pruning.'
-                )
+                f'Q-table size CRITICAL: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
+                'Consider enabling additional pruning.'
             )
         elif num_states >= thresholds['high']:
             level = 'high'
             logger.warning(
-                (
-                    f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). '
-                    'Monitor memory usage.'
-                )
+                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). ' 'Monitor memory usage.'
             )
         elif num_states >= thresholds['medium']:
             level = 'medium'
-            logger.info(
-                f'Q-table size MEDIUM: {num_states:,} states (~{estimated_memory_mb:.1f} MB).'
-            )
+            logger.info(f'Q-table size MEDIUM: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
         elif num_states >= thresholds['low']:
             level = 'low'
-            logger.debug(
-                f'Q-table size LOW: {num_states:,} states (~{estimated_memory_mb:.1f} MB).'
-            )
+            logger.debug(f'Q-table size LOW: {num_states:,} states (~{estimated_memory_mb:.1f} MB).')
         else:
             level = 'normal'
 
@@ -371,7 +362,7 @@ class RLAgent:
             days_elapsed = 90
             clamped = True
 
-        decay_factor = self.config.q_value_decay_per_day ** days_elapsed
+        decay_factor = self.config.q_value_decay_per_day**days_elapsed
 
         min_decay_factor = 1e-12
         if decay_factor < min_decay_factor:
@@ -1217,9 +1208,7 @@ class FSDEngine:
                     f"factor={decay_info['decay_factor']:.6f}, days={decay_info['days_elapsed']:.2f}"
                 )
         elif decay_info.get('skipped'):
-            logger.debug(
-                f"Q-value decay skipped: {decay_info.get('reason', 'unknown')}"
-            )
+            logger.debug(f"Q-value decay skipped: {decay_info.get('reason', 'unknown')}")
 
         state = {
             'q_values': self.rl_agent.q_values,

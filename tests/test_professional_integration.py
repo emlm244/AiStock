@@ -258,9 +258,9 @@ class TestPatternDetector:
         hammer_patterns = [p for p in patterns if p.pattern_type.value == 'hammer']
 
         # Should detect hammer pattern after downtrend
-        assert len(hammer_patterns) > 0, (
-            f'No hammer detected. Detected patterns: {[p.pattern_type.value for p in patterns]}'
-        )
+        assert (
+            len(hammer_patterns) > 0
+        ), f'No hammer detected. Detected patterns: {[p.pattern_type.value for p in patterns]}'
         assert hammer_patterns[0].signal == PatternSignal.BULLISH
 
     def test_detect_engulfing_patterns(self):
