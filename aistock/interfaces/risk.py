@@ -17,10 +17,11 @@ class RiskEngineProtocol(Protocol):
     def check_pre_trade(
         self,
         symbol: str,
-        quantity: Decimal,
+        quantity_delta: Decimal,
         price: Decimal,
         equity: Decimal,
         last_prices: dict[str, Decimal],
+        timestamp: datetime | None = None,
     ) -> None:
         """Check if trade passes risk checks.
 
@@ -32,7 +33,7 @@ class RiskEngineProtocol(Protocol):
     def register_trade(
         self,
         realised_pnl: Decimal,
-        commission: Decimal,
+        unrealised_pnl: Decimal,
         timestamp: datetime,
         equity: Decimal,
         last_prices: dict[str, Decimal],
@@ -56,6 +57,6 @@ class RiskEngineProtocol(Protocol):
         """Get halt reason if halted."""
         ...
 
-    def reset_daily(self, timestamp: datetime) -> None:
+    def reset_daily(self, current_equity: Decimal) -> None:
         """Reset daily counters."""
         ...

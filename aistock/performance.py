@@ -9,6 +9,50 @@ from decimal import Decimal
 import numpy as np
 
 
+def calculate_realized_pnl(
+    position_quantity: Decimal,
+    average_price: Decimal,
+    fill_quantity: Decimal,
+    fill_price: Decimal,
+) -> Decimal:
+    """
+    Calculate realized P&L for a fill given the current position state.
+
+    Args:
+        position_quantity: Position size **before** applying the fill (signed).
+        average_price: Volume-weighted average entry price of the open position.
+        fill_quantity: Filled quantity (signed, positive=buy, negative=sell).
+        fill_price: Execution price of the fill.
+
+    Returns:
+        Realized P&L contributed by this fill. Returns Decimal('0') when the
+        fill increases exposure or the existing position is flat.
+    """
+    zero = Decimal('0')
+
+    if fill_quantity == zero or position_quantity == zero:
+        return zero
+
+    # Only generate P&L when the fill reduces or closes the current exposure.
+    is_closing = (position_quantity > zero and fill_quantity < zero) or (
+        position_quantity < zero and fill_quantity > zero
+    )
+    if not is_closing:
+        return zero
+
+    closing_quantity = min(abs(fill_quantity), abs(position_quantity))
+
+    if closing_quantity == zero:
+        return zero
+
+    if position_quantity > zero:
+        # Closing long position.
+        return (fill_price - average_price) * closing_quantity
+
+    # Closing short position.
+    return (average_price - fill_price) * closing_quantity
+
+
 @dataclass
 class TradePerformance:
     """Trade performance statistics."""

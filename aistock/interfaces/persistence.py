@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from ..portfolio import Portfolio
+from .portfolio import PortfolioProtocol
 from ..risk import RiskState
 
 
@@ -17,7 +18,7 @@ class StateManagerProtocol(Protocol):
 
     def save_checkpoint(
         self,
-        portfolio: Portfolio,
+        portfolio: PortfolioProtocol,
         risk_state: RiskState,
         checkpoint_dir: str,
     ) -> None:

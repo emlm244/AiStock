@@ -424,6 +424,7 @@ class FSDEngine:
         # Per-symbol performance tracking for adaptive confidence
         self.symbol_performance: dict[str, SymbolStats] = {}
         # Format: {symbol: {'trades': int, 'wins': int, 'total_pnl': float, 'confidence_adj': float}}
+        self._last_prices: dict[str, Decimal] = {}
 
     def extract_state(self, symbol: str, bars: list[Bar], last_prices: dict[str, Decimal]) -> dict[str, Any]:
         """
@@ -556,6 +557,9 @@ class FSDEngine:
             - state: dict
             - reason: str (explanation)
         """
+        # Keep a snapshot of the latest prices so fill handlers can align position normalisation with equity.
+        self._last_prices = dict(last_prices)
+
         # ===== EDGE CASE PROTECTION (First Line of Defense) =====
         if self.edge_case_handler:
             # Get timeframe data if available
@@ -863,9 +867,16 @@ class FSDEngine:
         reward = self._calculate_reward(realised_pnl, fill_price, abs(signed_quantity))
 
         # Get next state (would need current market data)
-        # For now, use last state as approximation
+        # For now, use last state as approximation and re-normalise by equity.
         next_state = self.last_state.copy()
-        next_state['position_pct'] = new_position / 1000.0  # Normalized
+        price_snapshot = dict(getattr(self, '_last_prices', {}))
+        price_snapshot[symbol] = Decimal(str(fill_price))
+        equity_value = float(self.portfolio.get_equity(price_snapshot))
+        if equity_value > 0:
+            position_notional = new_position * fill_price
+            next_state['position_pct'] = position_notional / equity_value
+        else:
+            next_state['position_pct'] = 0.0
 
         # CRITICAL-2 Fix: Update Q-values (LEARNING!) with error recovery
         done = abs(new_position) < 0.01  # Episode done if position closed
@@ -1139,10 +1150,12 @@ class FSDEngine:
             # Simulation phase: trade and learn
             for i in range(max(20, observe_upto), n - 1, 2):  # Step by 2 for efficiency
                 window = bars[i - 20 : i + 1]
-                current_price = float(window[-1].close)
-                next_bar_price = float(bars[i + 1].close)
+                current_price_decimal = window[-1].close
+                next_price_decimal = bars[i + 1].close
+                current_price = float(current_price_decimal)
+                next_bar_price = float(next_price_decimal)
 
-                state2: dict[str, Any] = self.extract_state(symbol, window, {symbol: Decimal(str(current_price))})
+                state2: dict[str, Any] = self.extract_state(symbol, window, {symbol: current_price_decimal})
                 if not state2:
                     continue
 
@@ -1181,7 +1194,7 @@ class FSDEngine:
                     # Learn from trade
                     reward = self._calculate_reward(realised_pnl, current_price, quantity_to_sell)
                     next_state2: dict[str, Any] = self.extract_state(
-                        symbol, bars[i - 19 : i + 2], {symbol: Decimal(str(next_bar_price))}
+                        symbol, bars[i - 19 : i + 2], {symbol: next_price_decimal}
                     )
                     if next_state2:
                         self.rl_agent.update_q_value(
