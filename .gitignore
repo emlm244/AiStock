@@ -114,10 +114,14 @@ Thumbs.db
 *.key
 secrets.*.claude/
 
-# Trading session state (generated at runtime - DO NOT COMMIT)
+# Trading session state
+aistock/state/  # Runtime state directory
 state/**/*.json
 state/**/*.pkl
 !state/**/.gitkeep
 
 # Benchmark results
 .benchmarks/
+
+# Claude Code local settings
+.claude/
