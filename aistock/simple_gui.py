@@ -14,6 +14,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 from contextlib import suppress
 from datetime import timezone
+from decimal import Decimal
 from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Any
