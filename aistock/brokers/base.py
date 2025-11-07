@@ -38,6 +38,14 @@ class BaseBroker(ABC):
     def cancel(self, order_id: int) -> bool:
         """Attempt to cancel the order."""
 
+    @abstractmethod
+    def cancel_all_orders(self) -> int:
+        """Cancel all pending orders.
+
+        Returns:
+            Number of orders cancelled
+        """
+
     def subscribe_realtime_bars(
         self,
         symbol: str,

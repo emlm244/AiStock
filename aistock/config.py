@@ -4,7 +4,11 @@ Configuration dataclasses for backtesting and strategy execution.
 
 import datetime as dt
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .capital_management import CapitalManagementConfig
+    from .stop_control import StopConfig
 
 
 @dataclass
@@ -214,6 +218,8 @@ class BacktestConfig:
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     universe: Optional[UniverseConfig] = None
     broker: Optional[BrokerConfig] = None
+    capital_management: Optional['CapitalManagementConfig'] = None
+    stop_control: Optional['StopConfig'] = None
 
     def validate(self):
         """

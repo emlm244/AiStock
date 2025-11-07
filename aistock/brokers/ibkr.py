@@ -277,6 +277,24 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self.cancelOrder(order_id)
         return True
 
+    def cancel_all_orders(self) -> int:
+        """Cancel all pending orders using IBKR's global cancel.
+
+        Returns:
+            Number of orders cancelled (approximate, based on tracked orders)
+        """
+        self._ensure_connected()
+        # Get count before cancelling
+        with self._order_lock:
+            num_orders = len(self._order_symbol)
+            # Clear tracking dict since all orders will be cancelled
+            self._order_symbol.clear()
+
+        # Use IBKR's global cancel function
+        self.reqGlobalCancel()
+        self._logger.info('global_cancel_requested', extra={'tracked_orders': num_orders})
+        return num_orders
+
     # --- Market data subscription --------------------------------------
     def subscribe_realtime_bars(
         self,
