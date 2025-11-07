@@ -13,16 +13,17 @@ import logging
 import threading
 import time as time_module
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, time, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
-from .calendar import _is_dst, nyse_trading_hours
+from .calendar import nyse_trading_hours
 from .execution import Order, OrderSide, OrderType
 
 if TYPE_CHECKING:
     from .brokers.base import BaseBroker
-    from .portfolio import Portfolio
+    from .interfaces.portfolio import PortfolioProtocol
 
 
 @dataclass
@@ -80,6 +81,11 @@ class StopController:
             >>> # Coordinator checks: controller.is_stop_requested()
         """
         with self._lock:
+            # Honor enable_manual_stop config for manual stops
+            if not self.config.enable_manual_stop and reason == 'manual':
+                self.logger.info(f'Manual stop ignored (manual stops disabled): {reason}')
+                return
+
             if not self._stop_requested.is_set():
                 self._stop_requested.set()
                 self._stop_reason = reason
@@ -111,72 +117,75 @@ class StopController:
             >>> if controller.check_eod_flatten(datetime.now(timezone.utc)):
             ...     # Execute position flattening
         """
-        if not self.config.enable_eod_flatten:
+        with self._lock:
+            if not self.config.enable_eod_flatten:
+                return False
+
+            if self._eod_flatten_executed:
+                return False  # Already done today
+
+            # Ensure current_time is timezone-aware UTC
+            if current_time.tzinfo is None:
+                current_time = current_time.replace(tzinfo=timezone.utc)
+
+            # Get actual market close time for today (handles early closes)
+            try:
+                _open_time, close_time = nyse_trading_hours(current_time)
+            except Exception as e:
+                self.logger.warning(f'Could not get market hours: {e}, using default 4 PM')
+                close_time = time(16, 0)  # Default to 4 PM ET
+
+            # Calculate minutes before close that config specifies
+            # E.g., if config is 15:45 and regular close is 16:00, that's 15 minutes before
+            regular_close_minutes = 16 * 60  # 4 PM in minutes
+            config_time_minutes = self.config.eod_flatten_time.hour * 60 + self.config.eod_flatten_time.minute
+            minutes_before_close = regular_close_minutes - config_time_minutes
+
+            # Clamp to prevent negative offset (if user set time after market close)
+            if minutes_before_close < 0:
+                self.logger.warning(
+                    f'EOD flatten time {self.config.eod_flatten_time} is after regular market close '
+                    f'(4 PM ET). Using market close time instead.'
+                )
+                minutes_before_close = 0  # Flatten exactly at close
+
+            # Apply same offset to actual close time
+            actual_close_minutes = close_time.hour * 60 + close_time.minute
+            flatten_time_minutes = actual_close_minutes - minutes_before_close
+
+            # Clamp to valid range to prevent negative values on early-close days
+            flatten_time_minutes = max(0, min(actual_close_minutes, flatten_time_minutes))
+
+            flatten_hour = flatten_time_minutes // 60
+            flatten_minute = flatten_time_minutes % 60
+            flatten_time_et = time(flatten_hour, flatten_minute)
+
+            # Build flatten datetime in ET timezone (timezone-aware)
+            # Using ZoneInfo ensures proper DST handling at transition boundaries
+            flatten_datetime_et = datetime.combine(current_time.date(), flatten_time_et).replace(
+                tzinfo=ZoneInfo('America/New_York')
+            )
+
+            # Convert ET to UTC (automatic DST handling)
+            flatten_datetime_utc = flatten_datetime_et.astimezone(timezone.utc)
+
+            # Check if we've reached flatten time
+            if current_time >= flatten_datetime_utc:
+                self._eod_flatten_executed = True
+                self.logger.info(
+                    f'End-of-day flatten triggered at {current_time.strftime("%H:%M:%S UTC")} '
+                    f'(target: {flatten_time_et} ET, {minutes_before_close} min before {close_time} close)'
+                )
+                return True
+
             return False
-
-        if self._eod_flatten_executed:
-            return False  # Already done today
-
-        # Ensure current_time is timezone-aware UTC
-        if current_time.tzinfo is None:
-            current_time = current_time.replace(tzinfo=timezone.utc)
-
-        # Get actual market close time for today (handles early closes)
-        try:
-            _open_time, close_time = nyse_trading_hours(current_time)
-        except Exception as e:
-            self.logger.warning(f'Could not get market hours: {e}, using default 4 PM')
-            close_time = time(16, 0)  # Default to 4 PM ET
-
-        # Calculate minutes before close that config specifies
-        # E.g., if config is 15:45 and regular close is 16:00, that's 15 minutes before
-        regular_close_minutes = 16 * 60  # 4 PM in minutes
-        config_time_minutes = self.config.eod_flatten_time.hour * 60 + self.config.eod_flatten_time.minute
-        minutes_before_close = regular_close_minutes - config_time_minutes
-
-        # Clamp to prevent negative offset (if user set time after market close)
-        if minutes_before_close < 0:
-            self.logger.warning(
-                f'EOD flatten time {self.config.eod_flatten_time} is after regular market close '
-                f'(4 PM ET). Using market close time instead.'
-            )
-            minutes_before_close = 0  # Flatten exactly at close
-
-        # Apply same offset to actual close time
-        actual_close_minutes = close_time.hour * 60 + close_time.minute
-        flatten_time_minutes = actual_close_minutes - minutes_before_close
-        flatten_hour = flatten_time_minutes // 60
-        flatten_minute = flatten_time_minutes % 60
-        flatten_time_et = time(flatten_hour, flatten_minute)
-
-        # Convert ET flatten time to UTC based on DST status
-        et_to_utc_offset = timedelta(hours=4) if _is_dst(current_time) else timedelta(hours=5)
-
-        # Create flatten datetime in UTC
-        flatten_datetime_utc = current_time.replace(
-            hour=flatten_time_et.hour,
-            minute=flatten_time_et.minute,
-            second=0,
-            microsecond=0,
-        ) + et_to_utc_offset
-
-        # Check if we've reached flatten time
-        if current_time >= flatten_datetime_utc:
-            self._eod_flatten_executed = True
-            self.logger.info(
-                f'End-of-day flatten triggered at {current_time.strftime("%H:%M:%S UTC")} '
-                f'(target: {flatten_time_et} ET, {minutes_before_close} min before {close_time} close)'
-            )
-            return True
-
-        return False
 
     def reset_eod_flatten(self) -> None:
         """Reset end-of-day flatten flag (call at start of each trading day)."""
         self._eod_flatten_executed = False
 
     def execute_graceful_shutdown(
-        self, broker: BaseBroker, portfolio: Portfolio, last_prices: dict[str, Decimal]
+        self, broker: BaseBroker, portfolio: PortfolioProtocol, last_prices: dict[str, Decimal]
     ) -> dict[str, object]:
         """
         Execute graceful shutdown sequence with advanced fill monitoring and retry logic.
@@ -226,7 +235,6 @@ class StopController:
         max_retries = 3
         retry_count = 0
         fully_closed = []
-        partially_closed = {}
 
         for retry_count in range(max_retries):
             if retry_count > 0:
@@ -240,9 +248,7 @@ class StopController:
 
             # Check remaining positions
             positions = portfolio.snapshot_positions()
-            remaining = {
-                sym: pos.quantity for sym, pos in positions.items() if abs(pos.quantity) > Decimal('0.01')
-            }
+            remaining = {sym: pos.quantity for sym, pos in positions.items() if abs(pos.quantity) > Decimal('0.01')}
 
             if not remaining:
                 # All positions closed!
@@ -250,7 +256,6 @@ class StopController:
 
             # Some positions remain, log and retry
             self.logger.warning(f'Positions still open: {list(remaining.keys())}')
-            partially_closed = remaining
 
             # Re-submit liquidation orders for remaining positions
             if retry_count < max_retries - 1:
@@ -290,7 +295,7 @@ class StopController:
         )
         return status
 
-    def _submit_liquidation_orders(self, broker: BaseBroker, portfolio: Portfolio) -> list[str]:
+    def _submit_liquidation_orders(self, broker: BaseBroker, portfolio: PortfolioProtocol) -> list[str]:
         """Submit liquidation orders for all open positions.
 
         Returns:
@@ -326,7 +331,7 @@ class StopController:
 
         return submitted_symbols
 
-    def _monitor_fills(self, portfolio: Portfolio, timeout: float, poll_interval: float = 0.5) -> list[str]:
+    def _monitor_fills(self, portfolio: PortfolioProtocol, timeout: float, poll_interval: float = 0.5) -> list[str]:
         """Monitor portfolio positions until they're closed or timeout.
 
         Args:
@@ -354,7 +359,8 @@ class StopController:
 
             # Check if all initial positions are now closed
             if all(
-                sym in closed_symbols or abs(current_positions.get(sym, type('obj', (), {'quantity': 0})()).quantity) < Decimal('0.01')
+                sym in closed_symbols
+                or abs(current_positions.get(sym, type('obj', (), {'quantity': 0})()).quantity) < Decimal('0.01')
                 for sym in initial_positions
             ):
                 self.logger.info(f'All positions closed after {time_module.time() - start_time:.1f}s')
@@ -367,7 +373,7 @@ class StopController:
         return closed_symbols
 
 
-def create_liquidation_orders(portfolio: Portfolio) -> list[tuple[str, Decimal]]:
+def create_liquidation_orders(portfolio: PortfolioProtocol) -> list[tuple[str, Decimal]]:
     """
     Create liquidation orders for all open positions.
 

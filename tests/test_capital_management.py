@@ -42,9 +42,9 @@ class TestPortfolioWithdrawalDeposit(unittest.TestCase):
         assert len(log) > 0
         last_entry = log[-1]
         assert last_entry['type'] == 'WITHDRAWAL'
-        assert last_entry['amount'] == 5000.0
+        assert last_entry['amount'] == Decimal('5000')
         assert last_entry['reason'] == 'test_withdrawal'
-        assert last_entry['cash_balance'] == 95000.0
+        assert last_entry['cash'] == Decimal('95000')
 
     def test_withdraw_insufficient_cash_raises_error(self):
         """Cannot withdraw more than available cash."""
@@ -82,9 +82,9 @@ class TestPortfolioWithdrawalDeposit(unittest.TestCase):
         assert len(log) > 0
         last_entry = log[-1]
         assert last_entry['type'] == 'DEPOSIT'
-        assert last_entry['amount'] == 25000.0
+        assert last_entry['amount'] == Decimal('25000')
         assert last_entry['reason'] == 'test_deposit'
-        assert last_entry['cash_balance'] == 125000.0
+        assert last_entry['cash'] == Decimal('125000')
 
     def test_deposit_negative_amount_raises_error(self):
         """Cannot deposit negative or zero amounts."""

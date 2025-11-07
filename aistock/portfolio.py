@@ -179,12 +179,15 @@ class Portfolio:
 
                 trade_entry = {
                     'timestamp': timestamp,
+                    'type': 'TRADE',
                     'symbol': symbol,
                     'quantity': quantity_delta,
                     'price': price,
+                    'amount': None,
+                    'reason': None,
+                    'cash': self.cash,
                     'commission': commission,
                     'realised_pnl': Decimal('0'),
-                    'cash': self.cash,
                 }
                 self.trade_log.append(trade_entry)
                 if len(self.trade_log) > 1000:
@@ -285,12 +288,15 @@ class Portfolio:
 
             trade_entry = {
                 'timestamp': timestamp,
+                'type': 'TRADE',
                 'symbol': symbol,
                 'quantity': quantity,
                 'price': price,
+                'amount': None,
+                'reason': None,
+                'cash': self.cash,
                 'commission': commission,
                 'realised_pnl': realized_pnl,
-                'cash': self.cash,
             }
             self.trade_log.append(trade_entry)
             if len(self.trade_log) > 1000:
@@ -370,6 +376,9 @@ class Portfolio:
         Example:
             >>> portfolio.withdraw_cash(Decimal('5000'), 'weekly_profit_taking')
         """
+        if not amount.is_finite():
+            raise ValueError(f'Withdrawal amount must be finite, got {amount}')
+
         if amount <= 0:
             raise ValueError(f'Withdrawal amount must be positive, got {amount}')
 
@@ -389,11 +398,11 @@ class Portfolio:
                     'symbol': None,
                     'quantity': None,
                     'price': None,
-                    'amount': float(amount),
+                    'amount': amount,
                     'reason': reason,
-                    'cash_balance': float(self.cash),
-                    'commission': 0.0,
-                    'realised_pnl': 0.0,
+                    'cash': self.cash,
+                    'commission': Decimal('0'),
+                    'realised_pnl': Decimal('0'),
                 }
             )
 
@@ -417,6 +426,9 @@ class Portfolio:
         Example:
             >>> portfolio.deposit_cash(Decimal('10000'), 'additional_capital')
         """
+        if not amount.is_finite():
+            raise ValueError(f'Deposit amount must be finite, got {amount}')
+
         if amount <= 0:
             raise ValueError(f'Deposit amount must be positive, got {amount}')
 
@@ -431,11 +443,11 @@ class Portfolio:
                     'symbol': None,
                     'quantity': None,
                     'price': None,
-                    'amount': float(amount),
+                    'amount': amount,
                     'reason': reason,
-                    'cash_balance': float(self.cash),
-                    'commission': 0.0,
-                    'realised_pnl': 0.0,
+                    'cash': self.cash,
+                    'commission': Decimal('0'),
+                    'realised_pnl': Decimal('0'),
                 }
             )
 

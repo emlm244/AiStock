@@ -120,9 +120,7 @@ class TradingCoordinator:
         # Execute graceful shutdown if stop was requested (cancel orders, close positions)
         if self.stop_controller.is_stop_requested():
             last_prices = self.bar_processor.get_all_prices()
-            shutdown_status = self.stop_controller.execute_graceful_shutdown(
-                self.broker, self.portfolio, last_prices
-            )
+            shutdown_status = self.stop_controller.execute_graceful_shutdown(self.broker, self.portfolio, last_prices)
             self.logger.warning(f'Graceful shutdown executed: {shutdown_status}')
 
         # Report orphaned orders

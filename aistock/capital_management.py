@@ -12,8 +12,19 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import TypedDict
 
 from .portfolio import Portfolio
+
+
+class WithdrawalStats(TypedDict):
+    """Statistics for profit withdrawal strategy."""
+
+    total_withdrawn: float
+    target_capital: float
+    withdrawal_threshold: float
+    last_withdrawal: str | None
+    enabled: bool
 
 
 @dataclass
@@ -134,8 +145,13 @@ class ProfitWithdrawalStrategy:
             self.logger.warning(f'Unknown frequency: {self.config.withdrawal_frequency}, defaulting to daily')
             return time_since_last.days >= 1
 
-    def get_stats(self) -> dict[str, float]:
-        """Get withdrawal statistics."""
+    def get_stats(self) -> WithdrawalStats:
+        """Get withdrawal statistics.
+
+        Returns:
+            Dictionary with withdrawal stats including total withdrawn,
+            target capital, threshold, last withdrawal timestamp, and enabled status.
+        """
         return {
             'total_withdrawn': float(self.total_withdrawn),
             'target_capital': float(self.config.target_capital),
