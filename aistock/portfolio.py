@@ -376,11 +376,11 @@ class Portfolio:
         Example:
             >>> portfolio.withdraw_cash(Decimal('5000'), 'weekly_profit_taking')
         """
-        if amount <= 0:
-            raise ValueError(f'Withdrawal amount must be positive, got {amount}')
-
         if not amount.is_finite():
             raise ValueError(f'Withdrawal amount must be finite, got {amount}')
+
+        if amount <= 0:
+            raise ValueError(f'Withdrawal amount must be positive, got {amount}')
 
         with self._lock:
             if amount > self.cash:
@@ -426,11 +426,11 @@ class Portfolio:
         Example:
             >>> portfolio.deposit_cash(Decimal('10000'), 'additional_capital')
         """
-        if amount <= 0:
-            raise ValueError(f'Deposit amount must be positive, got {amount}')
-
         if not amount.is_finite():
             raise ValueError(f'Deposit amount must be finite, got {amount}')
+
+        if amount <= 0:
+            raise ValueError(f'Deposit amount must be positive, got {amount}')
 
         with self._lock:
             self.cash += amount

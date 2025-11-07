@@ -152,6 +152,10 @@ class StopController:
             # Apply same offset to actual close time
             actual_close_minutes = close_time.hour * 60 + close_time.minute
             flatten_time_minutes = actual_close_minutes - minutes_before_close
+
+            # Clamp to valid range to prevent negative values on early-close days
+            flatten_time_minutes = max(0, min(actual_close_minutes, flatten_time_minutes))
+
             flatten_hour = flatten_time_minutes // 60
             flatten_minute = flatten_time_minutes % 60
             flatten_time_et = time(flatten_hour, flatten_minute)

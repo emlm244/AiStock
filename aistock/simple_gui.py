@@ -829,7 +829,9 @@ class SimpleGUI:
             borderwidth=2,
         ).pack(side=tk.LEFT)
 
-        tk.Label(capital_settings_row, text='Withdrawal Threshold:', font=self._font(11)).pack(side=tk.LEFT, padx=(20, 0))
+        tk.Label(capital_settings_row, text='Withdrawal Threshold:', font=self._font(11)).pack(
+            side=tk.LEFT, padx=(20, 0)
+        )
         tk.Label(capital_settings_row, text='$', font=self._font(11)).pack(side=tk.LEFT, padx=(10, 0))
         tk.Entry(
             capital_settings_row,
@@ -1419,7 +1421,9 @@ class SimpleGUI:
             # Sync target capital with main capital if still at default
             if self.target_capital_var.get() == '200':  # Default value, never changed by user
                 self.target_capital_var.set(self.capital_var.get())
-                self._log_activity(f'📊 Auto-set target capital to ${self.capital_var.get()} (matches starting capital)')
+                self._log_activity(
+                    f'📊 Auto-set target capital to ${self.capital_var.get()} (matches starting capital)'
+                )
 
             capital_mgmt_config = None
             if self.enable_withdrawal_var.get():
@@ -1646,9 +1650,7 @@ class SimpleGUI:
 
                 # The stop will be picked up on next bar processing
                 # For immediate effect, we'll also call stop() after a brief delay
-                self.root.after(
-                    2000, self._stop_robot
-                )  # Give 2 seconds for graceful shutdown to start
+                self.root.after(2000, self._stop_robot)  # Give 2 seconds for graceful shutdown to start
             else:
                 # Fallback: just stop normally
                 self._log_activity('⚠️ Stop controller not available, stopping normally')
