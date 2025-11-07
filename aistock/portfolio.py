@@ -352,3 +352,95 @@ class Portfolio:
         """Return the total commissions paid (thread-safe)."""
         with self._lock:
             return self.commissions_paid
+
+    def withdraw_cash(self, amount: Decimal, reason: str = 'manual') -> None:
+        """
+        Withdraw cash from portfolio (e.g., profit-taking) [thread-safe].
+
+        This enables fixed-capital trading strategies where profits are withdrawn
+        rather than compounded into larger position sizes.
+
+        Args:
+            amount: Amount to withdraw (must be positive)
+            reason: Reason for withdrawal (for audit trail)
+
+        Raises:
+            ValueError: If amount is invalid or exceeds available cash
+
+        Example:
+            >>> portfolio.withdraw_cash(Decimal('5000'), 'weekly_profit_taking')
+        """
+        if amount <= 0:
+            raise ValueError(f'Withdrawal amount must be positive, got {amount}')
+
+        with self._lock:
+            if amount > self.cash:
+                raise ValueError(
+                    f'Insufficient cash for withdrawal: ${self.cash:.2f} available, ${amount:.2f} requested'
+                )
+
+            self.cash -= amount
+
+            # Log withdrawal for audit trail
+            self.trade_log.append(
+                {
+                    'timestamp': datetime.now(timezone.utc),
+                    'type': 'WITHDRAWAL',
+                    'symbol': None,
+                    'quantity': None,
+                    'price': None,
+                    'amount': float(amount),
+                    'reason': reason,
+                    'cash_balance': float(self.cash),
+                    'commission': 0.0,
+                    'realised_pnl': 0.0,
+                }
+            )
+
+            # Maintain log size limit
+            if len(self.trade_log) > 1000:
+                self.trade_log = self.trade_log[-1000:]
+
+            self.logger.info(f'Cash withdrawn: ${amount:.2f} ({reason}), new balance: ${self.cash:.2f}')
+
+    def deposit_cash(self, amount: Decimal, reason: str = 'manual') -> None:
+        """
+        Deposit cash into portfolio (e.g., adding capital) [thread-safe].
+
+        Args:
+            amount: Amount to deposit (must be positive)
+            reason: Reason for deposit (for audit trail)
+
+        Raises:
+            ValueError: If amount is invalid
+
+        Example:
+            >>> portfolio.deposit_cash(Decimal('10000'), 'additional_capital')
+        """
+        if amount <= 0:
+            raise ValueError(f'Deposit amount must be positive, got {amount}')
+
+        with self._lock:
+            self.cash += amount
+
+            # Log deposit for audit trail
+            self.trade_log.append(
+                {
+                    'timestamp': datetime.now(timezone.utc),
+                    'type': 'DEPOSIT',
+                    'symbol': None,
+                    'quantity': None,
+                    'price': None,
+                    'amount': float(amount),
+                    'reason': reason,
+                    'cash_balance': float(self.cash),
+                    'commission': 0.0,
+                    'realised_pnl': 0.0,
+                }
+            )
+
+            # Maintain log size limit
+            if len(self.trade_log) > 1000:
+                self.trade_log = self.trade_log[-1000:]
+
+            self.logger.info(f'Cash deposited: ${amount:.2f} ({reason}), new balance: ${self.cash:.2f}')
