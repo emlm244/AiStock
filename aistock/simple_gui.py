@@ -105,6 +105,14 @@ class SimpleGUI:
             foreground=[('!disabled', 'white')],
         )
 
+        # Emergency stop button (more prominent red)
+        style.configure('Emergency.TButton', font=self._font(12, weight='bold'), padding=10)
+        style.map(
+            'Emergency.TButton',
+            background=[('!disabled', '#b71c1c'), ('pressed', '#7f0000')],
+            foreground=[('!disabled', 'white')],
+        )
+
     def _init_variables(self) -> None:
         # Simple user inputs
         self.capital_var = tk.StringVar(value='200')
@@ -156,6 +164,20 @@ class SimpleGUI:
         # Minimum balance protection (new feature)
         self.minimum_balance_var = tk.StringVar(value='100')  # Default: Don't go below $100
         self.minimum_balance_enabled_var = tk.BooleanVar(value=True)  # Enabled by default
+
+        # Capital management (profit withdrawal)
+        self.enable_withdrawal_var = tk.BooleanVar(value=False)  # Disabled by default
+        self.target_capital_var = tk.StringVar(value='200')  # Will be set to initial capital
+        self.withdrawal_threshold_var = tk.StringVar(value='5000')  # Default: $5k threshold
+        self.withdrawal_frequency_var = tk.StringVar(value='Daily')  # Daily, Weekly, Monthly
+
+        # Stop controls
+        self.enable_eod_flatten_var = tk.BooleanVar(value=False)  # Disabled by default
+        self.eod_flatten_time_var = tk.StringVar(value='15:45')  # 3:45 PM ET (15 min before close)
+
+        # Withdrawal stats (updated during trading)
+        self.total_withdrawn_var = tk.StringVar(value='$0.00')
+        self.last_withdrawal_var = tk.StringVar(value='Never')
 
     def _discover_available_symbols(self) -> list[str]:
         """
@@ -769,6 +791,121 @@ class SimpleGUI:
             wraplength=750,
         ).pack(anchor='w', padx=(25, 0))
 
+        # Capital Management (Profit Withdrawal)
+        capital_frame = ttk.LabelFrame(main, text='💰 Capital Management (Optional)', padding=20)
+        capital_frame.pack(fill=tk.X, pady=(0, 20))
+
+        enable_withdrawal_check = ttk.Checkbutton(
+            capital_frame,
+            text='✅ Enable Automatic Profit Withdrawal (Fixed Capital Mode)',
+            variable=self.enable_withdrawal_var,
+        )
+        enable_withdrawal_check.pack(anchor='w', pady=(0, 10))
+
+        tk.Label(
+            capital_frame,
+            text='Maintains fixed trading capital by withdrawing excess profits automatically.\n'
+            'Prevents position sizes from growing indefinitely and locks in gains.',
+            font=self._font(9),
+            fg='#666666',
+            justify='left',
+        ).pack(anchor='w', padx=(25, 0), pady=(0, 10))
+
+        # Capital settings row
+        capital_settings_row = tk.Frame(capital_frame)
+        capital_settings_row.pack(fill=tk.X, padx=(25, 0), pady=5)
+
+        tk.Label(capital_settings_row, text='Target Capital:', font=self._font(11)).pack(side=tk.LEFT)
+        tk.Label(capital_settings_row, text='$', font=self._font(11)).pack(side=tk.LEFT, padx=(10, 0))
+        tk.Entry(
+            capital_settings_row,
+            textvariable=self.target_capital_var,
+            font=self._font(12),
+            width=10,
+            justify=tk.CENTER,
+            bg='white',
+            relief=tk.SUNKEN,
+            borderwidth=2,
+        ).pack(side=tk.LEFT)
+
+        tk.Label(capital_settings_row, text='Withdrawal Threshold:', font=self._font(11)).pack(side=tk.LEFT, padx=(20, 0))
+        tk.Label(capital_settings_row, text='$', font=self._font(11)).pack(side=tk.LEFT, padx=(10, 0))
+        tk.Entry(
+            capital_settings_row,
+            textvariable=self.withdrawal_threshold_var,
+            font=self._font(12),
+            width=10,
+            justify=tk.CENTER,
+            bg='white',
+            relief=tk.SUNKEN,
+            borderwidth=2,
+        ).pack(side=tk.LEFT)
+
+        tk.Label(capital_settings_row, text='Frequency:', font=self._font(11)).pack(side=tk.LEFT, padx=(20, 0))
+        frequency_dropdown = ttk.Combobox(
+            capital_settings_row,
+            textvariable=self.withdrawal_frequency_var,
+            values=['Daily', 'Weekly', 'Monthly'],
+            state='readonly',
+            width=10,
+            font=self._font(11),
+        )
+        frequency_dropdown.pack(side=tk.LEFT, padx=(10, 0))
+
+        tk.Label(
+            capital_frame,
+            text='💡 Example: Target=$100k, Threshold=$5k → When equity reaches $105k, withdraw $5k',
+            font=self._font(9),
+            fg='#2e7d32',
+            justify='left',
+        ).pack(anchor='w', padx=(25, 0), pady=(10, 0))
+
+        # Stop Controls
+        stop_frame = ttk.LabelFrame(main, text='🛑 Stop Controls (Safety)', padding=20)
+        stop_frame.pack(fill=tk.X, pady=(0, 20))
+
+        enable_eod_check = ttk.Checkbutton(
+            stop_frame,
+            text='✅ Enable End-of-Day Auto-Flatten (closes all positions before market close)',
+            variable=self.enable_eod_flatten_var,
+        )
+        enable_eod_check.pack(anchor='w', pady=(0, 10))
+
+        tk.Label(
+            stop_frame,
+            text='Automatically closes all positions at specified time before market close.\n'
+            'Handles both regular closes (4 PM ET) and early closes (1 PM ET) correctly.',
+            font=self._font(9),
+            fg='#666666',
+            justify='left',
+        ).pack(anchor='w', padx=(25, 0), pady=(0, 10))
+
+        eod_time_row = tk.Frame(stop_frame)
+        eod_time_row.pack(fill=tk.X, padx=(25, 0), pady=5)
+
+        tk.Label(eod_time_row, text='Flatten Time (ET):', font=self._font(11)).pack(side=tk.LEFT)
+        tk.Entry(
+            eod_time_row,
+            textvariable=self.eod_flatten_time_var,
+            font=self._font(12),
+            width=8,
+            justify=tk.CENTER,
+            bg='white',
+            relief=tk.SUNKEN,
+            borderwidth=2,
+        ).pack(side=tk.LEFT, padx=(10, 0))
+        tk.Label(eod_time_row, text='(Format: HH:MM, e.g., 15:45 for 3:45 PM)', font=self._font(9), fg='#666666').pack(
+            side=tk.LEFT, padx=(10, 0)
+        )
+
+        tk.Label(
+            stop_frame,
+            text='💡 Default 15:45 = 15 minutes before regular close. Adjusts for early closes automatically.',
+            font=self._font(9),
+            fg='#2e7d32',
+            justify='left',
+        ).pack(anchor='w', padx=(25, 0), pady=(10, 0))
+
         # Start button
         button_frame = tk.Frame(main)
         button_frame.pack(pady=20)
@@ -776,10 +913,16 @@ class SimpleGUI:
         self.start_btn = ttk.Button(
             button_frame, text='🚀 START ROBOT (FSD Mode)', style='Start.TButton', command=self._start_robot
         )
-        self.start_btn.pack()
+        self.start_btn.pack(side=tk.LEFT, padx=10)
 
         self.stop_btn = ttk.Button(button_frame, text='⏹️ STOP ROBOT', style='Stop.TButton', command=self._stop_robot)
         # Stop button is hidden initially
+
+        self.emergency_stop_btn = ttk.Button(
+            button_frame, text='🛑 EMERGENCY STOP', style='Emergency.TButton', command=self._emergency_stop
+        )
+        self.emergency_stop_btn.pack(side=tk.LEFT, padx=10)
+        self.emergency_stop_btn.config(state=tk.DISABLED)  # Disabled until session starts
 
         # Dashboard
         dashboard = ttk.LabelFrame(main, text='📊 Dashboard', padding=15)
@@ -835,6 +978,38 @@ class SimpleGUI:
             fg='#2e7d32',
         )
         self.min_balance_display_label.pack(pady=(0, 10))
+
+        # Withdrawal Statistics (Second Row)
+        withdrawal_frame = tk.Frame(dashboard)
+        withdrawal_frame.pack(fill=tk.X, pady=(10, 15))
+
+        # Total Withdrawn
+        withdrawn_card = tk.Frame(withdrawal_frame, bg='#f3e5f5', relief=tk.RAISED, borderwidth=2)
+        withdrawn_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        tk.Label(withdrawn_card, text='💰 Total Withdrawn', font=self._font(11, weight='bold'), bg='#f3e5f5').pack(
+            pady=(10, 0)
+        )
+        tk.Label(
+            withdrawn_card,
+            textvariable=self.total_withdrawn_var,
+            font=self._font(16, weight='bold'),
+            bg='#f3e5f5',
+            fg='#6a1b9a',
+        ).pack(pady=(0, 10))
+
+        # Last Withdrawal
+        last_withdrawal_card = tk.Frame(withdrawal_frame, bg='#fce4ec', relief=tk.RAISED, borderwidth=2)
+        last_withdrawal_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+        tk.Label(
+            last_withdrawal_card, text='📅 Last Withdrawal', font=self._font(11, weight='bold'), bg='#fce4ec'
+        ).pack(pady=(10, 0))
+        tk.Label(
+            last_withdrawal_card,
+            textvariable=self.last_withdrawal_var,
+            font=self._font(12, weight='bold'),
+            bg='#fce4ec',
+            fg='#ad1457',
+        ).pack(pady=(0, 10))
 
         # Activity log with scrollbar
         tk.Label(dashboard, text='Recent Activity:', font=self._font(11, weight='bold')).pack(anchor='w', pady=(10, 5))
@@ -1236,11 +1411,64 @@ class SimpleGUI:
                 raise ValueError(f'Unknown trading mode: {trading_mode}. Must be "ibkr_paper" or "ibkr_live"')
 
             execution = ExecutionConfig(slip_bps_limit=5.0)
+
+            # Create capital management config from UI
+            from .capital_management import CapitalManagementConfig
+
+            # Sync target capital with main capital if still at default
+            if self.target_capital_var.get() == '200':  # Default value, never changed by user
+                self.target_capital_var.set(self.capital_var.get())
+                self._log_activity(f'📊 Auto-set target capital to ${self.capital_var.get()} (matches starting capital)')
+
+            capital_mgmt_config = None
+            if self.enable_withdrawal_var.get():
+                try:
+                    capital_mgmt_config = CapitalManagementConfig(
+                        target_capital=Decimal(str(self.target_capital_var.get())),
+                        withdrawal_threshold=Decimal(str(self.withdrawal_threshold_var.get())),
+                        withdrawal_frequency=self.withdrawal_frequency_var.get().lower(),
+                        enabled=True,
+                    )
+                    self._log_activity(
+                        f'💰 Profit Withdrawal Enabled: target=${capital_mgmt_config.target_capital}, '
+                        f'threshold=${capital_mgmt_config.withdrawal_threshold}, '
+                        f'frequency={capital_mgmt_config.withdrawal_frequency}'
+                    )
+                except Exception as e:
+                    self._log_activity(f'⚠️ Invalid capital management config: {e}')
+                    capital_mgmt_config = None
+
+            # Create stop control config from UI
+            from datetime import time
+
+            from .stop_control import StopConfig
+
+            try:
+                # Parse EOD time (HH:MM format)
+                eod_time_str = self.eod_flatten_time_var.get()
+                hour, minute = map(int, eod_time_str.split(':'))
+                eod_time = time(hour, minute)
+            except Exception as e:
+                self._log_activity(f'⚠️ Invalid EOD time format, using default 15:45: {e}')
+                eod_time = time(15, 45)
+
+            stop_config = StopConfig(
+                enable_manual_stop=True,  # Always enabled for emergency button
+                enable_eod_flatten=self.enable_eod_flatten_var.get(),
+                eod_flatten_time=eod_time,
+                emergency_liquidation_timeout=30.0,
+            )
+
+            if stop_config.enable_eod_flatten:
+                self._log_activity(f'🛑 EOD Auto-Flatten Enabled: will flatten at {eod_time} ET')
+
             config = BacktestConfig(
                 data=data_source,
                 engine=engine,
                 execution=execution,
                 broker=broker,
+                capital_management=capital_mgmt_config,
+                stop_control=stop_config,
             )
 
             self._log_activity(
@@ -1350,9 +1578,10 @@ class SimpleGUI:
 
             self.status_var.set('🟢 TRADING')
 
-            # Swap buttons
+            # Swap buttons - show stop and enable emergency stop
             self.start_btn.pack_forget()
-            self.stop_btn.pack()
+            self.stop_btn.pack(side=tk.LEFT, padx=10)
+            self.emergency_stop_btn.config(state=tk.NORMAL)  # Enable emergency stop
 
         except ValueError as e:
             messagebox.showerror('Invalid Input', str(e))
@@ -1382,9 +1611,47 @@ class SimpleGUI:
         self._log_activity('⏹️ Robot stopped')
         self.status_var.set('🔴 Stopped')
 
-        # Swap buttons
+        # Swap buttons and disable emergency stop
         self.stop_btn.pack_forget()
-        self.start_btn.pack()
+        self.start_btn.pack(side=tk.LEFT, padx=10)
+        self.emergency_stop_btn.config(state=tk.DISABLED)  # Disable emergency stop when not running
+
+    def _emergency_stop(self) -> None:
+        """Execute emergency stop with confirmation dialog."""
+        if not self.session:
+            return
+
+        # Show confirmation dialog
+        from tkinter import messagebox
+
+        response = messagebox.askyesno(
+            'Emergency Stop',
+            'This will immediately:\n'
+            '• Cancel all pending orders\n'
+            '• Close all open positions (market orders)\n'
+            '• Stop trading\n\n'
+            'Are you sure?',
+            icon='warning',
+        )
+
+        if response:
+            self._log_activity('🛑 EMERGENCY STOP initiated by user')
+            self.status_var.set('🛑 Emergency Stop - Closing positions...')
+
+            # Trigger emergency stop via stop controller
+            if hasattr(self.session, 'stop_controller'):
+                self.session.stop_controller.request_stop('user_emergency_stop')
+                self._log_activity('⚠️ Cancelling orders and liquidating positions...')
+
+                # The stop will be picked up on next bar processing
+                # For immediate effect, we'll also call stop() after a brief delay
+                self.root.after(
+                    2000, self._stop_robot
+                )  # Give 2 seconds for graceful shutdown to start
+            else:
+                # Fallback: just stop normally
+                self._log_activity('⚠️ Stop controller not available, stopping normally')
+                self._stop_robot()
 
     def _update_dashboard(self) -> None:
         if self.session:
@@ -1484,6 +1751,27 @@ class SimpleGUI:
                     self.min_balance_card.config(bg='#f5f5f5')
                     self.min_balance_display_label.config(bg='#f5f5f5', fg='#9e9e9e')
 
+                # Update withdrawal statistics
+                if hasattr(self.session, 'capital_manager'):
+                    try:
+                        stats = self.session.capital_manager.get_stats()
+                        total_withdrawn = stats.get('total_withdrawn', 0)
+                        last_withdrawal = stats.get('last_withdrawal')  # ISO string or None
+
+                        self.total_withdrawn_var.set(f'${float(total_withdrawn):,.2f}')
+
+                        if last_withdrawal:
+                            # Parse ISO string back to datetime for formatting
+                            from datetime import datetime
+
+                            last_withdrawal_dt = datetime.fromisoformat(last_withdrawal)
+                            last_withdrawal_str = last_withdrawal_dt.strftime('%Y-%m-%d %H:%M')
+                            self.last_withdrawal_var.set(last_withdrawal_str)
+                        else:
+                            self.last_withdrawal_var.set('Never')
+                    except Exception as e:
+                        self.logger.debug(f'Could not update withdrawal stats: {e}')
+
             except Exception as e:
                 self.logger.error(f'Error updating dashboard: {e}')
         else:
@@ -1495,6 +1783,10 @@ class SimpleGUI:
                 self.balance_var.set('$0.00')
 
             self.profit_var.set('$0.00')
+
+            # Reset withdrawal stats when not running
+            self.total_withdrawn_var.set('$0.00')
+            self.last_withdrawal_var.set('Never')
 
             # Show minimum balance threshold even when not running
             min_balance_enabled = self.minimum_balance_enabled_var.get()

@@ -9,9 +9,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from ..calendar import is_trading_time
+from ..capital_management import CompoundingStrategy, ProfitWithdrawalStrategy
 from ..data import Bar
 from ..execution import ExecutionReport, Order, OrderSide, OrderType
 from ..idempotency import OrderIdempotencyTracker
+from ..stop_control import StopController
 
 if TYPE_CHECKING:
     from ..brokers.base import BaseBroker
@@ -52,6 +54,8 @@ class TradingCoordinator:
         reconciler: PositionReconciler,
         checkpointer: CheckpointManager,
         analytics: AnalyticsReporter,
+        capital_manager: ProfitWithdrawalStrategy | CompoundingStrategy,
+        stop_controller: StopController,
         symbols: list[str],
         checkpoint_dir: str = 'state',
     ):
@@ -64,6 +68,8 @@ class TradingCoordinator:
         self.reconciler = reconciler
         self.checkpointer = checkpointer
         self.analytics = analytics
+        self.capital_manager = capital_manager
+        self.stop_controller = stop_controller
         self.symbols = symbols
         self.checkpoint_dir = checkpoint_dir
 
@@ -77,6 +83,8 @@ class TradingCoordinator:
         # State
         self._running = False
         self._last_equity = Decimal(str(config.engine.initial_equity))
+        self._last_withdrawal_check: datetime | None = None
+        self._last_trading_date: datetime | None = None  # Track date for EOD reset
 
         # Setup analytics
         analytics.set_symbols(symbols)
@@ -109,6 +117,14 @@ class TradingCoordinator:
         if not self._running:
             return
 
+        # Execute graceful shutdown if stop was requested (cancel orders, close positions)
+        if self.stop_controller.is_stop_requested():
+            last_prices = self.bar_processor.get_all_prices()
+            shutdown_status = self.stop_controller.execute_graceful_shutdown(
+                self.broker, self.portfolio, last_prices
+            )
+            self.logger.warning(f'Graceful shutdown executed: {shutdown_status}')
+
         # Report orphaned orders
         with self._submission_lock:
             if self._order_submission_times:
@@ -139,6 +155,28 @@ class TradingCoordinator:
 
     def process_bar(self, bar: Bar) -> None:
         """Process a bar through the pipeline."""
+        # Check for manual stop request
+        if self.stop_controller.is_stop_requested():
+            reason = self.stop_controller.get_stop_reason()
+            self.logger.warning(f'Stop requested: {reason}')
+            # Initiate graceful shutdown (stop() will handle the full sequence)
+            return
+
+        # Check if new trading day - reset EOD flatten flag
+        current_date = bar.timestamp.date()
+        if self._last_trading_date is None or current_date != self._last_trading_date:
+            if self._last_trading_date is not None:
+                # New day detected, reset EOD flatten
+                self.stop_controller.reset_eod_flatten()
+                self.logger.info(f'New trading day detected: {current_date}, reset EOD flatten')
+            self._last_trading_date = current_date
+
+        # Check for end-of-day flatten
+        if self.stop_controller.check_eod_flatten(bar.timestamp):
+            self.logger.warning('End-of-day flatten triggered - stopping trading')
+            self.stop_controller.request_stop('end_of_day_flatten')
+            return
+
         # Process bar
         self.bar_processor.process_bar(
             bar.timestamp,
@@ -166,6 +204,10 @@ class TradingCoordinator:
         # Periodic reconciliation
         if self.reconciler.should_reconcile(timestamp):
             self.reconciler.reconcile(timestamp)
+
+        # Periodic capital withdrawal check (once per day)
+        if self._should_check_withdrawal(timestamp):
+            self._check_and_withdraw_profits(timestamp)
 
         # Get market data
         history = self.bar_processor.get_history(symbol)
@@ -330,6 +372,36 @@ class TradingCoordinator:
                 del self._order_submission_times[report.order_id]
 
         self.logger.info(f'Fill: {report.symbol} {float(signed_qty)} @ {float(report.price)}')
+
+    def _should_check_withdrawal(self, current_time: datetime) -> bool:
+        """Check if we should perform a capital withdrawal check.
+
+        Checks once per day to avoid excessive processing.
+        """
+        if self._last_withdrawal_check is None:
+            return True
+
+        # Check if at least 12 hours have passed since last check
+        hours_since_last = (current_time - self._last_withdrawal_check).total_seconds() / 3600
+        return hours_since_last >= 12.0
+
+    def _check_and_withdraw_profits(self, current_time: datetime) -> None:
+        """Check and withdraw profits if configured."""
+        try:
+            last_prices = self.bar_processor.get_all_prices()
+            withdrawn = self.capital_manager.check_and_withdraw(self.portfolio, last_prices)
+
+            if withdrawn > 0:
+                self.logger.info(f'Withdrew ${float(withdrawn):.2f} in profits')
+                # Record in analytics
+                equity = self.portfolio.total_equity(last_prices)
+                self._last_equity = Decimal(str(equity))
+                self.analytics.record_equity(current_time, self._last_equity)
+
+            self._last_withdrawal_check = current_time
+
+        except Exception as exc:
+            self.logger.error(f'Capital withdrawal check failed: {exc}')
 
     def snapshot(self) -> dict[str, Any]:
         """Get current session state."""

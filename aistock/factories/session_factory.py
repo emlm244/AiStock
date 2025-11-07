@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from ..capital_management import CompoundingStrategy, ProfitWithdrawalStrategy
 from ..config import BacktestConfig
 from ..fsd import FSDConfig
 from ..portfolio import Portfolio
 from ..risk import RiskEngine
 from ..session.coordinator import TradingCoordinator
+from ..stop_control import StopConfig, StopController
 from ..universe import UniverseSelector
 from .trading_components_factory import TradingComponentsFactory
 
@@ -114,6 +116,15 @@ class SessionFactory:
         checkpointer = self.components_factory.create_checkpointer(portfolio, risk_engine, checkpoint_dir, enabled=True)
         analytics = self.components_factory.create_analytics_reporter(portfolio, checkpoint_dir)
 
+        # Create capital management strategy
+        if self.config.capital_management and self.config.capital_management.enabled:
+            capital_manager = ProfitWithdrawalStrategy(self.config.capital_management)
+        else:
+            capital_manager = CompoundingStrategy()
+
+        # Create stop controller
+        stop_controller = StopController(self.config.stop_control or StopConfig())
+
         # Create coordinator
         coordinator = TradingCoordinator(
             config=self.config,
@@ -125,6 +136,8 @@ class SessionFactory:
             reconciler=reconciler,
             checkpointer=checkpointer,
             analytics=analytics,
+            capital_manager=capital_manager,
+            stop_controller=stop_controller,
             symbols=symbols,
             checkpoint_dir=checkpoint_dir,
         )

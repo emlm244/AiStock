@@ -43,6 +43,16 @@ class PaperBroker(BaseBroker):
     def cancel(self, order_id: int) -> bool:
         return self._open_orders.pop(order_id, None) is not None
 
+    def cancel_all_orders(self) -> int:
+        """Cancel all pending orders.
+
+        Returns:
+            Number of orders cancelled
+        """
+        num_cancelled = len(self._open_orders)
+        self._open_orders.clear()
+        return num_cancelled
+
     def process_bar(self, bar: Bar, timestamp: datetime) -> None:
         """
         P1 Enhancement: Process bar with partial fill support.
