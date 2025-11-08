@@ -589,7 +589,9 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         # For simple setups, the request id encodes the order; for a production
         # system you would maintain a reqId->symbol mapping. Here we default to
         # a placeholder.
-        entry = self._market_handlers.get(req_id)
+        # Thread-safe access to market handlers
+        with self._market_lock:
+            entry = self._market_handlers.get(req_id)
         return entry[0] if entry else ''
 
     def _get_contract_spec(self, symbol: str) -> ContractSpec:
