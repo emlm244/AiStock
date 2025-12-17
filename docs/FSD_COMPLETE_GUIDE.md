@@ -4,6 +4,14 @@
 
 The FSD Trading Bot is an autonomous AI-powered trading system that uses **Reinforcement Learning (Q-Learning)** to make ALL trading decisions. It learns from every trade, adapts its strategy dynamically, and continuously improves its performance.
 
+## ✅ Requirements
+
+Install runtime dependencies before running the bot (NumPy + pandas are required):
+
+```bash
+pip install -r requirements.txt
+```
+
 ---
 
 ## 🧠 Core Technology: Q-Learning Reinforcement Learning
@@ -202,22 +210,7 @@ for each symbol:
 
 **Result**: Bot trades AAPL more, TSLA less automatically!
 
-### 4. **Enhanced Warmup with Realistic Simulation** 🧠
-
-**Old Warmup**: Just discovered states, no trading practice
-
-**New Warmup**: Actually simulates trades with learning:
-- Uses **40% confidence threshold** (lower = more trades)
-- Executes BUY/SELL on historical data
-- Updates Q-values from simulated outcomes
-- Tracks simulated P&L and win rate
-
-**Benefits**:
-- Bot arrives pre-trained with experience
-- Better initial Q-values
-- More realistic starting behavior
-
-### 5. **Persistent Per-Symbol Performance** 💾
+### 4. **Persistent Per-Symbol Performance** 💾
 
 **Feature**: Save and reload which symbols performed well.
 
@@ -268,18 +261,15 @@ for each symbol:
 
 ## 📈 Learning Process
 
-### Phase 1: Warmup (Offline Learning)
-1. **Load historical data** (e.g., 26,316 bars across 36 stocks)
-2. **Observation phase** (50% of data):
-   - Build state space by scanning bars
-   - Initialize Q-values to 0 for all state-action pairs
-3. **Simulation phase** (50% of data):
-   - Execute simulated trades with 40% threshold
-   - Update Q-values based on simulated outcomes
-   - Track win rate and P&L
-4. **Result**: Bot arrives with pre-trained Q-table
+### Phase 1: Startup (State Restore)
+1. **Load saved learning state** (if present):
+   - Q-values
+   - Per-symbol performance stats
+2. **Otherwise start fresh**: empty state and learning begins from real trades
 
-### Phase 2: Live Trading (Online Learning)
+There is **no automatic historical warmup** step. Recommended workflow: train in IBKR paper mode first.
+
+### Phase 2: Paper/Live Trading (Online Learning)
 1. **For each new bar**:
    - Extract state from market data
    - Select action using ε-greedy policy
@@ -309,22 +299,15 @@ for each symbol:
 Your bot made **0 trades** because:
 
 ### Root Causes
-1. **High confidence threshold**: 66% (conservative)
-2. **Untrained Q-values**: All Q-values start at 0 → ~50% confidence (sigmoid)
-3. **Threshold too high**: 50% < 66% → No trades
-4. **Old warmup**: Didn't actually trade during warmup
+1. **High confidence threshold**: Conservative presets can be very selective
+2. **Not enough bars yet**: The engine needs a minimum bar history before it can extract features and evaluate trades
+3. **Fresh state**: If no saved learning state is available, the agent starts neutral and learns only from real fills
+4. **No historical warmup**: The system does not pre-train on startup; learning happens during paper/live sessions
 
-### Solution: The NEW Enhanced Warmup
-Now with the **enhanced warmup**:
-- Uses **40% threshold** during warmup
-- Actually **executes simulated trades**
-- **Learns from outcomes** (Q-value updates)
-- Bot should make trades now!
-
-**Expected Results**:
-- Warmup trades: 50-200 (depends on data)
-- Warmup win rate: 40-60% (random at first, improves with learning)
-- Live trades: Should now exceed 66% confidence threshold
+### Solution: Train in IBKR Paper Mode First
+- Run paper mode for multiple sessions to accumulate trade outcomes and update learning state
+- If you consistently see 0 trades, reduce the confidence threshold or choose a less conservative preset
+- Learning state persists between sessions, so performance can improve over time
 
 ---
 
@@ -410,13 +393,10 @@ Multiple AI agents with different strategies:
 ## 🎓 Answers to Your Questions
 
 ### Q1: "Did the bot do good?"
-**A**: The bot worked correctly but made 0 trades due to conservative threshold. With the NEW enhanced warmup, it should now make trades and learn faster.
+**A**: If it made 0 trades, it was likely too selective or didn’t have enough bar history yet. Train in paper mode first and let it run long enough to generate fills.
 
-### Q2: "Should it simulate and learn during warmup?"
-**A**: YES! ✅ That's exactly what the NEW warmup does now:
-- Simulates realistic trades
-- Updates Q-values
-- Tracks P&L and win rate
+### Q2: "Should it use historical warmup to pre-train?"
+**A**: No. ✅ AIStock does not perform an automatic historical warmup step. Train in IBKR paper mode first.
 
 ### Q3: "Can FSD choose any stock dynamically?"
 **A**: YES! ✅ FSD scans ALL provided symbols:
@@ -452,18 +432,13 @@ Multiple AI agents with different strategies:
 
 ## 🏁 Next Steps
 
-1. **Run the bot again** - Should see warmup trades now!
-2. **Monitor warmup results**:
-   - Simulated trades: Expect 50-200
-   - Simulated win rate: Expect 40-60%
-   - Q-values learned: Expect 500-1000
-3. **Run live/paper mode**:
-   - Should make trades above threshold
-   - Will adapt confidence per symbol
-   - Will respect parallel trading limits
-4. **Review state file** after session:
+1. **Run IBKR paper mode** for multiple sessions to build learning state from real fills
+2. **Monitor results**:
+   - Trades placed and filled
+   - Per-symbol performance adapting over time
+3. **Review state file** after a session:
    ```bash
-   cat state/fsd_engine.json
+   cat state/fsd_state.json
    ```
    - Check `symbol_performance` for per-symbol stats
 
@@ -478,4 +453,3 @@ Multiple AI agents with different strategies:
 ---
 
 **Built with ❤️ by AIStock Team**
-

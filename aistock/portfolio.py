@@ -241,14 +241,14 @@ class Portfolio:
         return self.get_equity(last_prices)
 
     def apply_fill(
-        self, symbol: str, quantity: Decimal, price: Decimal, commission: Decimal, timestamp: datetime
+        self, symbol: str, signed_quantity: Decimal, price: Decimal, commission: Decimal, timestamp: datetime
     ) -> Decimal:
         """
         Apply a fill to the portfolio and return realized P&L (thread-safe).
 
         Args:
             symbol: Trading symbol
-            quantity: Quantity filled (positive for buy, negative for sell)
+            signed_quantity: Quantity filled (positive for buy, negative for sell)
             price: Fill price
             commission: Commission paid
             timestamp: Fill timestamp
@@ -263,7 +263,7 @@ class Portfolio:
                 calculate_realized_pnl(
                     position_quantity=existing_position.quantity,
                     average_price=existing_position.average_price,
-                    fill_quantity=quantity,
+                    fill_quantity=signed_quantity,
                     fill_price=price,
                 )
                 if existing_position
@@ -271,7 +271,7 @@ class Portfolio:
             )
 
             # Update cash and position atomically
-            cash_delta = -(quantity * price) - commission
+            cash_delta = -(signed_quantity * price) - commission
             self.cash += cash_delta
             self.commissions_paid += commission
 
@@ -279,7 +279,7 @@ class Portfolio:
                 self.positions[symbol] = Position(symbol=symbol)
 
             position = self.positions[symbol]
-            position.realise(quantity, price, timestamp)
+            position.realise(signed_quantity, price, timestamp)
             if position.quantity == 0:
                 del self.positions[symbol]
 
@@ -290,7 +290,7 @@ class Portfolio:
                 'timestamp': timestamp,
                 'type': 'TRADE',
                 'symbol': symbol,
-                'quantity': quantity,
+                'quantity': signed_quantity,
                 'price': price,
                 'amount': None,
                 'reason': None,

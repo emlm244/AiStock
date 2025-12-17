@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol, runtime_checkable
 
 from ..data import Bar
 
@@ -78,3 +78,8 @@ class DecisionEngineProtocol(Protocol):
     def load_state(self, filepath: str) -> bool:
         """Load learned state."""
         ...
+
+
+@runtime_checkable
+class SupportsGuiLogCallback(Protocol):
+    gui_log_callback: Callable[[str], None] | None

@@ -354,71 +354,7 @@ class LiveTradingSession:
             from .timeframes import TIMEFRAME_TO_SECONDS
 
             for symbol in self.symbols:
-                # PROFESSIONAL: 10-day historical warmup for each timeframe
-                if hasattr(self.broker, 'fetch_historical_bars'):
-                    for timeframe in self.timeframes:
-                        try:
-                            # Map timeframe to IBKR bar size
-                            bar_size_seconds = TIMEFRAME_TO_SECONDS.get(timeframe, 60)
-
-                            # Map seconds to IBKR bar size string
-                            if bar_size_seconds < 60:
-                                bar_size_str = f'{bar_size_seconds} secs'
-                            elif bar_size_seconds == 60:
-                                bar_size_str = '1 min'
-                            elif bar_size_seconds < 3600:
-                                bar_size_str = f'{bar_size_seconds // 60} mins'
-                            elif bar_size_seconds == 3600:
-                                bar_size_str = '1 hour'
-                            elif bar_size_seconds == 86400:
-                                bar_size_str = '1 day'
-                            else:
-                                bar_size_str = '1 min'  # Default
-
-                            warmup_bars = self.broker.fetch_historical_bars(
-                                symbol, duration='10 D', bar_size=bar_size_str
-                            )
-
-                            # MEDIUM FIX: Deduplicate warmup bars to avoid bias on restart
-                            # Store in main history (for 1m) and timeframe manager (all timeframes)
-                            if timeframe == '1m':
-                                with self._lock:
-                                    # Only extend if history is empty to avoid duplication on restart
-                                    if not self.history[symbol]:
-                                        self.history[symbol].extend(warmup_bars)
-                                    else:
-                                        # History exists - merge new warmup without duplicates
-                                        existing_timestamps = {bar.timestamp for bar in self.history[symbol]}
-                                        new_bars = [
-                                            bar for bar in warmup_bars if bar.timestamp not in existing_timestamps
-                                        ]
-                                        if new_bars:
-                                            self.history[symbol].extend(new_bars)
-                                            self.logger.info(
-                                                'warmup_bars_merged',
-                                                extra={
-                                                    'symbol': symbol,
-                                                    'new_bars': len(new_bars),
-                                                    'existing_bars': len(self.history[symbol]),
-                                                },
-                                            )
-
-                            # Feed to timeframe manager
-                            if self.timeframe_manager:
-                                for bar in warmup_bars:
-                                    self.timeframe_manager.add_bar(symbol, timeframe, bar)
-
-                            self.logger.info(
-                                'historical_warmup_complete',
-                                extra={'symbol': symbol, 'timeframe': timeframe, 'bars': len(warmup_bars)},
-                            )
-                        except Exception as exc:
-                            self.logger.warning(
-                                'historical_warmup_failed',
-                                extra={'symbol': symbol, 'timeframe': timeframe, 'error': str(exc)},
-                            )
-
-                # PROFESSIONAL: Subscribe to real-time bars for each timeframe
+                # Subscribe to real-time bars for each timeframe
                 for timeframe in self.timeframes:
                     try:
                         bar_size_seconds = TIMEFRAME_TO_SECONDS.get(timeframe, 60)
@@ -723,9 +659,9 @@ class LiveTradingSession:
             remaining_capital = Decimal('0')
 
         exposure_headroom = remaining_capital
-        if trade_signal < 0 and current_position.quantity > 0:
-            exposure_headroom += current_symbol_exposure
-        elif trade_signal > 0 and current_position.quantity < 0:
+        if (trade_signal < 0 and current_position.quantity > 0) or (
+            trade_signal > 0 and current_position.quantity < 0
+        ):
             exposure_headroom += current_symbol_exposure
 
         exposure_headroom = max(Decimal('0'), exposure_headroom)
@@ -1080,11 +1016,9 @@ class LiveTradingSession:
                     broker_qty = mismatch['broker_qty']
                     delta = abs(mismatch['delta'])
                     # Calculate percentage difference (relative to broker truth)
-                    if broker_qty != 0:
-                        pct_diff = (delta / abs(broker_qty)) * 100
-                    else:
-                        # If broker has 0 but internal has non-zero, that's 100% difference
-                        pct_diff = 100.0 if delta > 0 else 0.0
+                    pct_diff = (
+                        (delta / abs(broker_qty)) * 100 if broker_qty != 0 else 100.0 if delta > 0 else 0.0
+                    )
 
                     if pct_diff >= 10.0:  # >= 10% difference is critical
                         critical_mismatches.append({**mismatch, 'pct_diff': pct_diff})

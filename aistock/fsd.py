@@ -20,7 +20,7 @@ from collections import OrderedDict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
 
 import numpy as np
 
@@ -619,7 +619,7 @@ class FSDEngine:
         self.session_trades: int = 0
 
         # GUI callback (optional) - public interface for GUI integration
-        self.gui_log_callback: Any | None = None
+        self.gui_log_callback: Callable[[str], None] | None = None
 
         # ===== ADVANCED FEATURES =====
         # Per-symbol performance tracking for adaptive confidence
@@ -1343,135 +1343,4 @@ class FSDEngine:
             'q_values_learned': len(self.rl_agent.q_values),
             'exploration_rate': self.rl_agent.exploration_rate,
             'total_pnl': self.rl_agent.total_pnl,
-        }
-
-    def warmup_from_historical(
-        self, historical_bars: dict[str, list[Bar]], observation_fraction: float = 0.5
-    ) -> dict[str, Any]:
-        """
-        Warm up the RL agent with realistic simulation and learning.
-
-        Processes historical data to pre-train Q-values before live trading.
-        Uses lower confidence threshold (40%) and higher exploration (20%) during warmup.
-
-        Args:
-            historical_bars: Mapping of symbol -> list[Bar]
-            observation_fraction: Fraction used for observation-only (0.5 = 50% observe, 50% trade)
-
-        Returns:
-            Dict with keys: total_bars_processed, q_values_learned, simulated_trades,
-            simulated_win_rate, simulated_pnl
-        """
-        if not historical_bars:
-            return {
-                'status': 'no_data',
-                'total_bars_processed': 0,
-                'q_values_learned': len(self.rl_agent.q_values),
-                'simulated_trades': 0,
-                'simulated_win_rate': 0.0,
-                'simulated_pnl': 0.0,
-            }
-
-        total_bars_processed = 0
-        states_discovered = 0
-        simulated_trades = 0
-        simulated_pnl = 0.0
-        simulated_wins = 0
-        sim_positions: dict[str, float] = {}
-        sim_cash = float(self.portfolio.initial_cash)
-
-        observation_fraction = max(0.0, min(1.0, observation_fraction))
-        warmup_threshold = 0.40
-        original_exploration = self.rl_agent.exploration_rate
-        self.rl_agent.exploration_rate = max(original_exploration, 0.20)
-
-        for symbol, bars in historical_bars.items():
-            if not bars or len(bars) < 20:
-                continue
-
-            n = len(bars)
-            total_bars_processed += n
-            observe_upto = max(20, int(n * observation_fraction))
-
-            # Observation phase: discover states
-            for i in range(20, observe_upto, 5):  # Step by 5 for efficiency
-                window = bars[i - 20 : i + 1]
-                state_dict: dict[str, Any] = self.extract_state(symbol, window, {symbol: window[-1].close})
-                if state_dict:
-                    state_hash = self.rl_agent.hash_state(state_dict)
-                    if state_hash not in self.rl_agent.q_values:
-                        self.rl_agent.q_values[state_hash] = dict.fromkeys(self.rl_agent.get_actions(), 0.0)
-                        states_discovered += 1
-
-            # Simulation phase: trade and learn
-            for i in range(max(20, observe_upto), n - 1, 2):  # Step by 2 for efficiency
-                window = bars[i - 20 : i + 1]
-                current_price_decimal = window[-1].close
-                next_price_decimal = bars[i + 1].close
-                current_price = float(current_price_decimal)
-                next_bar_price = float(next_price_decimal)
-
-                state2: dict[str, Any] = self.extract_state(symbol, window, {symbol: current_price_decimal})
-                if not state2:
-                    continue
-
-                action_type = self.rl_agent.select_action(state2, training=True)
-                confidence = self.rl_agent.get_confidence(state2, action_type)
-                self.last_state = state2
-                self.last_action = action_type
-
-                if (
-                    action_type not in ['BUY', 'SELL', 'INCREASE_SIZE', 'DECREASE_SIZE']
-                    or confidence < warmup_threshold
-                ):
-                    continue
-
-                current_position = sim_positions.get(symbol, 0.0)
-
-                if action_type in ['BUY', 'INCREASE_SIZE']:
-                    max_spend = sim_cash * 0.05
-                    quantity = max_spend / current_price if current_price > 0 else 0
-                    if quantity > 0:
-                        sim_positions[symbol] = current_position + quantity
-                        sim_cash -= quantity * current_price
-                        simulated_trades += 1
-
-                elif action_type in ['SELL', 'DECREASE_SIZE'] and abs(current_position) > 0.001:
-                    quantity_to_sell = abs(current_position) * 0.5
-                    realised_pnl = (next_bar_price - current_price) * quantity_to_sell
-                    sim_positions[symbol] = current_position - quantity_to_sell
-                    sim_cash += quantity_to_sell * next_bar_price
-                    simulated_pnl += realised_pnl
-                    simulated_trades += 1
-
-                    if realised_pnl > 0:
-                        simulated_wins += 1
-
-                    # Learn from trade
-                    reward = self._calculate_reward(realised_pnl, current_price, quantity_to_sell)
-                    next_state2: dict[str, Any] = self.extract_state(
-                        symbol, bars[i - 19 : i + 2], {symbol: next_price_decimal}
-                    )
-                    if next_state2:
-                        self.rl_agent.update_q_value(
-                            state=state2,
-                            action=action_type,
-                            reward=reward,
-                            next_state=next_state2,
-                            done=(abs(sim_positions.get(symbol, 0.0)) < 0.001),
-                        )
-        # Restore exploration rate to its original value
-        self.rl_agent.exploration_rate = original_exploration
-
-        simulated_win_rate = (simulated_wins / simulated_trades) if simulated_trades > 0 else 0.0
-
-        return {
-            'status': 'complete',
-            'total_bars_processed': total_bars_processed,
-            'q_values_learned': len(self.rl_agent.q_values),
-            'simulated_trades': simulated_trades,
-            'simulated_win_rate': simulated_win_rate,
-            'simulated_pnl': simulated_pnl,
-            # Keep legacy fields for backward compatibility
-            'states_discovered': states_discovered,
         }

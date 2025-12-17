@@ -31,7 +31,7 @@ class DataSource:
     """Configuration for data loading."""
 
     path: str
-    timezone: dt.timezone = field(default=dt.timezone.utc)
+    timezone: dt.tzinfo = field(default=dt.timezone.utc)
     symbols: tuple[str, ...] = field(default_factory=tuple)
     warmup_bars: int = 50
     bar_interval: dt.timedelta = field(default_factory=lambda: dt.timedelta(minutes=1))

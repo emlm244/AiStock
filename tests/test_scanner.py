@@ -117,7 +117,7 @@ class TestMarketScanner:
     @patch('aistock.scanner.EClient.run')
     def test_scanner_connect_and_scan_mock(self, mock_run: Mock, mock_connect: Mock) -> None:
         """Test scanner connection and scanning with mocks."""
-        scanner = MarketScanner()
+        scanner = MarketScanner(host='127.0.0.1', port=7497, client_id=2)
 
         # Mock successful connection
         scanner._connected.set()
@@ -149,7 +149,7 @@ class TestMarketScanner:
 
     def test_get_symbols(self):
         """Test extracting symbols from scan results."""
-        scanner = MarketScanner()
+        scanner = MarketScanner(host='127.0.0.1', port=7497, client_id=2)
         scanner._scanned_stocks = [
             ScannedStock(symbol='AAPL', contract_id=1, exchange='SMART', currency='USD'),
             ScannedStock(symbol='MSFT', contract_id=2, exchange='SMART', currency='USD'),
@@ -175,7 +175,7 @@ class TestConvenienceFunctions:
         ]
         mock_scanner_class.return_value = mock_scanner
 
-        results = scan_market()
+        results = scan_market(host='127.0.0.1', port=7497, client_id=2)
 
         assert len(results) == 2
         assert results[0].symbol == 'AAPL'
@@ -194,7 +194,7 @@ class TestConvenienceFunctions:
             min_volume=1000000,
         )
 
-        results = scan_market(scanner_filter=custom_filter)
+        results = scan_market(scanner_filter=custom_filter, host='127.0.0.1', port=7497, client_id=2)
 
         assert len(results) == 0
         mock_scanner.connect_and_scan.assert_called_once_with(custom_filter, timeout=30.0)
@@ -213,6 +213,10 @@ class TestConvenienceFunctions:
             max_price=500.0,
             min_volume=500000,
             max_results=50,
+            host='10.0.0.1',
+            port=4002,
+            client_id=1002,
+            timeout=12.0,
         )
 
         assert symbols == ['AAPL', 'MSFT', 'GOOGL']
@@ -226,6 +230,10 @@ class TestConvenienceFunctions:
         assert filter_arg.max_price == 500.0
         assert filter_arg.min_volume == 500000
         assert filter_arg.max_results == 50
+        assert call_args[1]['host'] == '10.0.0.1'
+        assert call_args[1]['port'] == 4002
+        assert call_args[1]['client_id'] == 1002
+        assert call_args[1]['timeout'] == 12.0
 
     @patch('aistock.scanner.MarketScanner')
     def test_scan_market_handles_exceptions(self, mock_scanner_class: Mock) -> None:
@@ -235,7 +243,7 @@ class TestConvenienceFunctions:
         mock_scanner_class.return_value = mock_scanner
 
         # Should return empty list on exception, not raise
-        results = scan_market()
+        results = scan_market(host='127.0.0.1', port=7497, client_id=2)
 
         assert results == []
 
@@ -269,7 +277,15 @@ class TestScannerIntegration:
         ]
 
         # FSD scans for stocks
-        symbols = scan_for_fsd(min_price=1.0, max_price=10000.0, min_volume=100000, max_results=100)
+        symbols = scan_for_fsd(
+            min_price=1.0,
+            max_price=10000.0,
+            min_volume=100000,
+            max_results=100,
+            host='127.0.0.1',
+            port=7497,
+            client_id=2,
+        )
 
         # Should return 50 symbols
         assert len(symbols) == 50
@@ -300,7 +316,7 @@ class TestScannerEdgeCases:
         mock_scanner.connect_and_scan.side_effect = TimeoutError('Scan timeout')
         mock_scanner_class.return_value = mock_scanner
 
-        results = scan_market(timeout=5.0)
+        results = scan_market(host='127.0.0.1', port=7497, client_id=2, timeout=5.0)
 
         assert results == []  # Should return empty list, not raise
 
@@ -311,7 +327,7 @@ class TestScannerEdgeCases:
         mock_scanner.connect_and_scan.side_effect = ConnectionRefusedError('IBKR not running')
         mock_scanner_class.return_value = mock_scanner
 
-        results = scan_market()
+        results = scan_market(host='127.0.0.1', port=7497, client_id=2)
 
         assert results == []
 
@@ -320,7 +336,7 @@ class TestScannerEdgeCases:
         """Test scan_for_fsd handles empty results."""
         mock_scan_market.return_value = []
 
-        symbols = scan_for_fsd()
+        symbols = scan_for_fsd(host='127.0.0.1', port=7497, client_id=2)
 
         assert symbols == []
 
@@ -360,6 +376,7 @@ class TestLiveScanner:
             ),
             host='127.0.0.1',
             port=7497,  # Live port
+            client_id=2,
             timeout=30.0,
         )
 
@@ -376,6 +393,9 @@ class TestLiveScanner:
             max_price=1000.0,
             min_volume=200000,
             max_results=25,
+            host='127.0.0.1',
+            port=7497,
+            client_id=2,
         )
 
         # If IBKR is running, should get symbols

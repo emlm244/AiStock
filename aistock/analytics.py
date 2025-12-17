@@ -8,6 +8,7 @@ and CSV export functionality for transparency and monitoring.
 from __future__ import annotations
 
 import csv
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -56,7 +57,7 @@ class DrawdownMetrics:
     current_equity: Decimal
 
 
-def calculate_symbol_performance(trade_log: list[dict[str, Any]], symbol: str) -> SymbolPerformance | None:
+def calculate_symbol_performance(trade_log: Sequence[Mapping[str, Any]], symbol: str) -> SymbolPerformance | None:
     """
     Calculate per-symbol trading statistics.
 
@@ -176,7 +177,9 @@ def calculate_drawdown_metrics(equity_curve: list[tuple[datetime, Decimal]]) -> 
     )
 
 
-def export_symbol_performance_csv(trade_log: list[dict[str, Any]], symbols: list[str], output_path: str) -> None:
+def export_symbol_performance_csv(
+    trade_log: Sequence[Mapping[str, Any]], symbols: Sequence[str], output_path: str
+) -> None:
     """
     Export per-symbol performance to CSV.
 

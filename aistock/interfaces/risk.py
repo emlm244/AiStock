@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from ..config import RiskLimits
 
 
 class RiskEngineProtocol(Protocol):
@@ -13,6 +16,8 @@ class RiskEngineProtocol(Protocol):
     This allows swapping risk implementations for different strategies
     or testing with mock risk engines.
     """
+
+    config: RiskLimits
 
     def check_pre_trade(
         self,

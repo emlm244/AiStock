@@ -17,6 +17,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
+from typing import TypedDict
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -24,11 +25,42 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from aistock.engine import TradingEngine  # noqa: E402
 
 
-def generate_sample_bars():
+class SampleBar(TypedDict):
+    timestamp: datetime
+    price: Decimal
+
+
+class SampleTrade(TypedDict):
+    timestamp: str
+    symbol: str
+    quantity: float
+    price: float
+    realised_pnl: float
+
+
+class SampleValidation(TypedDict):
+    expected_pnl: float
+    actual_pnl: float
+    match: bool
+
+
+class SampleBacktestResult(TypedDict):
+    timestamp: str
+    symbols: list[str]
+    initial_capital: float
+    final_equity: float
+    total_return: float
+    num_trades: int
+    realized_pnl: float
+    trades: list[SampleTrade]
+    validation: SampleValidation
+
+
+def generate_sample_bars() -> list[SampleBar]:
     """Generate sample price data."""
     start_date = datetime(2025, 1, 1, 9, 30, tzinfo=timezone.utc)
 
-    bars = []
+    bars: list[SampleBar] = []
     price = Decimal('100.00')
 
     for i in range(10):
@@ -45,7 +77,7 @@ def generate_sample_bars():
     return bars
 
 
-def run_sample_backtest():
+def run_sample_backtest() -> SampleBacktestResult:
     """Run sample backtest with corrected P&L calculation."""
     print('Running sample backtest with corrected TradingEngine...')
 
@@ -91,7 +123,7 @@ def run_sample_backtest():
     )
 
     # Calculate total P&L
-    total_pnl = sum(t.realised_pnl for t in engine.trades if t.realised_pnl != 0)
+    total_pnl = sum((t.realised_pnl for t in engine.trades if t.realised_pnl != 0), Decimal('0'))
     expected_pnl = Decimal('400') + Decimal('150')  # $550
 
     print(f'\n{"=" * 60}')
@@ -105,7 +137,7 @@ def run_sample_backtest():
     print(f'Total return: {((engine.cash - engine.initial_cash) / engine.initial_cash * 100):.2f}%')
 
     # Create result JSON
-    result = {
+    result: SampleBacktestResult = {
         'timestamp': datetime.now(timezone.utc).isoformat(),
         'symbols': ['AAPL'],
         'initial_capital': float(engine.initial_cash),
@@ -133,7 +165,7 @@ def run_sample_backtest():
     return result
 
 
-def main():
+def main() -> int:
     # Run backtest
     result = run_sample_backtest()
 

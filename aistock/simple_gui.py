@@ -10,6 +10,7 @@ This interface is designed for users who:
 
 from __future__ import annotations
 
+import threading
 import tkinter as tk
 import tkinter.font as tkfont
 from contextlib import suppress
@@ -17,7 +18,7 @@ from datetime import timezone
 from decimal import Decimal
 from pathlib import Path
 from tkinter import messagebox, ttk
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 from .config import (
     BacktestConfig,
@@ -30,9 +31,31 @@ from .config import (
 )
 from .factories import SessionFactory
 from .fsd import FSDConfig
+from .interfaces.decision import SupportsGuiLogCallback
 from .logging import configure_logger
+from .runtime_settings import load_runtime_settings
 
 # from .setup import FirstTimeSetupWizard  # Module doesn't exist - disable for now
+
+
+VolatilityBias = Literal['high', 'low', 'balanced']
+
+
+class GuiRiskConfig(TypedDict):
+    max_capital_pct: float
+    time_limit: int
+    learning_rate: float
+    exploration_rate: float
+    confidence_threshold: float
+    min_liquidity_volume: int
+    confidence_decay: float
+    decay_start_minutes: int
+    max_concurrent_positions: int
+    max_capital_per_position_pct: float
+    max_stocks: int
+    timeframes: list[str]
+    volatility_bias: VolatilityBias
+    max_loss_per_trade_pct: float
 
 
 class SimpleGUI:
@@ -53,7 +76,8 @@ class SimpleGUI:
         # Set minimum window size
         self.root.minsize(900, 700)
 
-        self.logger = configure_logger('SimpleGUI', level='INFO', structured=False)
+        self.runtime_settings = load_runtime_settings()
+        self.logger = configure_logger('SimpleGUI', level=self.runtime_settings.log_level, structured=False)
 
         self._init_fonts()
         self._configure_style()
@@ -123,24 +147,26 @@ class SimpleGUI:
 
         # Trading mode selection (2 modes: ibkr_paper, ibkr_live)
         self.trading_mode_var = tk.StringVar(value='ibkr_paper')  # Default: IBKR paper (safe)
+        self.allow_extended_hours_var = tk.BooleanVar(value=False)  # Default: regular market hours only
 
-        # IBKR credentials (for live mode) - Read from environment variables
-        # CRITICAL-8 Fix: No hardcoded defaults - force user to set via .env
-        import os
-
-        self.ibkr_account = os.getenv('IBKR_ACCOUNT_ID')  # No default - required for IBKR
-        self.ibkr_port = int(os.getenv('IBKR_TWS_PORT', '7497'))  # Default to paper trading port
-        self.ibkr_client_id = (
-            int(os.getenv('IBKR_CLIENT_ID')) if os.getenv('IBKR_CLIENT_ID') else None
-        )  # No default - required for IBKR
+        # IBKR runtime settings
+        self.ibkr_settings = self.runtime_settings.ibkr
+        self.ibkr_account = self.ibkr_settings.account_id
+        self.ibkr_client_id = self.ibkr_settings.client_id
+        self.ibkr_host = self.ibkr_settings.host
+        self.ibkr_paper_port = self.ibkr_settings.paper_port
+        self.ibkr_live_port = self.ibkr_settings.live_port
+        self._ibkr_account_display = self.ibkr_account or 'Not configured (set IBKR_ACCOUNT_ID in .env)'
+        self.user_timezone = self.runtime_settings.timezone
 
         # Default configurations (hidden from user)
         self.data_folder = 'data/historical/stocks'  # FSD mode: stocks only
-        # FSD Auto-Discovery: Scan ALL available stocks, let AI choose best ones
-        self.symbols = self._discover_available_symbols()
+        # Symbols are discovered at session start so the IBKR scanner uses the currently selected mode (paper vs live).
+        self.symbols: list[str] = []
 
         # Session state
         self.session = None  # TradingCoordinator from new modular architecture
+        self._stop_in_progress = False
 
         self.trade_tempo_var = tk.StringVar(value='balanced')
 
@@ -175,6 +201,7 @@ class SimpleGUI:
         # Stop controls
         self.enable_eod_flatten_var = tk.BooleanVar(value=False)  # Disabled by default
         self.eod_flatten_time_var = tk.StringVar(value='15:45')  # 3:45 PM ET (15 min before close)
+        self.auto_liquidate_on_stop_var = tk.BooleanVar(value=False)  # Disabled by default
 
         # Withdrawal stats (updated during trading)
         self.total_withdrawn_var = tk.StringVar(value='$0.00')
@@ -261,13 +288,22 @@ class SimpleGUI:
             # Uses conservative filters to ensure quality stocks
             self.logger.info('scanner_attempting_live_scan')
 
-            # Note: scan_for_fsd only accepts filter parameters, not connection params
-            # Connection params are handled internally by scan_market
+            if self.ibkr_client_id is None:
+                self.logger.info('scanner_skipped_missing_client_id')
+                return []
+
+            trading_mode = self.trading_mode_var.get()
+            port = self.ibkr_paper_port if trading_mode == 'ibkr_paper' else self.ibkr_live_port
+            scanner_client_id = self.ibkr_client_id + 1
+
             symbols = scan_for_fsd(
                 min_price=1.0,
                 max_price=10000.0,
                 min_volume=100000,  # 100K shares/day minimum
                 max_results=100,  # Top 100 stocks
+                host=self.ibkr_host,
+                port=port,
+                client_id=scanner_client_id,
             )
 
             if symbols:
@@ -752,12 +788,12 @@ class SimpleGUI:
 
         tk.Label(
             ibkr_paper_frame,
-            text='• Connects to IBKR Paper Trading (Port 7497)\n'
+            text=f'• Connects to IBKR Paper Trading (Host {self.ibkr_host}, Port {self.ibkr_paper_port})\n'
             "• Uses IBKR's simulated $1.1M fake money\n"
             '• Gets REAL-TIME multi-timeframe market data\n'
-            '• Pulls 10 days of historical bars on startup (warmup)\n'
+            '• No historical warmup — learns as it trades (paper recommended)\n'
             '• Tests IBKR connection without risking real money\n'
-            '⚠️ Requires: IBKR Gateway/TWS + market data subscription ($500 live balance)',
+            f'⚠️ Requires: IBKR Gateway/TWS + market data subscription ($500 live balance) on port {self.ibkr_paper_port}',
             font=self._font(9),
             fg='#1565c0',
             bg='#e3f2fd',
@@ -778,18 +814,34 @@ class SimpleGUI:
 
         tk.Label(
             ibkr_live_frame,
-            text=f'• Connects to IBKR LIVE Trading account (Port 7496)\n'
-            f'• Uses REAL MONEY from account: {self.ibkr_account}\n'
+            text=f'• Connects to IBKR LIVE Trading account (Port {self.ibkr_live_port})\n'
+            f'• Uses REAL MONEY from account: {self._ibkr_account_display}\n'
             f'• Gets REAL-TIME multi-timeframe market data\n'
-            f'• Pulls 10 days of historical bars on startup (warmup)\n'
+            f'• No historical warmup — learns as it trades (paper recommended first)\n'
             f'• Requires $500+ account balance for market data\n'
-            f'• Requires IBKR Gateway/TWS running on port 7496\n'
+            f'• Requires IBKR Gateway/TWS running on port {self.ibkr_live_port}\n'
             f'🚨 WARNING: REAL MONEY AT RISK - LOSSES ARE PERMANENT!',
             font=self._font(9),
             fg='#c62828',
             bg='#ffebee',
             justify='left',
             wraplength=750,
+        ).pack(anchor='w', padx=(25, 0))
+
+        allow_extended_hours_check = ttk.Checkbutton(
+            mode_frame,
+            text='🕒 Allow extended hours (pre-market + after-hours)',
+            variable=self.allow_extended_hours_var,
+        )
+        allow_extended_hours_check.pack(anchor='w', pady=(10, 0))
+
+        tk.Label(
+            mode_frame,
+            text='Default is regular market hours only. Extended hours trading has wider spreads and thinner liquidity.',
+            font=self._font(9),
+            fg='#666666',
+            justify='left',
+            wraplength=780,
         ).pack(anchor='w', padx=(25, 0))
 
         # Capital Management (Profit Withdrawal)
@@ -866,6 +918,21 @@ class SimpleGUI:
         # Stop Controls
         stop_frame = ttk.LabelFrame(main, text='🛑 Stop Controls (Safety)', padding=20)
         stop_frame.pack(fill=tk.X, pady=(0, 20))
+
+        auto_liquidate_check = ttk.Checkbutton(
+            stop_frame,
+            text='🧯 Auto-liquidate positions when pressing STOP ROBOT',
+            variable=self.auto_liquidate_on_stop_var,
+        )
+        auto_liquidate_check.pack(anchor='w', pady=(0, 10))
+
+        tk.Label(
+            stop_frame,
+            text='If enabled, STOP ROBOT will request a graceful shutdown (cancel orders + close positions).',
+            font=self._font(9),
+            fg='#666666',
+            justify='left',
+        ).pack(anchor='w', padx=(25, 0), pady=(0, 10))
 
         enable_eod_check = ttk.Checkbutton(
             stop_frame,
@@ -1039,7 +1106,7 @@ class SimpleGUI:
 
     def _get_risk_config(
         self, risk_level: str, investment_goal: str, trade_tempo: str, max_loss_pct: float
-    ) -> dict[str, Any]:
+    ) -> GuiRiskConfig:
         """
         Returns FSD configuration based on user preferences.
 
@@ -1050,7 +1117,7 @@ class SimpleGUI:
         - max_loss_pct: Per-trade stop-loss
         """
         # Base configs by risk level
-        base_configs = {
+        base_configs: dict[str, GuiRiskConfig] = {
             'conservative': {
                 'max_capital_pct': 0.30,  # Use max 30% of capital
                 'time_limit': 60,  # 60 minutes max per session
@@ -1064,6 +1131,8 @@ class SimpleGUI:
                 'max_capital_per_position_pct': 15.0,
                 'max_stocks': 8,
                 'timeframes': ['1m', '5m', '15m'],
+                'volatility_bias': 'balanced',
+                'max_loss_per_trade_pct': 0.0,
             },
             'moderate': {
                 'max_capital_pct': 0.50,  # Use max 50% of capital
@@ -1078,6 +1147,8 @@ class SimpleGUI:
                 'max_capital_per_position_pct': 25.0,
                 'max_stocks': 12,
                 'timeframes': ['1m', '5m', '15m'],
+                'volatility_bias': 'balanced',
+                'max_loss_per_trade_pct': 0.0,
             },
             'aggressive': {
                 'max_capital_pct': 0.70,  # Use max 70% of capital
@@ -1092,6 +1163,8 @@ class SimpleGUI:
                 'max_capital_per_position_pct': 35.0,
                 'max_stocks': 16,
                 'timeframes': ['1m', '5m', '15m'],
+                'volatility_bias': 'balanced',
+                'max_loss_per_trade_pct': 0.0,
             },
         }
 
@@ -1239,6 +1312,9 @@ class SimpleGUI:
             if max_stocks <= 0:
                 max_stocks = 10
 
+            # Refresh symbol discovery using the currently selected trading mode (paper vs live affects scanner host/port).
+            self.symbols = self._discover_available_symbols()
+
             # Limit symbols before wiring into backend
             original_symbol_count = len(self.symbols)
             if original_symbol_count == 0:
@@ -1291,13 +1367,19 @@ class SimpleGUI:
             # Build configuration
             data_source = DataSource(
                 path=self.data_folder,
-                timezone=timezone.utc,
+                timezone=self.user_timezone,
                 symbols=tuple(self.symbols),
                 warmup_bars=50,
-                enforce_trading_hours=False,  # CRITICAL: Allow 24/7 for backtesting
-                # Historical data might have bars at midnight (00:00:00)
-                # We want to process ALL bars, not skip them
+                enforce_trading_hours=True,
+                allow_extended_hours=self.allow_extended_hours_var.get(),
             )
+
+            hours_desc = (
+                'regular + extended (pre-market and after-hours)'
+                if data_source.allow_extended_hours
+                else 'regular market hours only'
+            )
+            self._log_activity(f'🕒 Trading hours: {hours_desc}')
 
             # StrategyConfig is now a placeholder (FSD doesn't use rule-based strategies)
             strategy_cfg = StrategyConfig()
@@ -1327,7 +1409,7 @@ class SimpleGUI:
             trading_mode = self.trading_mode_var.get()
 
             if trading_mode == 'ibkr_paper':
-                # MODE 2: IBKR PAPER - Connects to IBKR's paper trading account (port 7497)
+                # MODE 2: IBKR PAPER - Connects to IBKR's paper trading account
                 # Check if market is open (weekend warning)
                 from datetime import datetime
 
@@ -1346,24 +1428,28 @@ class SimpleGUI:
                     if not response:
                         raise ValueError('IBKR Paper mode cancelled')
 
+                account_id, client_id = self.ibkr_settings.require_credentials()
+
                 broker = BrokerConfig(
                     backend='ibkr',
-                    ib_host='127.0.0.1',
-                    ib_port=7497,  # IBKR Paper Trading port
-                    ib_client_id=self.ibkr_client_id,
-                    ib_account=self.ibkr_account,
+                    ib_host=self.ibkr_host,
+                    ib_port=self.ibkr_paper_port,
+                    ib_client_id=client_id,
+                    ib_account=account_id,
                     contracts=contracts,
                 )
                 self._log_activity('🔵 IBKR PAPER MODE - IBKR simulated account')
-                self._log_activity('  📡 Connecting to IBKR Paper Trading (Port 7497)')
+                self._log_activity(f'  📡 Connecting to IBKR Paper Trading @ {self.ibkr_host}:{self.ibkr_paper_port}')
                 self._log_activity("  🎭 Using IBKR's fake $1.1M account (no real money)")
                 self._log_activity(f'  📊 Timeframes: {", ".join(timeframes)} (multi-timeframe analysis)')
                 self._log_activity(f'  📈 Max stocks: {max_stocks} (parallel monitoring)')
-                self._log_activity('  🕐 Will pull 10 days of historical bars for each stock (warmup)')
-                self._log_activity('  ⚠️ IMPORTANT: Requires IBKR Gateway/TWS running')
+                self._log_activity('  🧠 No historical warmup - AI learns as it trades (paper recommended)')
+                self._log_activity(
+                    f'  ⚠️ IMPORTANT: Requires IBKR Gateway/TWS running on {self.ibkr_host}:{self.ibkr_paper_port}'
+                )
 
             elif trading_mode == 'ibkr_live':
-                # MODE 3: IBKR LIVE - Real money trading (port 7496)
+                # MODE 3: IBKR LIVE - Real money trading
                 # Check if market is open (weekend warning)
                 from datetime import datetime
 
@@ -1381,13 +1467,15 @@ class SimpleGUI:
                     if not response:
                         raise ValueError('Live trading cancelled - market is closed')
 
+                account_id, client_id = self.ibkr_settings.require_credentials()
+
                 # Final confirmation for real money
                 confirm = messagebox.askyesno(
                     '🚨 FINAL WARNING - REAL MONEY',
                     f'You are about to trade with REAL MONEY!\n\n'
-                    f'Account: {self.ibkr_account}\n'
+                    f'Account: {account_id}\n'
                     f'Capital: ${capital:.2f}\n'
-                    f'Port: 7496 (LIVE TRADING)\n\n'
+                    f'Endpoint: {self.ibkr_host}:{self.ibkr_live_port} (LIVE TRADING)\n\n'
                     f'Losses will be REAL and PERMANENT!\n\n'
                     f'Are you absolutely sure?',
                 )
@@ -1396,18 +1484,18 @@ class SimpleGUI:
 
                 broker = BrokerConfig(
                     backend='ibkr',
-                    ib_host='127.0.0.1',
-                    ib_port=7496,  # IBKR LIVE Trading port (REAL MONEY!)
-                    ib_client_id=self.ibkr_client_id,
-                    ib_account=self.ibkr_account,
+                    ib_host=self.ibkr_host,
+                    ib_port=self.ibkr_live_port,
+                    ib_client_id=client_id,
+                    ib_account=account_id,
                     contracts=contracts,
                 )
                 self._log_activity('🔴 IBKR LIVE MODE - REAL MONEY TRADING!')
-                self._log_activity(f'  📡 Connecting to IBKR LIVE account: {self.ibkr_account}')
-                self._log_activity('  🔌 Port: 7496 (LIVE TRADING - REAL MONEY)')
+                self._log_activity(f'  📡 Connecting to IBKR LIVE account: {account_id}')
+                self._log_activity(f'  🔌 Endpoint: {self.ibkr_host}:{self.ibkr_live_port} (LIVE TRADING)')
                 self._log_activity(f'  📊 Timeframes: {", ".join(timeframes)} (multi-timeframe analysis)')
                 self._log_activity(f'  📈 Max stocks: {max_stocks} (parallel monitoring)')
-                self._log_activity('  🕐 Will pull 10 days of historical bars for each stock (warmup)')
+                self._log_activity('  🧠 No historical warmup - AI learns as it trades (paper recommended first)')
                 self._log_activity('  💰 REAL MONEY AT RISK - monitor closely!')
                 self._log_activity('  ⚠️ Requires: $500+ balance + market data subscription')
             else:
@@ -1540,36 +1628,26 @@ class SimpleGUI:
                     elif key == 'max_drawdown_pct':
                         self.session.risk.config.max_drawdown_pct = max(0.0001, min(float(value), 1.0))
 
-            # Attach logging callback so FSD decisions appear in GUI
-            # Use hasattr to avoid protocol violation (not all decision engines have this callback)
-            if self.session.decision_engine and hasattr(self.session.decision_engine, 'gui_log_callback'):
+            # Attach logging callback so FSD decisions appear in GUI (if supported).
+            if isinstance(self.session.decision_engine, SupportsGuiLogCallback):
                 self.session.decision_engine.gui_log_callback = self._log_activity
 
-            # Professional warmup: Pull 10 days of historical bars from IBKR for each timeframe
-            self._log_activity('🕐 Professional Warmup: Pulling 10 days of historical data from IBKR...')
-            self._log_activity(f'   📊 Timeframes: {", ".join(timeframes)}')
-            self._log_activity(f'   📈 Symbols: {len(self.symbols)} stocks')
-            self._log_activity('   🎯 This may take 30-60 seconds...')
-            self.status_var.set('🕐 Loading history...')
+            self._log_activity('🔌 Starting session...')
+            self.status_var.set('🔌 Connecting...')
 
             # Start IBKR connection and subscribe to multi-timeframe bars
             self.session.start()
 
-            # IBKR modes: Pull historical bars and subscribe to real-time data
+            # IBKR modes: subscribe to real-time bars
             if trading_mode == 'ibkr_paper':
                 self._log_activity('🔵 IBKR Paper mode - Initializing...')
-                self._log_activity('  📡 Connected to Port 7497 (IBKR Paper Trading)')
+                self._log_activity(f'  📡 Connected to {self.ibkr_host}:{self.ibkr_paper_port} (IBKR Paper Trading)')
                 self._log_activity("  🎭 Using IBKR's $1.1M simulated account")
             else:  # ibkr_live
                 self._log_activity('🔴 IBKR Live mode - Initializing...')
-                self._log_activity('  📡 Connected to Port 7496 (IBKR LIVE TRADING)')
-                self._log_activity(f'  💰 Using REAL MONEY from account: {self.ibkr_account}')
+                self._log_activity(f'  📡 Connected to {self.ibkr_host}:{self.ibkr_live_port} (IBKR LIVE TRADING)')
+                self._log_activity(f'  💰 Using REAL MONEY from account: {self._ibkr_account_display}')
                 self._log_activity('  🚨 REMINDER: Real money at risk!')
-
-            # Professional warmup: Pull 10 days of bars from IBKR for warmup
-            self._log_activity('🕐 Pulling 10-day historical warmup data from IBKR...')
-            self._log_activity(f'   📊 Fetching {", ".join(timeframes)} bars for {len(self.symbols)} stocks')
-            # Note: Historical bar fetching happens in session.start() for IBKRBroker
 
             self._log_activity('📡 Subscribing to REAL-TIME multi-timeframe bars...')
             self._log_activity(f'   ⏱️ Active timeframes: {", ".join(timeframes)}')
@@ -1578,7 +1656,7 @@ class SimpleGUI:
             # Note: Multi-timeframe subscription happens in session for each symbol
 
             self._log_activity('✅ Robot started successfully!')
-            self._log_activity('🧠 AI is now ready with pre-trained knowledge!')
+            self._log_activity('🧠 No historical warmup - AI learns as it trades (paper recommended first)')
             self._log_activity('📊 Watch for evaluation messages below as bars are processed...')
 
             self.status_var.set('🟢 TRADING')
@@ -1606,29 +1684,29 @@ class SimpleGUI:
                 self.session = None
 
     def _stop_robot(self) -> None:
-        if self.session:
-            self.session.stop()
-            self.session = None
+        if not self.session or self._stop_in_progress:
+            return
 
-        if hasattr(self, '_logged_trade_ids'):
-            self._logged_trade_ids.clear()
+        auto_liquidate = self.auto_liquidate_on_stop_var.get()
+        if auto_liquidate:
+            stop_controller = getattr(self.session, 'stop_controller', None)
+            if stop_controller is not None:
+                stop_controller.request_stop('user_manual_stop')
+                self._log_activity('🛑 STOP requested - cancelling orders and liquidating (auto-liquidate enabled)')
+            else:
+                self._log_activity('⚠️ Stop controller not available - stopping session without liquidation')
+        else:
+            self._log_activity('⏹️ STOP requested - stopping session (no liquidation)')
 
-        self._log_activity('⏹️ Robot stopped')
-        self.status_var.set('🔴 Stopped')
-
-        # Swap buttons and disable emergency stop
-        self.stop_btn.pack_forget()
-        self.start_btn.pack(side=tk.LEFT, padx=10)
-        self.emergency_stop_btn.config(state=tk.DISABLED)  # Disable emergency stop when not running
+        self.status_var.set('⏹️ Stopping...')
+        self._stop_session_async()
 
     def _emergency_stop(self) -> None:
         """Execute emergency stop with confirmation dialog."""
-        if not self.session:
+        if not self.session or self._stop_in_progress:
             return
 
         # Show confirmation dialog
-        from tkinter import messagebox
-
         response = messagebox.askyesno(
             'Emergency Stop',
             'This will immediately:\n'
@@ -1639,22 +1717,59 @@ class SimpleGUI:
             icon='warning',
         )
 
-        if response:
-            self._log_activity('🛑 EMERGENCY STOP initiated by user')
-            self.status_var.set('🛑 Emergency Stop - Closing positions...')
+        if not response:
+            return
 
-            # Trigger emergency stop via stop controller
-            if hasattr(self.session, 'stop_controller'):
-                self.session.stop_controller.request_stop('user_emergency_stop')
-                self._log_activity('⚠️ Cancelling orders and liquidating positions...')
+        self._log_activity('🛑 EMERGENCY STOP initiated by user')
+        self.status_var.set('🛑 Emergency Stop - Cancelling orders and closing positions...')
 
-                # The stop will be picked up on next bar processing
-                # For immediate effect, we'll also call stop() after a brief delay
-                self.root.after(2000, self._stop_robot)  # Give 2 seconds for graceful shutdown to start
-            else:
-                # Fallback: just stop normally
-                self._log_activity('⚠️ Stop controller not available, stopping normally')
-                self._stop_robot()
+        stop_controller = getattr(self.session, 'stop_controller', None)
+        if stop_controller is not None:
+            stop_controller.request_stop('user_emergency_stop')
+            self._log_activity('⚠️ Cancelling orders and liquidating positions...')
+        else:
+            self._log_activity('⚠️ Stop controller not available - stopping session without liquidation')
+
+        self._stop_session_async()
+
+    def _stop_session_async(self) -> None:
+        if not self.session or self._stop_in_progress:
+            return
+
+        session = self.session
+        self._stop_in_progress = True
+        self.stop_btn.config(state=tk.DISABLED)
+        self.emergency_stop_btn.config(state=tk.DISABLED)
+
+        def stop_worker() -> None:
+            error: Exception | None = None
+            try:
+                session.stop()
+            except Exception as exc:
+                error = exc
+            self.root.after(0, self._finish_stop, session, error)
+
+        threading.Thread(target=stop_worker, daemon=True, name='GUIStop').start()
+
+    def _finish_stop(self, session: Any, error: Exception | None) -> None:
+        if self.session is session:
+            self.session = None
+
+        if hasattr(self, '_logged_trade_ids'):
+            self._logged_trade_ids.clear()
+
+        if error is not None:
+            self._log_activity(f'⚠️ Error while stopping: {error}')
+
+        self._log_activity('⏹️ Robot stopped')
+        self.status_var.set('🔴 Stopped')
+
+        # Swap buttons and disable emergency stop
+        self.stop_btn.pack_forget()
+        self.stop_btn.config(state=tk.NORMAL)
+        self.start_btn.pack(side=tk.LEFT, padx=10)
+        self.emergency_stop_btn.config(state=tk.DISABLED)
+        self._stop_in_progress = False
 
     def _update_dashboard(self) -> None:
         if self.session:
@@ -1719,16 +1834,15 @@ class SimpleGUI:
                         self.min_balance_display_var.set(f'${min_balance:,.2f}')
 
                         # Visual warning system based on proximity to minimum
-                        margin = equity - min_balance
-                        margin_pct = (margin / equity * 100) if equity > 0 else 0
+                        cash = float(snapshot.get('cash', 0.0))
+                        margin = cash - min_balance
+                        margin_pct = (margin / cash * 100) if cash > 0 else 0
 
                         if margin < 0:
                             # CRITICAL: Below minimum (should never happen due to protection)
                             self.min_balance_card.config(bg='#ffebee')
                             self.min_balance_display_label.config(bg='#ffebee', fg='#c62828')
-                            self._log_activity(
-                                f'🚨 CRITICAL: Balance ${equity:.2f} is BELOW minimum ${min_balance:.2f}!'
-                            )
+                            self._log_activity(f'🚨 CRITICAL: Cash ${cash:.2f} is BELOW minimum ${min_balance:.2f}!')
                         elif margin_pct < 10:
                             # DANGER: Within 10% of minimum
                             self.min_balance_card.config(bg='#fff3e0')
