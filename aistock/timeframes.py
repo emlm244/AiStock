@@ -164,7 +164,7 @@ class TimeframeManager:
         # Update state for this timeframe
         self._update_timeframe_state(symbol, timeframe)
 
-    def get_bars(self, symbol: str, timeframe: str, lookback: int | None = None) -> list[Bar]:
+    def get_bars(self, symbol: str, timeframe: str = '1m', lookback: int | None = None) -> list[Bar]:
         """
         Get bars for a symbol and timeframe.
 
@@ -186,7 +186,17 @@ class TimeframeManager:
             if lookback is None:
                 return bars.copy()
 
+            if lookback <= 0:
+                return []
+
             return bars[-lookback:].copy() if bars else []
+
+    def get_latest_bar(self, symbol: str, timeframe: str = '1m') -> Bar | None:
+        """Get the most recent bar for a symbol/timeframe (thread-safe)."""
+        timeframe = timeframe.lower()
+        with self._lock:
+            bars = self.bars[symbol].get(timeframe, [])
+            return bars[-1] if bars else None
 
     def _update_timeframe_state(self, symbol: str, timeframe: str) -> None:
         """
@@ -234,13 +244,13 @@ class TimeframeManager:
         closes = [bar.close for bar in bars]
 
         # Fast MA (5 bars)
-        fast_ma = sum(closes[-5:]) / 5
+        fast_ma = sum(closes[-5:], Decimal('0')) / Decimal('5')
 
         # Slow MA (10 bars)
-        slow_ma = sum(closes[-10:]) / 10
+        slow_ma = sum(closes[-10:], Decimal('0')) / Decimal('10')
 
         # Trend determination
-        diff_pct = (fast_ma - slow_ma) / slow_ma if slow_ma > 0 else 0
+        diff_pct = float((fast_ma - slow_ma) / slow_ma) if slow_ma > 0 else 0.0
 
         if diff_pct > 0.01:  # 1% above
             return Trend.UP
@@ -280,16 +290,19 @@ class TimeframeManager:
             return 0.0
 
         closes = [bar.close for bar in bars]
-        returns = [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes)) if closes[i - 1] > 0]
+        returns = [
+            (closes[i] - closes[i - 1]) / closes[i - 1]
+            for i in range(1, len(closes))
+            if closes[i - 1] > Decimal('0')
+        ]
 
         if not returns:
             return 0.0
 
         # Standard deviation
-        mean_return = sum(returns) / len(returns)
-        variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
-        # P0-7 Fix: Use Decimal.sqrt() instead of ** 0.5 for Decimal compatibility
-        std_dev = variance.sqrt() if hasattr(variance, 'sqrt') else variance ** Decimal('0.5')
+        mean_return = sum(returns, Decimal('0')) / Decimal(len(returns))
+        variance = sum(((r - mean_return) ** 2 for r in returns), Decimal('0')) / Decimal(len(returns))
+        std_dev = variance.sqrt()
 
         # Normalize to 0-1 range (assume 5% std dev = high volatility)
         # P0-7 Fix: Return float for compatibility (volatility is used as multiplier)

@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any, Callable
 
 from ..config import BrokerConfig, ContractSpec
-from ..data import Bar  # For historical warmup
+from ..data import Bar  # For optional historical bars
 from ..execution import ExecutionReport, Order, OrderSide, OrderType
 from ..logging import configure_logger
 from .base import BaseBroker
@@ -106,6 +106,7 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         # Historical data buffers (per request)
         self._hist_buffers: dict[int, list[Bar]] = {}
         self._hist_ready: dict[int, threading.Event] = {}
+        self._hist_symbol: dict[int, str] = {}
 
     # --- Lifecycle -----------------------------------------------------
     def start(self) -> None:
@@ -434,30 +435,20 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
     # Historical data callbacks
     def historicalData(self, reqId: int, bar: Any) -> None:  # noqa: N802 - IBKR API callback name
         """Collect historical bar into buffer."""
-        try:
-            from datetime import datetime as _dt
-            from decimal import Decimal as _Dec
-        except Exception:
+        if reqId not in self._hist_buffers:
             return
-        # bar.date may be int (epoch) or string
-        ts = None
-        try:
-            ts = _dt.fromtimestamp(int(bar.date), tz=timezone.utc)
-        except Exception:
-            try:
-                ts = _dt.fromisoformat(bar.date.replace('Z', '+00:00'))
-            except Exception:
-                ts = _dt.now(timezone.utc)
+        ts = self._parse_historical_timestamp(getattr(bar, 'date', None))
+        symbol = self._hist_symbol.get(reqId, '') or self._get_symbol_from_req(reqId) or ''
         b = Bar(
-            symbol=self._get_symbol_from_req(reqId) or '',
+            symbol=symbol,
             timestamp=ts,
-            open=_Dec(str(bar.open)),
-            high=_Dec(str(bar.high)),
-            low=_Dec(str(bar.low)),
-            close=_Dec(str(bar.close)),
+            open=Decimal(str(bar.open)),
+            high=Decimal(str(bar.high)),
+            low=Decimal(str(bar.low)),
+            close=Decimal(str(bar.close)),
             volume=int(bar.volume),
         )
-        self._hist_buffers.setdefault(reqId, []).append(b)
+        self._hist_buffers[reqId].append(b)
 
     def historicalDataEnd(self, reqId: int, start: str, end: str) -> None:  # noqa: N802 - IBKR API callback name
         """Signal historical data completion."""
@@ -589,7 +580,9 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         # For simple setups, the request id encodes the order; for a production
         # system you would maintain a reqId->symbol mapping. Here we default to
         # a placeholder.
-        entry = self._market_handlers.get(req_id)
+        # Thread-safe access to market handlers
+        with self._market_lock:
+            entry = self._market_handlers.get(req_id)
         return entry[0] if entry else ''
 
     def _get_contract_spec(self, symbol: str) -> ContractSpec:
@@ -621,10 +614,10 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         with self._positions_lock:
             return dict(self._positions)
 
-    # --- Historical Data (Warmup) -------------------------------------
+    # --- Historical Data (Optional) -----------------------------------
     def fetch_historical_bars(self, symbol: str, duration: str = '2 D', bar_size: str = '1 min') -> list[Bar]:
         """
-        Fetch recent historical bars to warm up strategy state before live trading.
+        Fetch recent historical bars from IBKR (utility helper; not used by default).
 
         Args:
             symbol: Ticker symbol
@@ -639,6 +632,7 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         req_id = next(self._req_id_seq)
         self._hist_buffers[req_id] = []
         self._hist_ready[req_id] = threading.Event()
+        self._hist_symbol[req_id] = symbol
         what_to_show = 'TRADES'
         use_rth = 1  # Regular trading hours
         format_date = 2  # yyyymmdd{space}{hh:mm:dd}
@@ -652,5 +646,41 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         # Clean up
         self._hist_ready.pop(req_id, None)
         self._hist_buffers.pop(req_id, None)
+        self._hist_symbol.pop(req_id, None)
         # Sort by timestamp just in case
         return sorted(data, key=lambda b: b.timestamp)
+
+    @staticmethod
+    def _parse_historical_timestamp(raw: Any) -> datetime:
+        """Parse IBKR historical bar timestamps for `historicalData`."""
+        if isinstance(raw, (int, float)):
+            return datetime.fromtimestamp(float(raw), tz=timezone.utc)
+
+        if not isinstance(raw, str):
+            return datetime.now(timezone.utc)
+
+        text = raw.strip()
+        if not text:
+            return datetime.now(timezone.utc)
+
+        if text.isdigit():
+            # IBKR may send either epoch seconds or yyyymmdd for daily bars.
+            if len(text) > 8:
+                return datetime.fromtimestamp(int(text), tz=timezone.utc)
+            if len(text) == 8:
+                return datetime.strptime(text, '%Y%m%d').replace(tzinfo=timezone.utc)
+
+        for fmt in ('%Y%m%d %H:%M:%S', '%Y%m%d  %H:%M:%S', '%Y-%m-%d %H:%M:%S'):
+            try:
+                return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+
+        try:
+            parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
+        except ValueError:
+            return datetime.now(timezone.utc)
+
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)

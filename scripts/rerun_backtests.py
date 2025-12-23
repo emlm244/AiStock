@@ -26,7 +26,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +38,17 @@ logger = logging.getLogger(__name__)
 # Critical commit that fixed P&L calculation
 FIX_COMMIT = 'da36960'
 FIX_DATE = datetime(2025, 11, 2, 21, 36, 52, tzinfo=timezone.utc)
+
+
+class RerunPlanItem(TypedDict):
+    file: str
+    impact_score: float
+    total_return: float | None
+    num_trades: int | None
+    symbols: list[str]
+    start_date: str | None
+    end_date: str | None
+    params: dict[str, Any]
 
 
 def find_backtest_results(results_dir: Path) -> list[Path]:
@@ -153,7 +164,7 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
     logger.info(f'Found {len(results)} total results, {len(pre_fix_results)} pre-fix')
 
     # Build prioritized list
-    rerun_plan = []
+    rerun_plan: list[RerunPlanItem] = []
     for result_file in pre_fix_results:
         try:
             with open(result_file) as f:
@@ -162,15 +173,24 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
             impact = calculate_impact_score(data)
             params = extract_strategy_params(result_file)
 
+            total_return_obj = data.get('total_return')
+            total_return = float(total_return_obj) if isinstance(total_return_obj, (int, float)) else None
+            num_trades_obj = data.get('num_trades')
+            num_trades = int(num_trades_obj) if isinstance(num_trades_obj, int) else None
+            symbols_obj = params.get('symbols', [])
+            symbols = [str(symbol) for symbol in symbols_obj] if isinstance(symbols_obj, list) else []
+            start_date = str(params.get('start_date')) if params.get('start_date') is not None else None
+            end_date = str(params.get('end_date')) if params.get('end_date') is not None else None
+
             rerun_plan.append(
                 {
                     'file': str(result_file),
                     'impact_score': impact,
-                    'total_return': data.get('total_return'),
-                    'num_trades': data.get('num_trades'),
-                    'symbols': params.get('symbols'),
-                    'start_date': params.get('start_date'),
-                    'end_date': params.get('end_date'),
+                    'total_return': total_return,
+                    'num_trades': num_trades,
+                    'symbols': symbols,
+                    'start_date': start_date,
+                    'end_date': end_date,
                     'params': params,
                 }
             )

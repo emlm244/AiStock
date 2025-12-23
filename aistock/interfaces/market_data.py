@@ -18,7 +18,7 @@ class MarketDataProviderProtocol(Protocol):
         self,
         symbol: str,
         timeframe: str = '1m',
-        lookback: int = 100,
+        lookback: int | None = None,
     ) -> list[Bar]:
         """Get historical bars for a symbol."""
         ...

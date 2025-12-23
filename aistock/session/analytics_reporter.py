@@ -6,10 +6,18 @@ import logging
 from collections import deque
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from ..interfaces.portfolio import PortfolioProtocol
+
+
+class TradeLogEntry(TypedDict):
+    timestamp: datetime
+    symbol: str
+    quantity: float
+    price: float
+    realised_pnl: float
 
 
 class AnalyticsReporter:
@@ -27,7 +35,7 @@ class AnalyticsReporter:
         self.logger = logging.getLogger(__name__)
 
         # Track state
-        self.trade_log: list[dict] = []
+        self.trade_log: list[TradeLogEntry] = []
         self.equity_curve: deque[tuple[datetime, Decimal]] = deque(maxlen=10000)  # Bounded to prevent memory leak
         self.symbols: list[str] = []
 
@@ -80,7 +88,7 @@ class AnalyticsReporter:
 
             # Drawdown analysis
             if self.equity_curve:
-                export_drawdown_csv(self.equity_curve, f'{self.checkpoint_dir}/drawdown_analysis.csv')
+                export_drawdown_csv(list(self.equity_curve), f'{self.checkpoint_dir}/drawdown_analysis.csv')
                 self.logger.info('Exported drawdown_analysis.csv')
 
             # Capital sizing

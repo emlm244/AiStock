@@ -95,6 +95,9 @@ aistock/
 ## 🧪 Testing
 
 ```bash
+# Install dev/test tooling
+pip install -r requirements-dev.txt
+
 # Run tests
 pytest tests/
 

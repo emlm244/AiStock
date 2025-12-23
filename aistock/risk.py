@@ -137,18 +137,14 @@ class RiskEngine:
 
             # NEW: Check minimum balance protection
             if self.minimum_balance_enabled and self.minimum_balance > Decimal('0'):
-                # Calculate what the TOTAL EQUITY would be after this trade
-                # We need to check equity, not just cash, because positions have value too
-                trade_cost = abs(quantity_delta * price)
+                # Enforce a cash floor: prevent allocating the protected balance.
+                cash = self.portfolio.get_cash()
+                projected_cash = cash - (quantity_delta * price)
 
-                # For buy orders, cash decreases; for sell orders, equity stays same (converting position to cash)
-                projected_equity = equity - trade_cost if quantity_delta > 0 else equity
-
-                # Check if projected EQUITY would fall below minimum
-                if projected_equity < self.minimum_balance:
-                    margin = self.minimum_balance - projected_equity
+                if projected_cash < self.minimum_balance:
+                    margin = self.minimum_balance - projected_cash
                     raise RiskViolation(
-                        f'Minimum balance protection: Trade would bring equity to ${projected_equity:.2f}, '
+                        f'Minimum balance protection: Trade would bring cash to ${projected_cash:.2f}, '
                         f'below minimum of ${self.minimum_balance:.2f} (${margin:.2f} short). '
                         f'Trade BLOCKED for safety.'
                     )

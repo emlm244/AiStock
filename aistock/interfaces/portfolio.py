@@ -66,3 +66,7 @@ class PortfolioProtocol(Protocol):
     def get_commissions_paid(self) -> Decimal:
         """Return total commissions paid."""
         ...
+
+    def withdraw_cash(self, amount: Decimal, reason: str = 'manual') -> None:
+        """Withdraw cash from the portfolio."""
+        ...

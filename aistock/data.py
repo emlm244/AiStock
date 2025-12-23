@@ -11,8 +11,6 @@ from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pandas as pd
-
 if TYPE_CHECKING:
     from .config import DataQualityConfig, DataSource
 
@@ -55,6 +53,11 @@ def load_csv_file(file_path: Path, symbol: str, tz: timezone | None = None) -> l
     Returns:
         List of Bar objects
     """
+    try:
+        import pandas as pd
+    except ModuleNotFoundError as exc:  # pragma: no cover
+        raise RuntimeError('pandas is required to load CSV market data') from exc
+
     df = pd.read_csv(file_path, index_col=0, parse_dates=True)
 
     # Ensure timezone (prefer provided tz, default to UTC)
@@ -120,6 +123,11 @@ def load_csv_directory(
     Returns:
         Dictionary mapping symbol to list of Bars
     """
+    try:
+        import pandas as pd
+    except ModuleNotFoundError as exc:  # pragma: no cover
+        raise RuntimeError('pandas is required to load CSV market data') from exc
+
     # Use default quality config if not provided
     if data_quality_config is None:
         from .config import DataQualityConfig

@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from ..interfaces.broker import BrokerProtocol
     from ..interfaces.portfolio import PortfolioProtocol
     from ..interfaces.risk import RiskEngineProtocol
+
+
+class ReconciliationMismatch(TypedDict):
+    symbol: str
+    internal_qty: float
+    broker_qty: float
+    delta: float
+
+
+class ReconciliationCriticalMismatch(ReconciliationMismatch):
+    pct_diff: float
 
 
 class PositionReconciler:
@@ -34,7 +46,7 @@ class PositionReconciler:
         self.interval = timedelta(minutes=interval_minutes)
 
         self._last_reconciliation: datetime | None = None
-        self._alerts: list[dict] = []
+        self._alerts: deque[ReconciliationMismatch] = deque(maxlen=200)
 
         self.logger = logging.getLogger(__name__)
 
@@ -69,7 +81,7 @@ class PositionReconciler:
                 sym: (float(pos.quantity), float(pos.average_price)) for sym, pos in portfolio_positions.items()
             }
 
-            mismatches = []
+            mismatches: list[ReconciliationMismatch] = []
 
             # Check internal vs broker
             for symbol, (internal_qty, _) in internal_map.items():
@@ -98,13 +110,21 @@ class PositionReconciler:
 
             if mismatches:
                 # Check for critical mismatches (>=10%)
-                critical = []
+                critical: list[ReconciliationCriticalMismatch] = []
                 for m in mismatches:
                     broker_qty = m['broker_qty']
                     delta = abs(m['delta'])
                     pct_diff = (delta / abs(broker_qty)) * 100 if broker_qty != 0 else 100.0
                     if pct_diff >= 10.0:
-                        critical.append({**m, 'pct_diff': pct_diff})
+                        critical.append(
+                            {
+                                'symbol': m['symbol'],
+                                'internal_qty': m['internal_qty'],
+                                'broker_qty': m['broker_qty'],
+                                'delta': m['delta'],
+                                'pct_diff': pct_diff,
+                            }
+                        )
 
                 if critical:
                     # CRITICAL: Halt trading
@@ -124,6 +144,9 @@ class PositionReconciler:
         except Exception as exc:
             self.logger.error(f'Reconciliation failed: {exc}')
 
-    def get_alerts(self, limit: int = 10) -> list[dict]:
+    def get_alerts(self, limit: int = 10) -> list[ReconciliationMismatch]:
         """Get recent reconciliation alerts."""
-        return self._alerts[-limit:]
+        if limit <= 0:
+            return []
+        alerts = list(self._alerts)
+        return alerts[-limit:]

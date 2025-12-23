@@ -103,29 +103,3 @@ class BarProcessor:
         """
         with self._lock:
             self.last_prices[symbol] = price
-
-    def warmup_from_historical(
-        self,
-        symbol: str,
-        bars: list[Bar],
-        timeframe: str = '1m',
-    ) -> None:
-        """Warmup with historical bars."""
-        with self._lock:
-            # Only extend if history is empty to avoid duplication
-            if not self.history[symbol]:
-                self.history[symbol].extend(bars)
-            else:
-                # Merge without duplicates
-                existing_ts = {bar.timestamp for bar in self.history[symbol]}
-                new_bars = [bar for bar in bars if bar.timestamp not in existing_ts]
-                if new_bars:
-                    self.history[symbol].extend(new_bars)
-                    self.logger.info(f'Warmup merged: {len(new_bars)} bars for {symbol}')
-
-        # Feed to timeframe manager
-        if self.timeframe_manager:
-            for bar in bars:
-                self.timeframe_manager.add_bar(symbol, timeframe, bar)
-
-        self.logger.info(f'Historical warmup: {len(bars)} bars for {symbol} ({timeframe})')

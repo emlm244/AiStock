@@ -2,11 +2,11 @@
 Performance metrics calculation.
 """
 
+import math
+import statistics
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-
-import numpy as np
 
 
 def calculate_realized_pnl(
@@ -107,16 +107,15 @@ def sharpe_ratio(returns: list[float], risk_free_rate: float = 0.0, periods_per_
     if not returns or len(returns) < 2:
         return 0.0
 
-    returns_array = np.array(returns)
-    mean_return = np.mean(returns_array)
-    std_return = np.std(returns_array, ddof=1)
+    mean_return = statistics.mean(returns)
+    std_return = statistics.stdev(returns)
 
     if std_return == 0:
         return 0.0
 
     # Annualize
     annual_mean = mean_return * periods_per_year
-    annual_std = std_return * np.sqrt(periods_per_year)
+    annual_std = std_return * math.sqrt(periods_per_year)
 
     return (annual_mean - risk_free_rate) / annual_std
 
@@ -136,23 +135,24 @@ def sortino_ratio(returns: list[float], risk_free_rate: float = 0.0, periods_per
     if not returns or len(returns) < 2:
         return 0.0
 
-    returns_array = np.array(returns)
-    mean_return = np.mean(returns_array)
+    mean_return = statistics.mean(returns)
 
     # Calculate downside deviation (only negative returns)
-    negative_returns = returns_array[returns_array < 0]
+    negative_returns = [ret for ret in returns if ret < 0]
 
     if len(negative_returns) == 0:
         return float('inf')  # No downside
 
-    downside_std = np.std(negative_returns, ddof=1)
+    if len(negative_returns) < 2:
+        return 0.0
+    downside_std = statistics.stdev(negative_returns)
 
     if downside_std == 0:
         return 0.0
 
     # Annualize
     annual_mean = mean_return * periods_per_year
-    annual_downside_std = downside_std * np.sqrt(periods_per_year)
+    annual_downside_std = downside_std * math.sqrt(periods_per_year)
 
     return (annual_mean - risk_free_rate) / annual_downside_std
 
@@ -171,10 +171,17 @@ def compute_drawdown(equity_curve: list[tuple[datetime, Decimal]]) -> Decimal:
         return Decimal('0')
 
     equity_values = [float(eq[1]) for eq in equity_curve]
-    running_max = np.maximum.accumulate(equity_values)
-    drawdowns = (equity_values - running_max) / running_max
-
-    max_dd = abs(np.min(drawdowns))
+    peak = equity_values[0]
+    max_drawdown = 0.0
+    for equity in equity_values:
+        if equity > peak:
+            peak = equity
+        if peak <= 0:
+            continue
+        drawdown = (peak - equity) / peak
+        if drawdown > max_drawdown:
+            max_drawdown = drawdown
+    max_dd = max_drawdown
     return Decimal(str(max_dd))
 
 
@@ -209,8 +216,8 @@ def trade_performance(trade_pnls: list[Decimal]) -> TradePerformance:
     wins = [float(pnl) for pnl in trade_pnls if pnl > 0]
     losses = [float(pnl) for pnl in trade_pnls if pnl < 0]
 
-    average_win = float(np.mean(wins)) if wins else 0.0
-    average_loss = float(np.mean(losses)) if losses else 0.0
+    average_win = statistics.mean(wins) if wins else 0.0
+    average_loss = statistics.mean(losses) if losses else 0.0
 
     total_wins = sum(wins)
     total_losses = abs(sum(losses))

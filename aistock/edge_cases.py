@@ -213,8 +213,8 @@ class EdgeCaseHandler:
                 'This prevents silent 5-hour errors on non-UTC machines.'
             )
 
-        # If bar is naive but current_time is tz-aware, make bar tz-aware (assume UTC)
-        if last_bar.timestamp.tzinfo is None and current_time.tzinfo is not None:
+        # If bar is naive, make bar tz-aware (assume UTC)
+        if last_bar.timestamp.tzinfo is None:
             from datetime import timezone
 
             last_bar_timestamp = last_bar.timestamp.replace(tzinfo=timezone.utc)

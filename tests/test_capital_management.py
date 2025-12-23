@@ -324,6 +324,55 @@ class TestMinimumBalanceProtection(unittest.TestCase):
                 timestamp=datetime.now(timezone.utc),
             )
 
+    def test_minimum_balance_uses_cash_not_total_equity(self):
+        """
+        Minimum balance should enforce a cash floor even when equity is supported by positions.
+
+        Regression: using total equity allows additional buys that drain cash below the protected minimum.
+        """
+        portfolio = Portfolio(cash=Decimal('10000'))
+        limits = RiskLimits(
+            max_daily_loss_pct=0.1,
+            max_drawdown_pct=0.2,
+            max_position_fraction=1.0,  # allow large positions for this test
+            per_trade_risk_pct=1.0,  # disable per-trade notional cap for this test
+        )
+        risk = RiskEngine(
+            limits,
+            portfolio,
+            bar_interval=timedelta(minutes=1),
+            minimum_balance=Decimal('4000'),
+            minimum_balance_enabled=True,
+        )
+
+        timestamp = datetime(2025, 1, 1, 14, 30, tzinfo=timezone.utc)
+        last_prices = {'AAPL': Decimal('100')}
+
+        # First buy uses $6k, leaving exactly the $4k protected balance.
+        risk.check_pre_trade(
+            symbol='AAPL',
+            quantity_delta=Decimal('60'),
+            price=Decimal('100'),
+            equity=Decimal('10000'),
+            last_prices=last_prices,
+            timestamp=timestamp,
+        )
+        portfolio.apply_fill('AAPL', Decimal('60'), Decimal('100'), Decimal('0'), timestamp)
+
+        # Equity remains $10k, but cash is now $4k (the protected minimum).
+        equity = portfolio.total_equity(last_prices)
+
+        # A further buy would drain cash below the protected minimum and must be blocked.
+        with pytest.raises(RiskViolation, match='Minimum balance protection'):
+            risk.check_pre_trade(
+                symbol='AAPL',
+                quantity_delta=Decimal('20'),
+                price=Decimal('100'),
+                equity=equity,
+                last_prices=last_prices,
+                timestamp=timestamp + timedelta(minutes=1),
+            )
+
 
 class TestCompoundingStrategy(unittest.TestCase):
     """Test compounding strategy (no withdrawals)."""

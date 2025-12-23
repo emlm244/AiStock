@@ -162,7 +162,7 @@ class MarketScanner(BaseWrapper, BaseClient):  # pragma: no cover - requires IBK
         scanner.disconnect()
     """
 
-    def __init__(self, host: str = '127.0.0.1', port: int = 7497, client_id: int = 2):
+    def __init__(self, host: str, port: int, client_id: int):
         if not IBAPI_AVAILABLE:
             raise RuntimeError('ibapi is not installed. Install via: pip install ibapi')
 
@@ -374,9 +374,10 @@ class MarketScanner(BaseWrapper, BaseClient):  # pragma: no cover - requires IBK
 
 def scan_market(
     scanner_filter: ScannerFilter | None = None,
-    host: str = '127.0.0.1',
-    port: int = 7497,
-    client_id: int = 2,
+    *,
+    host: str,
+    port: int,
+    client_id: int,
     timeout: float = 30.0,
 ) -> list[ScannedStock]:
     """
@@ -394,12 +395,17 @@ def scan_market(
 
     Example:
         # Scan for liquid, mid-priced stocks
-        results = scan_market(ScannerFilter(
-            min_price=10.0,
-            max_price=500.0,
-            min_volume=500000,
-            max_results=50
-        ))
+        results = scan_market(
+            ScannerFilter(
+                min_price=10.0,
+                max_price=500.0,
+                min_volume=500000,
+                max_results=50,
+            ),
+            host='127.0.0.1',
+            port=7497,
+            client_id=2,
+        )
 
         symbols = [stock.symbol for stock in results]
         print(f"Found {len(symbols)} stocks: {symbols}")
@@ -437,6 +443,11 @@ def scan_for_fsd(
     max_price: float = 10000.0,
     min_volume: int = 100000,
     max_results: int = 100,
+    *,
+    host: str,
+    port: int,
+    client_id: int,
+    timeout: float = 30.0,
     **kwargs: Unpack[ScannerExtra],
 ) -> list[str]:
     """
@@ -459,7 +470,10 @@ def scan_for_fsd(
             min_price=5.0,
             max_price=500.0,
             min_volume=500000,
-            max_results=50
+            max_results=50,
+            host='127.0.0.1',
+            port=7497,
+            client_id=2,
         )
     """
     scanner_filter = ScannerFilter(
@@ -470,7 +484,7 @@ def scan_for_fsd(
         **kwargs,
     )
 
-    results = scan_market(scanner_filter)
+    results = scan_market(scanner_filter, host=host, port=port, client_id=client_id, timeout=timeout)
     return [stock.symbol for stock in results]
 
 

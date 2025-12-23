@@ -15,7 +15,7 @@ import time as time_module
 from dataclasses import dataclass
 from datetime import datetime, time, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, TypedDict
 from zoneinfo import ZoneInfo
 
 from .calendar import nyse_trading_hours
@@ -24,6 +24,17 @@ from .execution import Order, OrderSide, OrderType
 if TYPE_CHECKING:
     from .brokers.base import BaseBroker
     from .interfaces.portfolio import PortfolioProtocol
+
+
+class ShutdownStatus(TypedDict):
+    status: Literal['success', 'partial', 'failed']
+    fully_closed: list[str]
+    partially_closed: dict[str, float]
+    failed: list[str]
+    orders_cancelled: int
+    retry_attempts: int
+    total_wait_time: float
+    reason: str
 
 
 @dataclass
@@ -186,7 +197,7 @@ class StopController:
 
     def execute_graceful_shutdown(
         self, broker: BaseBroker, portfolio: PortfolioProtocol, last_prices: dict[str, Decimal]
-    ) -> dict[str, object]:
+    ) -> ShutdownStatus:
         """
         Execute graceful shutdown sequence with advanced fill monitoring and retry logic.
 
@@ -277,7 +288,7 @@ class StopController:
         else:
             status_str = 'failed'
 
-        status = {
+        status: ShutdownStatus = {
             'status': status_str,
             'fully_closed': fully_closed,
             'partially_closed': final_remaining,
@@ -344,25 +355,32 @@ class StopController:
         """
         start_time = time_module.time()
         initial_positions = {sym: pos.quantity for sym, pos in portfolio.snapshot_positions().items()}
-        closed_symbols = []
+        closed_symbols: list[str] = []
 
         while time_module.time() - start_time < timeout:
             current_positions = portfolio.snapshot_positions()
 
             # Check which positions have closed
             for symbol in list(initial_positions.keys()):
-                if symbol not in closed_symbols:
-                    current_qty = current_positions.get(symbol)
-                    if current_qty is None or abs(current_qty.quantity) < Decimal('0.01'):
-                        closed_symbols.append(symbol)
-                        self.logger.info(f'Position closed: {symbol}')
+                if symbol in closed_symbols:
+                    continue
+                current_pos = current_positions.get(symbol)
+                if current_pos is None or abs(current_pos.quantity) < Decimal('0.01'):
+                    closed_symbols.append(symbol)
+                    self.logger.info(f'Position closed: {symbol}')
 
             # Check if all initial positions are now closed
-            if all(
-                sym in closed_symbols
-                or abs(current_positions.get(sym, type('obj', (), {'quantity': 0})()).quantity) < Decimal('0.01')
-                for sym in initial_positions
-            ):
+            all_closed = True
+            for sym in initial_positions:
+                if sym in closed_symbols:
+                    continue
+                pos = current_positions.get(sym)
+                qty = pos.quantity if pos is not None else Decimal('0')
+                if abs(qty) >= Decimal('0.01'):
+                    all_closed = False
+                    break
+
+            if all_closed:
                 self.logger.info(f'All positions closed after {time_module.time() - start_time:.1f}s')
                 return closed_symbols
 

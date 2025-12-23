@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AIStock Robot v2.0 is a Full Self-Driving (FSD) AI trading system powered by Q-Learning Reinforcement Learning. It autonomously makes trading decisions, learns from every trade, and manages risk without manual intervention.
 
-**Tech Stack**: Python 3.9+, NumPy/Pandas, IBAPI (Interactive Brokers), Tkinter GUI, Pytest, Ruff, BasedPyright (strict type checking)
+**Tech Stack**: Python 3.10+, NumPy/Pandas, IBAPI (Interactive Brokers), Tkinter GUI, Pytest, Ruff, BasedPyright (strict type checking)
 
 ## Core Architecture
 
@@ -154,7 +154,7 @@ models/                    # Runtime: Q-tables (gitignored)
 GitHub Actions runs on every push:
 - Ruff linting
 - BasedPyright type checking
-- Pytest on Python 3.9/3.10/3.11
+- Pytest on Python 3.10/3.11/3.12
 
 All checks must pass before merge.
 

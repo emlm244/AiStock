@@ -20,6 +20,7 @@ import pytest
 
 from aistock.data import Bar
 from aistock.engine import TradingEngine
+from aistock.runtime_settings import load_runtime_settings
 from aistock.session.reconciliation import PositionReconciler
 from aistock.timeframes import TimeframeManager
 
@@ -308,6 +309,66 @@ class TestNaiveTimestampCoercionRegression:
 
         # Verify last reconciliation was recorded
         assert reconciler._last_reconciliation is not None
+
+
+class TestReconcilerAlertBufferRegression:
+    """Ensure reconciliation alerts remain bounded (prevents memory leaks)."""
+
+    def test_alert_buffer_is_capped(self):
+        broker = Mock()
+        broker.get_positions = Mock(return_value={'AAPL': (10.0, 150.0)})
+
+        portfolio = Mock()
+        portfolio.snapshot_positions = Mock(return_value={})
+
+        risk_engine = Mock()
+        risk_engine.halt = Mock()
+
+        reconciler = PositionReconciler(
+            portfolio=portfolio,
+            broker=broker,
+            risk_engine=risk_engine,
+            interval_minutes=1,
+        )
+
+        start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        for minutes in range(250):
+            reconciler.reconcile(start + timedelta(minutes=minutes + 1))
+
+        # Underlying deque capped at 200 entries
+        assert len(reconciler._alerts) == 200
+        # Public accessor returns the newest entries only
+        latest = reconciler.get_alerts(10)
+        assert len(latest) == 10
+        assert latest[-1]['symbol'] == 'AAPL'
+
+
+class TestRuntimeEnvRegression:
+    """Regression tests for runtime settings/environment parsing."""
+
+    def test_load_runtime_settings_consumes_overrides(self):
+        env = {
+            'IBKR_TWS_HOST': '10.0.0.5',
+            'IBKR_PAPER_PORT': '4002',
+            'IBKR_LIVE_PORT': '4001',
+            'IBKR_ACCOUNT_ID': 'DU1234567',
+            'IBKR_CLIENT_ID': '1234',
+            'TIMEZONE': 'UTC',
+            'LOG_LEVEL': 'debug',
+        }
+        settings = load_runtime_settings(env)
+        assert settings.ibkr.host == '10.0.0.5'
+        assert settings.ibkr.paper_port == 4002
+        assert settings.ibkr.live_port == 4001
+        assert settings.ibkr.account_id == 'DU1234567'
+        assert settings.ibkr.client_id == 1234
+        assert settings.log_level == 'DEBUG'
+        assert settings.timezone.key == 'UTC'
+
+    def test_missing_credentials_raise(self):
+        settings = load_runtime_settings({})
+        with pytest.raises(ValueError, match='IBKR_ACCOUNT_ID'):
+            settings.ibkr.require_credentials()
 
 
 if __name__ == '__main__':

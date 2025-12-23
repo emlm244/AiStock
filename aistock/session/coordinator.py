@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 import threading
-from datetime import datetime, timezone
+from contextlib import suppress
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -25,6 +27,55 @@ if TYPE_CHECKING:
     from .bar_processor import BarProcessor
     from .checkpointer import CheckpointManager
     from .reconciliation import PositionReconciler
+
+
+@dataclass
+class _AggregatedOHLCV:
+    timestamp: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+
+class _BarAggregator:
+    def __init__(self, bucket_seconds: int) -> None:
+        self._bucket_seconds = max(1, bucket_seconds)
+        self._current: _AggregatedOHLCV | None = None
+
+    def update(
+        self,
+        timestamp: datetime,
+        open_: float,
+        high: float,
+        low: float,
+        close: float,
+        volume: float,
+    ) -> _AggregatedOHLCV | None:
+        bucket_start = _floor_timestamp(timestamp, self._bucket_seconds)
+        if self._current is None:
+            self._current = _AggregatedOHLCV(bucket_start, open_, high, low, close, volume)
+            return None
+
+        if bucket_start != self._current.timestamp:
+            completed = self._current
+            self._current = _AggregatedOHLCV(bucket_start, open_, high, low, close, volume)
+            return completed
+
+        self._current.high = max(self._current.high, high)
+        self._current.low = min(self._current.low, low)
+        self._current.close = close
+        self._current.volume += volume
+        return None
+
+
+def _floor_timestamp(timestamp: datetime, bucket_seconds: int) -> datetime:
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    epoch_seconds = int(timestamp.timestamp())
+    bucket_epoch = epoch_seconds - (epoch_seconds % bucket_seconds)
+    return datetime.fromtimestamp(bucket_epoch, tz=timezone.utc)
 
 
 class TradingCoordinator:
@@ -82,9 +133,17 @@ class TradingCoordinator:
 
         # State
         self._running = False
+        self._stop_lock = threading.Lock()
         self._last_equity = Decimal(str(config.engine.initial_equity))
         self._last_withdrawal_check: datetime | None = None
-        self._last_trading_date: datetime | None = None  # Track date for EOD reset
+        self._last_trading_date: date | None = None  # Track date for EOD reset
+
+        # Market-data subscriptions (IBKR) + aggregation from 5s real-time bars.
+        self._market_subscriptions: dict[str, int] = {}
+        self._aggregators: dict[str, dict[str, _BarAggregator]] = {}
+        self._stop_thread_started = False
+        self._decision_timeframe = self._infer_decision_timeframe()
+        self._timeframes = self._infer_timeframes()
 
         # Setup analytics
         analytics.set_symbols(symbols)
@@ -99,6 +158,7 @@ class TradingCoordinator:
         self.broker.set_fill_handler(self._handle_fill)
         self.broker.start()
         self._running = True
+        self._stop_thread_started = False
 
         # Start decision engine
         session_stats = self.decision_engine.start_session()
@@ -112,10 +172,17 @@ class TradingCoordinator:
         except Exception as exc:
             self.logger.warning(f'Could not load state: {exc}')
 
+        # Live market-data hookup (IBKR): subscribe to 5s bars and aggregate to configured timeframes.
+        self._start_market_data()
+
     def stop(self) -> None:
         """Stop the trading session."""
-        if not self._running:
-            return
+        with self._stop_lock:
+            if not self._running:
+                return
+            self._running = False
+
+        self._stop_market_data()
 
         # Execute graceful shutdown if stop was requested (cancel orders, close positions)
         if self.stop_controller.is_stop_requested():
@@ -151,43 +218,53 @@ class TradingCoordinator:
 
         self._running = False
 
-    def process_bar(self, bar: Bar) -> None:
+    def process_bar(self, bar: Bar, timeframe: str = '1m') -> None:
         """Process a bar through the pipeline."""
+        if not self._running:
+            return
+
         # Check for manual stop request
         if self.stop_controller.is_stop_requested():
             reason = self.stop_controller.get_stop_reason()
             self.logger.warning(f'Stop requested: {reason}')
-            # Initiate graceful shutdown (stop() will handle the full sequence)
+            self._trigger_stop_async()
             return
+
+        # Only the decision timeframe drives the main bar history + decision loop.
+        is_decision_timeframe = timeframe == self._decision_timeframe
 
         # Check if new trading day - reset EOD flatten flag
-        current_date = bar.timestamp.date()
-        if self._last_trading_date is None or current_date != self._last_trading_date:
-            if self._last_trading_date is not None:
-                # New day detected, reset EOD flatten
-                self.stop_controller.reset_eod_flatten()
-                self.logger.info(f'New trading day detected: {current_date}, reset EOD flatten')
-            self._last_trading_date = current_date
+        if is_decision_timeframe:
+            current_date = bar.timestamp.date()
+            if self._last_trading_date is None or current_date != self._last_trading_date:
+                if self._last_trading_date is not None:
+                    # New day detected, reset EOD flatten
+                    self.stop_controller.reset_eod_flatten()
+                    self.logger.info(f'New trading day detected: {current_date}, reset EOD flatten')
+                self._last_trading_date = current_date
 
         # Check for end-of-day flatten
-        if self.stop_controller.check_eod_flatten(bar.timestamp):
+        if is_decision_timeframe and self.stop_controller.check_eod_flatten(bar.timestamp):
             self.logger.warning('End-of-day flatten triggered - stopping trading')
             self.stop_controller.request_stop('end_of_day_flatten')
+            self._trigger_stop_async()
             return
 
-        # Process bar
-        self.bar_processor.process_bar(
-            bar.timestamp,
-            bar.symbol,
-            float(bar.open),
-            float(bar.high),
-            float(bar.low),
-            float(bar.close),
-            bar.volume,
-        )
-
-        # Evaluate signal
-        self._evaluate_signal(bar.timestamp, bar.symbol)
+        if is_decision_timeframe:
+            processed = self.bar_processor.process_bar(
+                bar.timestamp,
+                bar.symbol,
+                float(bar.open),
+                float(bar.high),
+                float(bar.low),
+                float(bar.close),
+                bar.volume,
+                timeframe=timeframe,
+            )
+            self._evaluate_signal(bar.timestamp, bar.symbol)
+            self._maybe_process_paper_fills(processed)
+        else:
+            self._forward_timeframe_bar(bar, timeframe)
 
     def _evaluate_signal(self, timestamp: datetime, symbol: str) -> None:
         """Evaluate trading signal."""
@@ -222,6 +299,23 @@ class TradingCoordinator:
 
         # Execute trade
         self._execute_trade(symbol, decision, history, last_prices, timestamp)
+
+    def _forward_timeframe_bar(self, bar: Bar, timeframe: str) -> None:
+        """Forward non-decision timeframe bars to the timeframe manager (if enabled)."""
+        timeframe_manager = self.bar_processor.timeframe_manager
+        if timeframe_manager is None:
+            return
+        timeframe_manager.add_bar(bar.symbol, timeframe, bar)
+
+    def _maybe_process_paper_fills(self, bar: Bar) -> None:
+        """Simulate fills for the paper broker (if present) using the current bar."""
+        process_fn = getattr(self.broker, 'process_bar', None)
+        if not callable(process_fn):
+            return
+        try:
+            process_fn(bar, bar.timestamp)
+        except Exception as exc:
+            self.logger.error(f'Paper broker bar processing failed: {exc}')
 
     def _execute_trade(
         self,
@@ -371,6 +465,132 @@ class TradingCoordinator:
 
         self.logger.info(f'Fill: {report.symbol} {float(signed_qty)} @ {float(report.price)}')
 
+    def _infer_decision_timeframe(self) -> str:
+        """Infer the main decision timeframe from `config.data.bar_interval`."""
+        try:
+            from ..timeframes import SECONDS_TO_TIMEFRAME
+        except Exception:
+            return '1m'
+
+        seconds = int(getattr(self.config.data.bar_interval, 'total_seconds', lambda: 60)())
+        return SECONDS_TO_TIMEFRAME.get(seconds, '1m')
+
+    def _infer_timeframes(self) -> list[str]:
+        """Infer configured timeframes from the optional timeframe manager."""
+        tfm = getattr(self.bar_processor, 'timeframe_manager', None)
+        timeframes = list(getattr(tfm, 'timeframes', []) or [])
+        if self._decision_timeframe not in timeframes:
+            timeframes.insert(0, self._decision_timeframe)
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for tf in timeframes:
+            tf_norm = str(tf).lower().strip()
+            if not tf_norm or tf_norm in seen:
+                continue
+            seen.add(tf_norm)
+            deduped.append(tf_norm)
+        return deduped or [self._decision_timeframe]
+
+    def _start_market_data(self) -> None:
+        """Subscribe to live market data (IBKR) and aggregate 5s bars into configured timeframes."""
+        broker_config = getattr(self.config, 'broker', None)
+        backend = getattr(broker_config, 'backend', '').lower() if broker_config else ''
+        if backend != 'ibkr':
+            return
+
+        subscribe_fn = getattr(self.broker, 'subscribe_realtime_bars', None)
+        if not callable(subscribe_fn):
+            return
+
+        try:
+            from ..timeframes import TIMEFRAME_TO_SECONDS
+        except Exception:
+            return
+
+        # Prepare per-symbol aggregators.
+        for symbol in self.symbols:
+            self._aggregators[symbol] = {}
+            for timeframe in self._timeframes:
+                seconds = TIMEFRAME_TO_SECONDS.get(timeframe)
+                if not seconds:
+                    continue
+                self._aggregators[symbol][timeframe] = _BarAggregator(seconds)
+
+        for symbol in self.symbols:
+            if symbol in self._market_subscriptions:
+                continue
+            try:
+                req_id_obj = subscribe_fn(symbol, self._on_realtime_bar, bar_size=5)
+            except NotImplementedError:
+                self.logger.info('Broker does not support real-time bars')
+                return
+            except Exception as exc:
+                self.logger.warning(f'Real-time subscription failed for {symbol}: {exc}')
+                continue
+            if not isinstance(req_id_obj, int):
+                self.logger.warning(f'Real-time subscription returned non-int req_id for {symbol}: {req_id_obj!r}')
+                continue
+            req_id = req_id_obj
+            self._market_subscriptions[symbol] = req_id
+            self.logger.info(f'Subscribed to real-time bars: {symbol} (req_id={req_id})')
+
+    def _stop_market_data(self) -> None:
+        unsubscribe_fn = getattr(self.broker, 'unsubscribe', None)
+        if callable(unsubscribe_fn):
+            for req_id in list(self._market_subscriptions.values()):
+                try:
+                    unsubscribe_fn(req_id)
+                except Exception:
+                    continue
+        self._market_subscriptions.clear()
+        self._aggregators.clear()
+
+    def _trigger_stop_async(self) -> None:
+        """Run stop() on a dedicated thread to avoid joining the broker callback thread."""
+        if self._stop_thread_started:
+            return
+        self._stop_thread_started = True
+        threading.Thread(target=self.stop, daemon=True, name='TradingCoordinatorStop').start()
+
+    def _on_realtime_bar(
+        self,
+        timestamp: datetime,
+        symbol: str,
+        open_: float,
+        high: float,
+        low: float,
+        close: float,
+        volume: float,
+    ) -> None:
+        # Keep last prices fresh even between decision bars.
+        with suppress(Exception):
+            self.bar_processor.update_price(symbol, Decimal(str(close)))
+
+        symbol_aggregators = self._aggregators.get(symbol)
+        if not symbol_aggregators:
+            return
+
+        for timeframe, aggregator in symbol_aggregators.items():
+            completed = aggregator.update(timestamp, open_, high, low, close, volume)
+            if completed is None:
+                continue
+
+            bar = Bar(
+                symbol=symbol,
+                timestamp=completed.timestamp,
+                open=Decimal(str(completed.open)),
+                high=Decimal(str(completed.high)),
+                low=Decimal(str(completed.low)),
+                close=Decimal(str(completed.close)),
+                volume=int(completed.volume),
+            )
+
+            if timeframe == self._decision_timeframe:
+                self.process_bar(bar, timeframe=timeframe)
+            else:
+                self._forward_timeframe_bar(bar, timeframe)
+
     def _should_check_withdrawal(self, current_time: datetime) -> bool:
         """Check if we should perform a capital withdrawal check.
 
@@ -405,6 +625,14 @@ class TradingCoordinator:
         """Get current session state."""
         last_prices = self.bar_processor.get_all_prices()
 
+        trade_log = self.portfolio.get_trade_log_snapshot(limit=1000)
+        trades = [entry for entry in trade_log if entry.get('type') == 'TRADE']
+
+        fsd_total_trades = getattr(self.decision_engine, 'session_trades', len(trades))
+        fsd_payload = {
+            'total_trades': int(fsd_total_trades) if isinstance(fsd_total_trades, (int, float)) else len(trades)
+        }
+
         positions = []
         for symbol, pos in self.portfolio.snapshot_positions().items():
             positions.append(
@@ -422,4 +650,6 @@ class TradingCoordinator:
             'cash': float(self.portfolio.get_cash()),
             'prices': {s: float(p) for s, p in last_prices.items()},
             'reconciliation_alerts': self.reconciler.get_alerts(),
+            'trades': trades,
+            'fsd': fsd_payload,
         }

@@ -12,9 +12,10 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-from .portfolio import Portfolio
+if TYPE_CHECKING:
+    from .interfaces.portfolio import PortfolioProtocol
 
 
 class WithdrawalStats(TypedDict):
@@ -61,7 +62,7 @@ class ProfitWithdrawalStrategy:
         self.last_withdrawal: datetime | None = None
         self.total_withdrawn = Decimal('0')
 
-    def check_and_withdraw(self, portfolio: Portfolio, last_prices: dict[str, Decimal]) -> Decimal:
+    def check_and_withdraw(self, portfolio: PortfolioProtocol, last_prices: dict[str, Decimal]) -> Decimal:
         """
         Check if profits should be withdrawn and execute withdrawal.
 
@@ -172,7 +173,7 @@ class CompoundingStrategy:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def check_and_withdraw(self, portfolio: Portfolio, last_prices: dict[str, Decimal]) -> Decimal:
+    def check_and_withdraw(self, portfolio: PortfolioProtocol, last_prices: dict[str, Decimal]) -> Decimal:
         """No-op for compounding strategy."""
         return Decimal('0')
 

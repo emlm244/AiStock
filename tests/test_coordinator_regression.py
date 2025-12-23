@@ -16,8 +16,10 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock, Mock, patch
 
+from aistock.data import Bar
 from aistock.execution import ExecutionReport, Order, OrderSide, OrderType
 from aistock.session.checkpointer import CheckpointManager
+from aistock.session.coordinator import TradingCoordinator
 
 
 class CheckpointShutdownRegressionTests(unittest.TestCase):
@@ -166,26 +168,63 @@ class BrokerFailureRegressionTests(unittest.TestCase):
 
     def test_coordinator_broker_failure_preserves_rate_limits(self):
         """Integration test: broker failure doesn't exhaust rate limits."""
-        # This test would require a full coordinator setup
-        # For now, we document the expected behavior:
-        #
-        # Given:
-        #   - Order rate limit: 10 per minute
-        #   - Broker is down (all submit() calls fail)
-        #
-        # When:
-        #   - System attempts 20 orders in 1 minute
-        #
-        # Then:
-        #   - Rate limit counter stays at 0 (no successful submits)
-        #   - When broker comes back, all 10 allowed orders can be sent
-        #
-        # OLD BUG: Counter would hit 10 even though no orders sent
-        # NEW FIX: Counter only increments on successful broker.submit()
+        coordinator = TradingCoordinator.__new__(TradingCoordinator)
+        coordinator.logger = Mock()
+        coordinator.config = Mock()
 
-        # This is a placeholder for a full integration test
-        # Recommendation: Add this to integration test suite
-        pass
+        coordinator.idempotency = MagicMock()
+        coordinator.idempotency.generate_client_order_id.return_value = 'CID-123'
+        coordinator.idempotency.is_duplicate.return_value = False
+        coordinator.idempotency.mark_submitted = Mock()
+
+        coordinator.portfolio = Mock()
+        coordinator.portfolio.total_equity.return_value = Decimal('100000')
+        mock_position = MagicMock()
+        mock_position.quantity = Decimal('0')
+        coordinator.portfolio.position.return_value = mock_position
+
+        coordinator.risk = Mock()
+        coordinator.risk.check_pre_trade.return_value = None
+        coordinator.risk.record_order_submission = Mock()
+
+        coordinator.decision_engine = Mock()
+        coordinator.decision_engine.register_trade_intent = Mock()
+
+        coordinator.broker = Mock()
+        coordinator.broker.submit.side_effect = RuntimeError('broker down')
+
+        coordinator._submission_lock = threading.Lock()
+        coordinator._order_submission_times = {}
+
+        # Attributes unused by _execute_trade but expected elsewhere
+        coordinator.analytics = Mock()
+        coordinator.checkpointer = Mock()
+        coordinator.capital_manager = Mock()
+        coordinator.stop_controller = Mock()
+        coordinator.reconciler = Mock()
+        coordinator.bar_processor = Mock()
+
+        history = [
+            Bar(
+                symbol='AAPL',
+                timestamp=datetime.now(timezone.utc),
+                open=Decimal('100'),
+                high=Decimal('101'),
+                low=Decimal('99'),
+                close=Decimal('100'),
+                volume=1_000,
+            )
+        ]
+        last_prices = {'AAPL': Decimal('100')}
+        decision = {'action': {'size_fraction': 0.1, 'signal': 1}}
+        timestamp = datetime.now(timezone.utc)
+
+        coordinator._execute_trade('AAPL', decision, history, last_prices, timestamp)
+
+        # Risk counters and idempotency tracker must remain untouched
+        coordinator.risk.record_order_submission.assert_not_called()
+        coordinator.idempotency.mark_submitted.assert_not_called()
+        self.assertEqual(coordinator._order_submission_times, {})
 
 
 class TimeBoxedIdempotencyRegressionTests(unittest.TestCase):
