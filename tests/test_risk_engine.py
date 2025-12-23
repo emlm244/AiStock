@@ -239,6 +239,32 @@ class RiskEngineTests(unittest.TestCase):
         self.assertTrue(risk.is_halted(), 'Loss exceeding limit should trigger halt')
         self.assertIn('Daily loss', risk.halt_reason())
 
+    def test_withdrawal_adjusts_daily_baseline(self):
+        """Withdrawals should not trigger daily loss halts."""
+        portfolio = Portfolio(cash=Decimal('100000'))
+        limits = RiskLimits(max_daily_loss_pct=0.02, max_drawdown_pct=0.5)
+        risk = RiskEngine(limits, portfolio, bar_interval=timedelta(minutes=1))
+        timestamp = datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc)
+        last_prices = {'AAPL': Decimal('100')}
+
+        risk._ensure_reset(timestamp, Decimal('100000'))
+        risk.adjust_for_withdrawal(Decimal('10000'))
+
+        self.assertEqual(risk.daily_start_equity, Decimal('90000'))
+        self.assertEqual(risk.peak_equity, Decimal('90000'))
+
+        try:
+            risk.check_pre_trade(
+                'AAPL',
+                Decimal('1'),
+                Decimal('100'),
+                Decimal('90000'),
+                last_prices,
+                timestamp=timestamp + timedelta(minutes=1),
+            )
+        except RiskViolation as exc:  # pragma: no cover - explicit failure path
+            self.fail(f'Withdrawal should not trigger daily loss halt: {exc}')
+
 
 if __name__ == '__main__':
     unittest.main()

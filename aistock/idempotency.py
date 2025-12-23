@@ -52,11 +52,24 @@ class OrderIdempotencyTracker:
         # Acquire lock BEFORE file I/O to prevent race conditions
         with self._lock:
             path = Path(self.storage_path)
-            if not path.exists():
+            backup_path = path.with_suffix('.backup')
+            if not path.exists() and not backup_path.exists():
                 return
 
-            with path.open('r') as handle:
-                data: Any = json.load(handle)
+            def _load_json(target: Path) -> Any | None:
+                try:
+                    with target.open('r', encoding='utf-8') as handle:
+                        return json.load(handle)
+                except (OSError, json.JSONDecodeError):
+                    return None
+
+            data: Any | None = _load_json(path)
+            if data is None and backup_path.exists():
+                data = _load_json(backup_path)
+
+            if not isinstance(data, dict):
+                self._submitted_ids.clear()
+                return
 
             submitted_payload: Any = data.get('submitted_ids', [])
             self._submitted_ids.clear()
@@ -85,8 +98,19 @@ class OrderIdempotencyTracker:
             'submitted_ids': serialisable,
             'last_updated': datetime.now(timezone.utc).isoformat(),
         }
-        with path.open('w') as handle:
-            json.dump(payload, handle, indent=2)
+        temp_path = path.with_suffix('.tmp')
+        backup_path = path.with_suffix('.backup')
+        try:
+            with temp_path.open('w', encoding='utf-8') as handle:
+                json.dump(payload, handle, indent=2)
+
+            if path.exists():
+                path.replace(backup_path)
+
+            temp_path.replace(path)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
 
     # ------------------------------------------------------------------
     @staticmethod

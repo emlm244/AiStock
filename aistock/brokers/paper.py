@@ -100,19 +100,26 @@ class PaperBroker(BaseBroker):
         Returns:
             Fill quantity based on partial_fill_probability config.
         """
-        if self._config.partial_fill_probability <= 0 or order.remaining_quantity is None:
+        remaining = order.remaining_quantity or order.quantity
+        if self._config.partial_fill_probability <= 0:
             # Full fill
-            return order.remaining_quantity or order.quantity
+            return remaining
 
         # Partial fill: random dice roll
         if self._rng.random() < self._config.partial_fill_probability:
-            # Fill 20-80% of remaining (random)
-            fill_fraction = Decimal(str(self._rng.uniform(0.2, 0.8)))
-            fill_qty = order.remaining_quantity * fill_fraction
-            return max(Decimal('0.01'), fill_qty)  # At least 0.01 units
+            # Fill a configurable fraction of remaining size (bounded).
+            min_fraction = max(Decimal('0'), Decimal(str(self._config.min_fill_fraction)))
+            max_fraction = Decimal('0.8')
+            if min_fraction > max_fraction:
+                max_fraction = min_fraction
+            fill_fraction = Decimal(str(self._rng.uniform(float(min_fraction), float(max_fraction))))
+            fill_qty = remaining * fill_fraction
+            if fill_qty <= 0:
+                fill_qty = remaining
+            return min(fill_qty, remaining)
 
         # Full fill of remaining
-        return order.remaining_quantity
+        return remaining
 
     def _determine_fill_price(self, order: Order, bar: Bar) -> Decimal | None:
         if order.symbol != bar.symbol:

@@ -50,6 +50,10 @@ class RiskEngineProtocol(Protocol):
         """Record order submission for rate limiting."""
         ...
 
+    def adjust_for_withdrawal(self, amount: Decimal) -> None:
+        """Adjust risk baselines after cash withdrawals."""
+        ...
+
     def is_halted(self) -> bool:
         """Check if trading is halted."""
         ...

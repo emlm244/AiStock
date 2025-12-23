@@ -610,6 +610,9 @@ class TradingCoordinator:
             withdrawn = self.capital_manager.check_and_withdraw(self.portfolio, last_prices)
 
             if withdrawn > 0:
+                adjust_fn = getattr(self.risk, 'adjust_for_withdrawal', None)
+                if callable(adjust_fn):
+                    adjust_fn(withdrawn)
                 self.logger.info(f'Withdrew ${float(withdrawn):.2f} in profits')
                 # Record in analytics
                 equity = self.portfolio.total_equity(last_prices)

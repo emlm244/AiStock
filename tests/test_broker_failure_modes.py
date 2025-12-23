@@ -73,3 +73,31 @@ def test_order_apply_fill_rejects_overfill():
         assert 'exceeds remaining' in str(exc)
     else:
         raise AssertionError('Expected ValueError when over-filling an order')
+
+
+def test_partial_fill_handles_small_orders():
+    """Partial fills should not overfill small-quantity orders."""
+    broker = PaperBroker(ExecutionConfig(partial_fill_probability=1.0, min_fill_fraction=0.5))
+
+    order = Order(
+        client_order_id='SMALL-001',
+        symbol='AAPL',
+        side=OrderSide.BUY,
+        quantity=Decimal('0.005'),
+    )
+    broker.submit(order)
+
+    bar = Bar(
+        symbol='AAPL',
+        timestamp=datetime.now(timezone.utc),
+        open=Decimal('100'),
+        high=Decimal('101'),
+        low=Decimal('99'),
+        close=Decimal('100'),
+        volume=10_000,
+    )
+    broker.process_bar(bar, bar.timestamp)
+
+    assert order.filled_quantity <= order.quantity
+    assert order.remaining_quantity is not None
+    assert order.remaining_quantity >= Decimal('0')
