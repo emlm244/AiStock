@@ -168,7 +168,10 @@ class RiskEngine:
                 self._check_rate_limits(timestamp)
 
             # Check daily loss limit
-            daily_loss = (self.daily_start_equity - equity) / self.daily_start_equity
+            if self.daily_start_equity > 0:
+                daily_loss = (self.daily_start_equity - equity) / self.daily_start_equity
+            else:
+                daily_loss = Decimal('0')
             if daily_loss >= self.config.max_daily_loss_pct:
                 self.halt('Daily loss limit exceeded')
                 raise RiskViolation(f'Daily loss limit exceeded: {daily_loss:.2%}')
@@ -178,7 +181,7 @@ class RiskEngine:
                 self.peak_equity = equity
                 self.state.peak_equity = equity
 
-            drawdown = (self.peak_equity - equity) / self.peak_equity
+            drawdown = (self.peak_equity - equity) / self.peak_equity if self.peak_equity > 0 else Decimal('0')
             if drawdown >= self.config.max_drawdown_pct:
                 self.halt('Maximum drawdown exceeded')
                 raise RiskViolation(f'Maximum drawdown exceeded: {drawdown:.2%}')

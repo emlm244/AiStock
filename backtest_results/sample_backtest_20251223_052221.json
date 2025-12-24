@@ -1,0 +1,39 @@
+{
+  "timestamp": "2025-12-23T10:22:21.965623+00:00",
+  "symbols": [
+    "AAPL"
+  ],
+  "initial_capital": 100000.0,
+  "final_equity": 100550.0,
+  "total_return": 0.0055,
+  "num_trades": 3,
+  "realized_pnl": 550.0,
+  "trades": [
+    {
+      "timestamp": "2025-01-01T09:30:00+00:00",
+      "symbol": "AAPL",
+      "quantity": 100.0,
+      "price": 102.0,
+      "realised_pnl": 0.0
+    },
+    {
+      "timestamp": "2025-01-01T09:34:00+00:00",
+      "symbol": "AAPL",
+      "quantity": -50.0,
+      "price": 110.0,
+      "realised_pnl": 400.0
+    },
+    {
+      "timestamp": "2025-01-01T09:39:00+00:00",
+      "symbol": "AAPL",
+      "quantity": -50.0,
+      "price": 105.0,
+      "realised_pnl": 150.0
+    }
+  ],
+  "validation": {
+    "expected_pnl": 550.0,
+    "actual_pnl": 550.0,
+    "match": true
+  }
+}

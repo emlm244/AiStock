@@ -80,7 +80,7 @@ def compute_returns(equity_curve: list[tuple[datetime, Decimal]]) -> list[float]
     if len(equity_curve) < 2:
         return []
 
-    returns = []
+    returns: list[float] = []
     for i in range(1, len(equity_curve)):
         prev_equity = float(equity_curve[i - 1][1])
         curr_equity = float(equity_curve[i][1])

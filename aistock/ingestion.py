@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 from .config import DataQualityConfig
 from .data import Bar, load_csv_file
@@ -66,8 +66,9 @@ class IngestionManifest:
         if self.path.exists():
             with self.path.open('r', encoding='utf-8') as handle:
                 try:
-                    data: Any = json.load(handle)
-                    if isinstance(data, dict):
+                    payload = cast(object, json.load(handle))
+                    if isinstance(payload, dict):
+                        data = cast(dict[object, object], payload)
                         self._entries = {str(k): str(v) for k, v in data.items()}
                 except json.JSONDecodeError:
                     # Corrupt manifest -> start fresh.
@@ -170,7 +171,7 @@ class DataIngestionService:
         combined.sort(key=lambda bar: bar.timestamp)
 
         deduped: list[Bar] = []
-        seen = set()
+        seen: set[tuple[datetime, str]] = set()
         for bar in combined:
             key = (bar.timestamp, bar.symbol)
             if key in seen:

@@ -17,7 +17,8 @@ PROFESSIONAL ENHANCEMENTS (v2.0):
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING, Any
+from types import ModuleType
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from . import config as config
@@ -54,7 +55,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str) -> Any:  # pragma: no cover
+def __getattr__(name: str) -> ModuleType:  # pragma: no cover
     """Lazy-load top-level module attributes to avoid importing heavy deps at package import time."""
     if name in __all__:
         module = importlib.import_module(f'{__name__}.{name}')

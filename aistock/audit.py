@@ -6,14 +6,27 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import TypeAlias, cast
 
 from .logging import configure_logger
+
+JSONScalar: TypeAlias = str | int | float | bool | None
+JSONValue: TypeAlias = JSONScalar | list['JSONValue'] | dict[str, 'JSONValue']
+
+
+def _load_json_record(line: str) -> dict[str, JSONValue] | None:
+    try:
+        payload = cast(object, json.loads(line))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return cast(dict[str, JSONValue], payload)
 
 
 @dataclass(frozen=True)
@@ -46,15 +59,17 @@ class AuditLogger:
         action: str,
         actor: str,
         *,
-        details: dict[str, Any] | None = None,
-        artefacts: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
-        record = {
+        details: Mapping[str, JSONValue] | None = None,
+        artefacts: Mapping[str, str] | None = None,
+    ) -> dict[str, JSONValue]:
+        details_payload: dict[str, JSONValue] = dict(details) if details else {}
+        artefacts_payload: dict[str, JSONValue] = cast(dict[str, JSONValue], dict(artefacts)) if artefacts else {}
+        record: dict[str, JSONValue] = {
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'action': action,
             'actor': actor,
-            'details': details or {},
-            'artefacts': artefacts or {},
+            'details': details_payload,
+            'artefacts': artefacts_payload,
             'prev_hash': self._last_hash(),
         }
         record['hash'] = self._compute_hash(record)
@@ -64,12 +79,19 @@ class AuditLogger:
         self.logger.info('audit_event', extra={'action': action, 'actor': actor})
         return record
 
-    def tail(self, limit: int = 10) -> list[dict[str, Any]]:
+    def tail(self, limit: int = 10) -> list[dict[str, JSONValue]]:
         if not self.log_path.exists():
             return []
         with self.log_path.open('r', encoding='utf-8') as handle:
             lines = handle.readlines()[-limit:]
-        return [json.loads(line) for line in lines if line.strip()]
+        entries: list[dict[str, JSONValue]] = []
+        for line in lines:
+            if not line.strip():
+                continue
+            entry = _load_json_record(line)
+            if entry:
+                entries.append(entry)
+        return entries
 
     def _last_hash(self) -> str:
         if not self.log_path.exists():
@@ -92,12 +114,16 @@ class AuditLogger:
             if not last_line:
                 return '0'
             try:
-                return json.loads(last_line).get('hash', '0')
+                record = _load_json_record(last_line)
+                if not record:
+                    return '0'
+                hash_value = record.get('hash')
+                return hash_value if isinstance(hash_value, str) else '0'
             except json.JSONDecodeError:
                 return '0'
 
     @staticmethod
-    def _compute_hash(record: dict[str, Any]) -> str:
+    def _compute_hash(record: Mapping[str, JSONValue]) -> str:
         payload = json.dumps(record, sort_keys=True, default=str).encode('utf-8')
         return sha256(payload).hexdigest()
 
@@ -115,7 +141,7 @@ class StateStore:
         self,
         step: str,
         name: str,
-        payload: Any,
+        payload: object,
         *,
         suffix: str | None = None,
     ) -> Path:
@@ -136,7 +162,7 @@ class StateStore:
         return max(candidates) if candidates else None
 
     @staticmethod
-    def _infer_suffix(payload: Any) -> str:
+    def _infer_suffix(payload: object) -> str:
         if isinstance(payload, (dict, list)):
             return '.json'
         if isinstance(payload, bytes):
@@ -144,7 +170,7 @@ class StateStore:
         return '.txt'
 
     @staticmethod
-    def _write_payload(target: Path, payload: Any) -> None:
+    def _write_payload(target: Path, payload: object) -> None:
         if isinstance(payload, bytes):
             target.write_bytes(payload)
         elif isinstance(payload, (dict, list)):
@@ -162,13 +188,13 @@ class AlertDispatcher:
 
     def __init__(self):
         self.logger = configure_logger('Alerts', structured=True)
-        self._subscriptions: list[Callable[[str, dict[str, Any]], None]] = []
+        self._subscriptions: list[Callable[[str, dict[str, JSONValue]], None]] = []
 
-    def subscribe(self, handler: Callable[[str, dict[str, Any]], None]) -> None:
+    def subscribe(self, handler: Callable[[str, dict[str, JSONValue]], None]) -> None:
         """Subscribe a handler function to receive alerts."""
         self._subscriptions.append(handler)
 
-    def notify(self, channel: str, payload: dict[str, Any]) -> None:
+    def notify(self, channel: str, payload: dict[str, JSONValue]) -> None:
         event = {'channel': channel, 'payload': payload, 'timestamp': datetime.now(timezone.utc).isoformat()}
         self.logger.info('alert', extra=event)
         for handler in self._subscriptions:
@@ -183,11 +209,12 @@ class ComplianceReporter:
     def __init__(self, audit_logger: AuditLogger):
         self.audit_logger = audit_logger
 
-    def build_summary(self, limit: int = 20) -> dict[str, Any]:
+    def build_summary(self, limit: int = 20) -> dict[str, JSONValue]:
         entries = self.audit_logger.tail(limit=limit)
+        entries_payload: list[JSONValue] = cast(list[JSONValue], list(entries))
         return {
             'generated_at': datetime.now(timezone.utc).isoformat(),
-            'entries': entries,
+            'entries': entries_payload,
             'count': len(entries),
         }
 

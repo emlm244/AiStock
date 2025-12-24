@@ -165,7 +165,7 @@ class EdgeCaseHandler:
 
     def _check_missing_timeframes(self, timeframe_data: dict[str, list[Bar]]) -> dict[str, Any]:
         """Check if any timeframes are missing data."""
-        missing = []
+        missing: list[str] = []
         for tf, bars in timeframe_data.items():
             if not bars or len(bars) < 5:  # Need minimum 5 bars
                 missing.append(tf)
@@ -266,7 +266,7 @@ class EdgeCaseHandler:
             return {'has_issues': False, 'issue': None}
 
         # Check if all timeframes have recent data
-        timestamps = {}
+        timestamps: dict[str, datetime] = {}
         for tf, bars in timeframe_data.items():
             if bars:
                 bar_ts = bars[-1].timestamp

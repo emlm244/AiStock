@@ -18,15 +18,57 @@ OUTPUT:
 import argparse
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TypeAlias, TypedDict, cast
+
+BacktestResult: TypeAlias = dict[str, object]
 
 
-def load_result(file_path: Path) -> dict[str, Any]:
+class MetricValues(TypedDict):
+    old: float
+    new: float
+    diff: float
+    pct_change: float
+
+
+Metrics: TypeAlias = dict[str, MetricValues]
+
+
+@dataclass(frozen=True)
+class Args:
+    old_file: Path
+    new_file: Path
+    detailed: bool
+    output: Path | None
+
+
+def _load_json_dict(file_path: Path) -> BacktestResult:
+    with file_path.open() as f:
+        payload = cast(object, json.load(f))
+    if not isinstance(payload, dict):
+        raise ValueError(f'Expected JSON object in {file_path}')
+    return cast(BacktestResult, payload)
+
+
+def _as_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    return default
+
+
+def _get_trade_list(result: BacktestResult) -> list[dict[str, object]]:
+    trades_value = result.get('trades')
+    if not isinstance(trades_value, list):
+        return []
+    trades = cast(list[object], trades_value)
+    return [cast(dict[str, object], trade) for trade in trades if isinstance(trade, dict)]
+
+
+def load_result(file_path: Path) -> BacktestResult:
     """Load backtest result from JSON file."""
     try:
-        with open(file_path) as f:
-            return json.load(f)
+        return _load_json_dict(file_path)
     except Exception as e:
         print(f'Error loading {file_path}: {e}')
         sys.exit(1)
@@ -39,38 +81,30 @@ def calculate_percentage_diff(old: float, new: float) -> float:
     return ((new - old) / abs(old)) * 100
 
 
-def compare_metrics(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+def compare_metrics(old: BacktestResult, new: BacktestResult) -> Metrics:
     """Compare key metrics between old and new results."""
-    metrics = {
-        'total_return': {
-            'old': old.get('total_return', 0),
-            'new': new.get('total_return', 0),
-        },
-        'max_drawdown': {
-            'old': old.get('max_drawdown', 0),
-            'new': new.get('max_drawdown', 0),
-        },
-        'win_rate': {
-            'old': old.get('win_rate', 0),
-            'new': new.get('win_rate', 0),
-        },
-        'num_trades': {
-            'old': old.get('num_trades', 0),
-            'new': new.get('num_trades', 0),
-        },
-    }
-
-    # Calculate differences
-    for _metric, values in metrics.items():
-        values['diff'] = values['new'] - values['old']
-        values['pct_change'] = calculate_percentage_diff(values['old'], values['new'])
+    metrics: Metrics = {}
+    for metric_key, old_key, new_key in (
+        ('total_return', 'total_return', 'total_return'),
+        ('max_drawdown', 'max_drawdown', 'max_drawdown'),
+        ('win_rate', 'win_rate', 'win_rate'),
+        ('num_trades', 'num_trades', 'num_trades'),
+    ):
+        old_value = _as_float(old.get(old_key))
+        new_value = _as_float(new.get(new_key))
+        metrics[metric_key] = {
+            'old': old_value,
+            'new': new_value,
+            'diff': new_value - old_value,
+            'pct_change': calculate_percentage_diff(old_value, new_value),
+        }
 
     return metrics
 
 
-def generate_alerts(metrics: dict[str, Any]) -> list[str]:
+def generate_alerts(metrics: Metrics) -> list[str]:
     """Generate alerts for significant discrepancies."""
-    alerts = []
+    alerts: list[str] = []
 
     # Alert thresholds
     RETURN_THRESHOLD = 50  # 50% change in total return
@@ -113,7 +147,7 @@ def generate_alerts(metrics: dict[str, Any]) -> list[str]:
     return alerts
 
 
-def print_comparison_table(metrics: dict[str, Any]) -> None:
+def print_comparison_table(metrics: Metrics) -> None:
     """Print formatted comparison table."""
     print('\n' + '=' * 80)
     print('BACKTEST COMPARISON REPORT')
@@ -139,7 +173,7 @@ def print_comparison_table(metrics: dict[str, Any]) -> None:
     print('=' * 80)
 
 
-def analyze_direction(metrics: dict[str, Any]) -> str:
+def analyze_direction(metrics: Metrics) -> str:
     """Analyze overall direction of changes."""
     return_change = metrics['total_return']['pct_change']
 
@@ -151,7 +185,7 @@ def analyze_direction(metrics: dict[str, Any]) -> str:
         return f'Old results UNDERSTATED performance by {return_change:.1f}%'
 
 
-def main():
+def _parse_args() -> Args:
     parser = argparse.ArgumentParser(description='Compare old (INVALID) vs new (corrected) backtest results')
     parser.add_argument('old_file', type=Path, help='Old backtest result (INVALID)')
     parser.add_argument('new_file', type=Path, help='New backtest result (corrected)')
@@ -166,7 +200,17 @@ def main():
         help='Save comparison report to JSON file',
     )
 
-    args = parser.parse_args()
+    parsed = parser.parse_args()
+    return Args(
+        old_file=cast(Path, parsed.old_file),
+        new_file=cast(Path, parsed.new_file),
+        detailed=cast(bool, parsed.detailed),
+        output=cast(Path | None, parsed.output),
+    )
+
+
+def main() -> int:
+    args = _parse_args()
 
     # Validate files
     if not args.old_file.exists():
@@ -211,22 +255,22 @@ def main():
             'analysis': analyze_direction(metrics),
             'alerts': alerts,
         }
-        with open(args.output, 'w') as f:
+        with args.output.open('w') as f:
             json.dump(report, f, indent=2)
         print(f'\nComparison report saved to: {args.output}')
 
     # Detailed trade comparison (if requested)
-    if args.detailed and 'trades' in old_result and 'trades' in new_result:
+    if args.detailed:
         print('\nDETAILED TRADE COMPARISON:')
-        old_trades = old_result['trades']
-        new_trades = new_result['trades']
+        old_trades = _get_trade_list(old_result)
+        new_trades = _get_trade_list(new_result)
 
         if len(old_trades) != len(new_trades):
             print(f'  [WARNING] Trade count mismatch: {len(old_trades)} vs {len(new_trades)}')
 
         for i, (old_trade, new_trade) in enumerate(zip(old_trades, new_trades)):
-            old_pnl = old_trade.get('realised_pnl', 0)
-            new_pnl = new_trade.get('realised_pnl', 0)
+            old_pnl = _as_float(old_trade.get('realised_pnl'))
+            new_pnl = _as_float(new_trade.get('realised_pnl'))
             if abs(old_pnl - new_pnl) > 0.01:  # Non-zero difference
                 pct_diff = calculate_percentage_diff(old_pnl, new_pnl)
                 print(f'  Trade {i + 1}: P&L changed {old_pnl:.2f} -> {new_pnl:.2f} ({pct_diff:+.1f}%)')

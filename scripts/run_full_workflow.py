@@ -17,6 +17,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -37,6 +38,14 @@ def run_command(cmd: list[str], description: str) -> bool:
     except subprocess.CalledProcessError as e:
         print(f'[ERROR] {description} failed: {e}')
         return False
+
+
+def _load_json_dict(path: Path) -> dict[str, object]:
+    with path.open() as f:
+        payload = cast(object, json.load(f))
+    if not isinstance(payload, dict):
+        raise ValueError(f'Expected JSON object in {path}')
+    return cast(dict[str, object], payload)
 
 
 def main():
@@ -103,19 +112,31 @@ def main():
         print(f'\n{"=" * 60}')
         print('Step 4: Rerun Plan Summary')
         print(f'{"=" * 60}')
-        with open(plan_file) as f:
-            plan = json.load(f)
+        plan = _load_json_dict(plan_file)
 
-        print(f'Total backtest results found: {plan["total_results"]}')
-        print(f'Pre-fix (INVALID) results: {plan["pre_fix_results"]}')
+        total_results = plan.get('total_results', 0)
+        pre_fix_results = plan.get('pre_fix_results', 0)
+        print(f'Total backtest results found: {total_results}')
+        print(f'Pre-fix (INVALID) results: {pre_fix_results}')
         print('\nTop 5 priorities:')
-        for i, item in enumerate(plan['rerun_plan'][:5], 1):
-            print(
-                f'  {i}. {Path(item["file"]).name} '
-                f'(score={item["impact_score"]:.1f}, '
-                f'return={item.get("total_return", "N/A")}, '
-                f'trades={item.get("num_trades", "N/A")})'
-            )
+        rerun_plan = plan.get('rerun_plan')
+        if isinstance(rerun_plan, list):
+            rerun_plan_items = cast(list[object], rerun_plan)
+            for i, item in enumerate(rerun_plan_items[:5], 1):
+                if not isinstance(item, dict):
+                    continue
+                item_dict = cast(dict[str, object], item)
+                file_value = item_dict.get('file', 'unknown')
+                impact_value = item_dict.get('impact_score')
+                total_return_value = item_dict.get('total_return', 'N/A')
+                num_trades_value = item_dict.get('num_trades', 'N/A')
+                impact_score = float(impact_value) if isinstance(impact_value, (int, float)) else 0.0
+                print(
+                    f'  {i}. {Path(str(file_value)).name} '
+                    f'(score={impact_score:.1f}, '
+                    f'return={total_return_value}, '
+                    f'trades={num_trades_value})'
+                )
 
     # Summary
     print(f'\n{"=" * 60}')

@@ -82,9 +82,16 @@ aistock/
 ├── fsd.py              # FSD RL Agent (CORE)
 ├── engine.py           # Custom trading engine
 ├── simple_gui.py       # FSD GUI interface
-├── session.py          # Live trading orchestration
+├── runtime_settings.py # Runtime .env parsing for GUI/IBKR
+├── session/            # Live trading orchestration (modular)
+│   ├── coordinator.py  # Orchestrates trading flow
+│   ├── bar_processor.py
+│   ├── analytics_reporter.py
+│   ├── checkpointer.py
+│   └── reconciliation.py
 ├── portfolio.py        # Position tracking
 ├── risk.py             # Risk management
+├── stop_control.py     # Manual/EOD stop handling
 └── brokers/            # Broker integrations
     ├── paper.py        # Paper trading
     └── ibkr.py         # Interactive Brokers

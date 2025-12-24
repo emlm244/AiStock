@@ -19,8 +19,10 @@ import csv
 import math
 import random
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import cast
 
 FREQUENCIES = {
     'daily': timedelta(days=1),
@@ -29,7 +31,18 @@ FREQUENCIES = {
 }
 
 
-def _parse_args() -> argparse.Namespace:
+@dataclass(frozen=True)
+class Args:
+    out: str
+    symbols: list[str]
+    start: str
+    end: str
+    frequency: str
+    seed: int
+    base_price: float
+
+
+def _parse_args() -> Args:
     parser = argparse.ArgumentParser(description='Generate deterministic OHLCV test data.')
     parser.add_argument('--out', required=True, help='Output directory for generated CSV files')
     parser.add_argument('--symbols', nargs='+', required=True, help='Ticker symbols to generate')
@@ -61,7 +74,16 @@ def _parse_args() -> argparse.Namespace:
         default=100.0,
         help='Starting price for the first symbol; subsequent symbols are offset.',
     )
-    return parser.parse_args()
+    parsed = parser.parse_args()
+    return Args(
+        out=cast(str, parsed.out),
+        symbols=cast(list[str], parsed.symbols),
+        start=cast(str, parsed.start),
+        end=cast(str, parsed.end),
+        frequency=cast(str, parsed.frequency),
+        seed=cast(int, parsed.seed),
+        base_price=cast(float, parsed.base_price),
+    )
 
 
 def _daterange(start: datetime, end: datetime, step: timedelta) -> Iterable[datetime]:

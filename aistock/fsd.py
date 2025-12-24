@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Callable, TypedDict, cast
 
 import numpy as np
 
+from .audit import JSONValue
 from .data import Bar
 from .portfolio import Portfolio
 
@@ -170,6 +171,13 @@ class FSDConfig:
             raise ValueError(f'volatility_bias must be one of {valid_volatility_biases}, got {self.volatility_bias!r}')
 
 
+class QTableInfo(TypedDict):
+    num_states: int
+    estimated_memory_mb: float
+    level: str
+    thresholds: dict[str, int]
+
+
 class RLAgent:
     """
     Q-Learning Reinforcement Learning Agent.
@@ -212,7 +220,7 @@ class RLAgent:
             # Remove oldest state (least recently updated/visited)
             self.q_values.popitem(last=False)
 
-    def check_q_table_size(self) -> dict[str, Any]:
+    def check_q_table_size(self) -> QTableInfo:
         """
         Monitor Q-table size and log warnings if it grows too large.
 
@@ -741,7 +749,7 @@ class FSDEngine:
     def evaluate_opportunity(self, symbol: str, bars: list[Bar], last_prices: dict[str, Decimal]) -> dict[str, Any]:
         """
         ENHANCED: Evaluate whether to trade this symbol with advanced features:
-        - Deadline urgency (lowers threshold as deadline approaches)
+        - Session-based confidence adaptation (lowers threshold after a grace period)
         - Adaptive confidence per symbol (learns which symbols are profitable)
         - Parallel trading limits (respects max concurrent positions)
 
@@ -760,22 +768,19 @@ class FSDEngine:
         """
         # Keep a snapshot of the latest prices so fill handlers can align position normalisation with equity.
         self._last_prices = dict(last_prices)
+        timeframe_data: dict[str, list[Bar]] = {}
+        if self.timeframe_manager:
+            for tf in self.timeframe_manager.timeframes:
+                tf_bars = self.timeframe_manager.get_bars(symbol, tf, lookback=50)
+                if tf_bars:
+                    timeframe_data[tf] = tf_bars
 
         # ===== EDGE CASE PROTECTION (First Line of Defense) =====
         if self.edge_case_handler:
-            # Get timeframe data if available
-            timeframe_data = None
-            if self.timeframe_manager:
-                timeframe_data = {}
-                for tf in self.timeframe_manager.timeframes:
-                    tf_bars = self.timeframe_manager.get_bars(symbol, tf, lookback=50)
-                    if tf_bars:
-                        timeframe_data[tf] = tf_bars
-
             edge_result = self.edge_case_handler.check_edge_cases(
                 symbol=symbol,
                 bars=bars,
-                timeframe_data=timeframe_data,
+                timeframe_data=timeframe_data if timeframe_data else None,
                 current_time=datetime.now(timezone.utc),
             )
 
@@ -870,20 +875,11 @@ class FSDEngine:
         # Apply edge case adjustments (if edge case handler detected non-blocking issues)
         edge_case_position_multiplier = 1.0
         if self.edge_case_handler:
-            # Get timeframe data if available (reuse from earlier check)
-            timeframe_data = None
-            if self.timeframe_manager:
-                timeframe_data = {}
-                for tf in self.timeframe_manager.timeframes:
-                    tf_bars = self.timeframe_manager.get_bars(symbol, tf, lookback=50)
-                    if tf_bars:
-                        timeframe_data[tf] = tf_bars
-
             # Re-run edge case check to get adjustments
             edge_result = self.edge_case_handler.check_edge_cases(
                 symbol=symbol,
                 bars=bars,
-                timeframe_data=timeframe_data,
+                timeframe_data=timeframe_data if timeframe_data else None,
                 current_time=datetime.now(timezone.utc),
             )
             if edge_result.is_edge_case and edge_result.action != 'block':
@@ -1172,7 +1168,7 @@ class FSDEngine:
         """
         from pathlib import Path
 
-        from .persistence import _atomic_write_json
+        from .persistence import atomic_write_json
 
         logger = logging.getLogger(__name__)
 
@@ -1224,7 +1220,7 @@ class FSDEngine:
         }
 
         # P0-NEW-2 Fix: Use atomic write instead of direct json.dump()
-        _atomic_write_json(state, Path(filepath))
+        atomic_write_json(cast(JSONValue, state), Path(filepath))
 
     def load_state(self, filepath: str):
         """
@@ -1245,7 +1241,7 @@ class FSDEngine:
             if path.exists():
                 try:
                     with open(path) as f:
-                        payload_obj = json.load(f)
+                        payload_obj = cast(object, json.load(f))
                 except json.JSONDecodeError:
                     # Primary corrupted, will try backup
                     pass
@@ -1254,7 +1250,7 @@ class FSDEngine:
             if payload_obj is None and backup_path.exists():
                 try:
                     with open(backup_path) as f:
-                        payload_obj = json.load(f)
+                        payload_obj = cast(object, json.load(f))
                 except json.JSONDecodeError:
                     # Both corrupted - start fresh
                     return False
@@ -1317,6 +1313,9 @@ class FSDEngine:
         """
         self.session_start_time = datetime.now(timezone.utc)
         self.session_trades = 0
+        # Sync portfolio positions for max_concurrent_positions and position_pct tracking.
+        positions = self.portfolio.snapshot_positions()
+        self.current_positions = {symbol: pos.quantity for symbol, pos in positions.items() if pos.quantity != 0}
 
         return {
             'session_start': self.session_start_time.isoformat(),

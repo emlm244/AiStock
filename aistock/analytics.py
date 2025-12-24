@@ -8,12 +8,19 @@ and CSV export functionality for transparency and monitoring.
 from __future__ import annotations
 
 import csv
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias, TypedDict
+
+PnlValue: TypeAlias = Decimal | int | float | str | None
+
+
+class TradeRecord(TypedDict):
+    symbol: str
+    realised_pnl: PnlValue
 
 
 @dataclass
@@ -57,7 +64,7 @@ class DrawdownMetrics:
     current_equity: Decimal
 
 
-def calculate_symbol_performance(trade_log: Sequence[Mapping[str, Any]], symbol: str) -> SymbolPerformance | None:
+def calculate_symbol_performance(trade_log: Sequence[TradeRecord], symbol: str) -> SymbolPerformance | None:
     """
     Calculate per-symbol trading statistics.
 
@@ -74,7 +81,12 @@ def calculate_symbol_performance(trade_log: Sequence[Mapping[str, Any]], symbol:
         return None
 
     total_trades = len(symbol_trades)
-    pnls = [Decimal(str(t['realised_pnl'])) for t in symbol_trades if 'realised_pnl' in t]
+    pnls: list[Decimal] = []
+    for trade in symbol_trades:
+        pnl_value = trade.get('realised_pnl')
+        if pnl_value is None:
+            continue
+        pnls.append(Decimal(str(pnl_value)))
 
     if not pnls:
         return None
@@ -177,9 +189,7 @@ def calculate_drawdown_metrics(equity_curve: list[tuple[datetime, Decimal]]) -> 
     )
 
 
-def export_symbol_performance_csv(
-    trade_log: Sequence[Mapping[str, Any]], symbols: Sequence[str], output_path: str
-) -> None:
+def export_symbol_performance_csv(trade_log: Sequence[TradeRecord], symbols: Sequence[str], output_path: str) -> None:
     """
     Export per-symbol performance to CSV.
 

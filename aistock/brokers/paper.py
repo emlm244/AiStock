@@ -59,7 +59,7 @@ class PaperBroker(BaseBroker):
 
         If partial_fill_probability > 0, orders may fill incrementally.
         """
-        to_remove = []
+        to_remove: list[int] = []
         for order_id, order in list(self._open_orders.items()):
             fill_price = self._determine_fill_price(order, bar)
             if fill_price is None:

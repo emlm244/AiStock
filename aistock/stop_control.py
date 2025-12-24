@@ -245,7 +245,7 @@ class StopController:
         # Step 3: Monitor fills with retry logic
         max_retries = 3
         retry_count = 0
-        fully_closed = []
+        fully_closed: list[str] = []
 
         for retry_count in range(max_retries):
             if retry_count > 0:
@@ -312,7 +312,7 @@ class StopController:
         Returns:
             List of symbols for which orders were submitted
         """
-        submitted_symbols = []
+        submitted_symbols: list[str] = []
         positions = portfolio.snapshot_positions()
 
         for symbol, position in positions.items():
@@ -354,7 +354,9 @@ class StopController:
             List of symbols that were closed during monitoring
         """
         start_time = time_module.time()
-        initial_positions = {sym: pos.quantity for sym, pos in portfolio.snapshot_positions().items()}
+        initial_positions: dict[str, Decimal] = {
+            sym: pos.quantity for sym, pos in portfolio.snapshot_positions().items()
+        }
         closed_symbols: list[str] = []
 
         while time_module.time() - start_time < timeout:
@@ -406,7 +408,7 @@ def create_liquidation_orders(portfolio: PortfolioProtocol) -> list[tuple[str, D
         >>> for symbol, qty in orders:
         ...     submit_market_order(symbol, qty)  # Close position
     """
-    orders = []
+    orders: list[tuple[str, Decimal]] = []
     positions = portfolio.snapshot_positions()
 
     for symbol, position in positions.items():

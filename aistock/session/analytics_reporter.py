@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
+    from ..analytics import PnlValue
     from ..interfaces.portfolio import PortfolioProtocol
 
 
@@ -17,7 +18,7 @@ class TradeLogEntry(TypedDict):
     symbol: str
     quantity: float
     price: float
-    realised_pnl: float
+    realised_pnl: PnlValue
 
 
 class AnalyticsReporter:

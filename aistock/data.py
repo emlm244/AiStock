@@ -4,15 +4,97 @@ Data structures and loading utilities.
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, SupportsInt, cast, overload
 
 if TYPE_CHECKING:
     from .config import DataQualityConfig, DataSource
+
+
+class _BoolMask(Protocol):
+    def __invert__(self) -> _BoolMask:
+        ...
+
+
+class _Index(Protocol):
+    tz: timezone | None
+
+    def tz_localize(self, tz: timezone) -> _Index:
+        ...
+
+    def tz_convert(self, tz: timezone) -> _Index:
+        ...
+
+    def duplicated(self, keep: str = 'last') -> _BoolMask:
+        ...
+
+
+class _SeriesLike(Protocol):
+    def __ge__(self, other: float) -> _BoolMask:
+        ...
+
+
+class _DataFrame(Protocol):
+    index: _Index
+    columns: Sequence[str]
+
+    def sort_index(self) -> _DataFrame:
+        ...
+
+    def dropna(self, subset: Sequence[str]) -> _DataFrame:
+        ...
+
+    def iterrows(self) -> Iterable[tuple[datetime, Mapping[str, object]]]:
+        ...
+
+    @overload
+    def __getitem__(self, key: str) -> _SeriesLike:
+        ...
+
+    @overload
+    def __getitem__(self, key: _BoolMask) -> _DataFrame:
+        ...
+
+    @overload
+    def __getitem__(self, key: list[bool]) -> _DataFrame:
+        ...
+
+
+class _PandasModule(Protocol):
+    def read_csv(self, *args: object, **kwargs: object) -> _DataFrame:
+        ...
+
+    def to_datetime(self, arg: object, *, utc: bool | None = None) -> _Index:
+        ...
+
+
+def _to_decimal(value: object) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _to_int(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float, Decimal, str)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+    if hasattr(value, '__int__'):
+        try:
+            return int(cast(SupportsInt, value))
+        except (TypeError, ValueError):
+            return None
+    return None
 
 
 @dataclass
@@ -58,6 +140,7 @@ def load_csv_file(file_path: Path, symbol: str, tz: timezone | None = None) -> l
     except ModuleNotFoundError as exc:  # pragma: no cover
         raise RuntimeError('pandas is required to load CSV market data') from exc
 
+    pd = cast(_PandasModule, pd)
     df = pd.read_csv(file_path, index_col=0, parse_dates=True)
 
     # Ensure timezone (prefer provided tz, default to UTC)
@@ -78,23 +161,38 @@ def load_csv_file(file_path: Path, symbol: str, tz: timezone | None = None) -> l
     df = df.dropna(subset=required_cols)  # type: ignore[call-overload]
 
     # Convert to Bar objects
-    bars = []
+    bars: list[Bar] = []
     for timestamp, row in df.iterrows():
         try:
             # Validate prices are positive
-            if row['open'] <= 0 or row['high'] <= 0 or row['low'] <= 0 or row['close'] <= 0:
+            open_value = _to_decimal(row['open'])
+            high_value = _to_decimal(row['high'])
+            low_value = _to_decimal(row['low'])
+            close_value = _to_decimal(row['close'])
+            volume_value = _to_int(row['volume'])
+            if open_value is None:
+                raise ValueError('Missing or invalid bar values')
+            if high_value is None:
+                raise ValueError('Missing or invalid bar values')
+            if low_value is None:
+                raise ValueError('Missing or invalid bar values')
+            if close_value is None:
+                raise ValueError('Missing or invalid bar values')
+            if volume_value is None:
+                raise ValueError('Missing or invalid bar values')
+            if open_value <= 0 or high_value <= 0 or low_value <= 0 or close_value <= 0:
                 raise ValueError(
-                    f'Invalid prices: open={row["open"]}, high={row["high"]}, low={row["low"]}, close={row["close"]}'
+                    f'Invalid prices: open={open_value}, high={high_value}, low={low_value}, close={close_value}'
                 )
 
             bar = Bar(
                 symbol=symbol,
                 timestamp=timestamp,  # type: ignore[arg-type]
-                open=Decimal(str(row['open'])),
-                high=Decimal(str(row['high'])),
-                low=Decimal(str(row['low'])),
-                close=Decimal(str(row['close'])),
-                volume=int(row['volume']),
+                open=open_value,
+                high=high_value,
+                low=low_value,
+                close=close_value,
+                volume=volume_value,
             )
             bars.append(bar)
         except (ValueError, KeyError) as e:
@@ -128,6 +226,7 @@ def load_csv_directory(
     except ModuleNotFoundError as exc:  # pragma: no cover
         raise RuntimeError('pandas is required to load CSV market data') from exc
 
+    pd = cast(_PandasModule, pd)
     # Use default quality config if not provided
     if data_quality_config is None:
         from .config import DataQualityConfig
@@ -136,14 +235,14 @@ def load_csv_directory(
         min_bars = getattr(data_source, 'warmup_bars', 30)
         data_quality_config = DataQualityConfig(min_bars=min_bars)
 
-    data_map = {}
+    data_map: dict[str, list[Bar]] = {}
     data_path = Path(data_source.path)
 
     if not data_path.exists():
         raise ValueError(f'Data directory does not exist: {data_path}')
 
     # If specific symbols provided, load only those
-    symbols_to_load = data_source.symbols if data_source.symbols else []
+    symbols_to_load: list[str] = list(data_source.symbols) if data_source.symbols else []
 
     # If no symbols specified, load all CSV files
     if not symbols_to_load:
@@ -186,17 +285,32 @@ def load_csv_directory(
                 continue
 
             # Convert to Bar objects
-            bars = []
+            bars: list[Bar] = []
             for timestamp, row in df.iterrows():
                 try:
+                    open_value = _to_decimal(row['open'])
+                    high_value = _to_decimal(row['high'])
+                    low_value = _to_decimal(row['low'])
+                    close_value = _to_decimal(row['close'])
+                    volume_value = _to_int(row['volume'])
+                    if open_value is None:
+                        raise ValueError('Missing or invalid bar values')
+                    if high_value is None:
+                        raise ValueError('Missing or invalid bar values')
+                    if low_value is None:
+                        raise ValueError('Missing or invalid bar values')
+                    if close_value is None:
+                        raise ValueError('Missing or invalid bar values')
+                    if volume_value is None:
+                        raise ValueError('Missing or invalid bar values')
                     bar = Bar(
                         symbol=symbol,
                         timestamp=timestamp,  # type: ignore[arg-type]
-                        open=Decimal(str(row['open'])),
-                        high=Decimal(str(row['high'])),
-                        low=Decimal(str(row['low'])),
-                        close=Decimal(str(row['close'])),
-                        volume=int(row['volume']),
+                        open=open_value,
+                        high=high_value,
+                        low=low_value,
+                        close=close_value,
+                        volume=volume_value,
                     )
                     bars.append(bar)
                 except (ValueError, KeyError) as e:
@@ -230,8 +344,8 @@ class DataFeed:
         self.bar_interval = bar_interval or timedelta(minutes=1)
         self.warmup_bars = warmup_bars
         self.fill_missing = fill_missing
-        self.indices = dict.fromkeys(data_map, 0)
-        self._last_bars = {}  # Track last bar for forward fill
+        self.indices: dict[str, int] = {symbol: 0 for symbol in data_map}
+        self._last_bars: dict[str, Bar] = {}  # Track last bar for forward fill
 
     def next(self) -> dict[str, Bar] | None:
         """
@@ -240,7 +354,7 @@ class DataFeed:
         Returns:
             Dict of symbol -> Bar, or None if no more data
         """
-        result = {}
+        result: dict[str, Bar] = {}
         has_data = False
 
         for symbol, bars in self.data_map.items():
@@ -260,7 +374,7 @@ class DataFeed:
             Tuple of (timestamp, symbol, bar)
         """
         # Collect all timestamps
-        all_timestamps = set()
+        all_timestamps: set[datetime] = set()
         for bars in self.data_map.values():
             for bar in bars:
                 all_timestamps.add(bar.timestamp)
@@ -268,7 +382,7 @@ class DataFeed:
         sorted_timestamps = sorted(all_timestamps)
 
         # Create indices for each symbol
-        indices = dict.fromkeys(self.data_map, 0)
+        indices: dict[str, int] = {symbol: 0 for symbol in self.data_map}
 
         # Iterate through timestamps
         for timestamp in sorted_timestamps:
@@ -298,5 +412,5 @@ class DataFeed:
 
     def reset(self):
         """Reset feed to beginning."""
-        self.indices = dict.fromkeys(self.data_map, 0)
+        self.indices = {symbol: 0 for symbol in self.data_map}
         self._last_bars = {}

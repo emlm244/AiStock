@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from threading import Lock
@@ -118,7 +119,7 @@ class TimeframeManager:
 
     def _validate_timeframes(self, timeframes: list[str]) -> list[str]:
         """Validate and normalize timeframe strings."""
-        validated = []
+        validated: list[str] = []
         for tf in timeframes:
             tf_lower = tf.lower().strip()
             if tf_lower not in TIMEFRAME_TO_SECONDS:
@@ -291,9 +292,7 @@ class TimeframeManager:
 
         closes = [bar.close for bar in bars]
         returns = [
-            (closes[i] - closes[i - 1]) / closes[i - 1]
-            for i in range(1, len(closes))
-            if closes[i - 1] > Decimal('0')
+            (closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes)) if closes[i - 1] > Decimal('0')
         ]
 
         if not returns:
@@ -350,7 +349,7 @@ class TimeframeManager:
                 return (True, '')  # Single timeframe doesn't need sync check
 
             # Get last bar timestamp from each timeframe
-            timestamps = []
+            timestamps: list[tuple[str, datetime]] = []
             for tf, state in states.items():
                 if state.last_bar:
                     timestamps.append((tf, state.last_bar.timestamp))

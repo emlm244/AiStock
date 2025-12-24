@@ -521,6 +521,16 @@ class TestFSDProfessionalIntegration:
         assert decision['should_trade'] is False
         assert 'safeguards_blocked' in decision['reason'] or decision['reason'] == 'insufficient_data'
 
+    def test_fsd_start_session_seeds_positions(self):
+        """Ensure session start syncs existing portfolio positions for safeguards."""
+        portfolio = Portfolio(cash=Decimal('10000'))
+        portfolio.update_position('AAPL', Decimal('10'), Decimal('100'))
+
+        fsd = FSDEngine(FSDConfig(), portfolio)
+        fsd.start_session()
+
+        assert fsd.current_positions.get('AAPL') == Decimal('10')
+
     @staticmethod
     def _create_test_bars(symbol: str, count: int) -> list[Bar]:
         """Create test bars with realistic OHLCV data."""

@@ -145,23 +145,26 @@ transaction_cost = 0.001 × position_value
 
 ## 🚀 NEW ADVANCED FEATURES (Just Implemented)
 
-### 1. **Deadline Urgency Mode** ⏰
+### 1. **Session-Based Confidence Adaptation** ⏰
 
-**Problem**: Sometimes the bot is too conservative and makes NO trades.
+**Problem**: Sometimes the bot is too conservative and makes no trades early in a session.
 
-**Solution**: If you set a trade deadline (e.g., "must trade within 60 minutes"), the bot gets progressively more aggressive:
+**Solution**: If the session has no trades yet, the bot gradually lowers the confidence threshold after a grace period.
 
 ```python
-elapsed_minutes = (now - session_start) / 60
-urgency_factor = min(1.0, elapsed_minutes / deadline_minutes)
-threshold_reduction = urgency_factor × 0.2  # Up to 20% reduction
-effective_threshold = base_threshold - threshold_reduction
+elapsed_minutes = (now - session_start).total_seconds() / 60
+if elapsed_minutes > confidence_decay_start_minutes:
+    decay_minutes = elapsed_minutes - confidence_decay_start_minutes
+    decay_factor = min(1.0, decay_minutes / 60.0)
+    confidence_decay = decay_factor * max_confidence_decay
+    effective_threshold = max(0.35, base_threshold - confidence_decay)
 ```
 
 **Example**:
 - Base threshold: 66%
-- After 30 minutes (50% of 60-min deadline): Threshold drops to 56%
-- After 60 minutes (100% of deadline): Threshold drops to 46%
+- After 30 minutes (start of decay): Threshold stays at 66%
+- After 60 minutes (30 minutes into decay): Threshold drops by up to 7.5% (if max decay is 15%)
+- After 90 minutes (max decay reached): Threshold drops by up to 15%
 
 ### 2. **Parallel Multi-Stock Trading** 🔄
 
@@ -239,23 +242,27 @@ for each symbol:
 | `discount_factor` | 0.95 | How much we value future rewards |
 | `exploration_rate` | 0.1 | % of random exploratory actions |
 | `exploration_decay` | 0.995 | How fast exploration decreases |
-| `min_exploration_rate` | 0.01 | Minimum exploration (always learn) |
+| `min_exploration_rate` | 0.05 | Minimum exploration (always learn) |
 
 ### Trading Constraints
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `max_capital` | $10,000 | Maximum capital to deploy |
+| `max_timeframe_seconds` | 300 | Max session timeframe (seconds) |
 | `min_confidence_threshold` | 0.6 | Minimum confidence to trade (60%) |
+| `max_loss_per_trade_pct` | 5.0 | Max loss per trade (% of position) |
 | `max_concurrent_positions` | 5 | Max stocks held simultaneously |
 | `max_capital_per_position` | 0.20 | Max 20% per stock |
 
 ### Advanced Features
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `trade_deadline_minutes` | None | Urgency mode deadline |
-| `urgency_confidence_reduction` | 0.2 | Max threshold reduction (20%) |
 | `enable_per_symbol_params` | True | Learn per-symbol confidence |
 | `adaptive_confidence` | True | Adjust confidence dynamically |
+| `enable_session_adaptation` | True | Enable session-based threshold decay |
+| `max_confidence_decay` | 0.15 | Max threshold reduction over session |
+| `confidence_decay_start_minutes` | 30 | Minutes before decay starts |
+| `volatility_bias` | balanced | Prefer high/low/neutral volatility |
 
 ---
 
