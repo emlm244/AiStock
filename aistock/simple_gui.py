@@ -18,7 +18,7 @@ from datetime import timezone
 from decimal import Decimal
 from pathlib import Path
 from tkinter import messagebox, ttk
-from typing import Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Callable, Literal, Protocol, TypedDict, cast
 
 from .config import (
     BacktestConfig,
@@ -34,6 +34,9 @@ from .fsd import FSDConfig
 from .interfaces.decision import SupportsGuiLogCallback
 from .logging import configure_logger
 from .runtime_settings import load_runtime_settings
+
+if TYPE_CHECKING:
+    from .session.coordinator import TradingCoordinator
 
 # from .setup import FirstTimeSetupWizard  # Module doesn't exist - disable for now
 
@@ -56,6 +59,68 @@ class GuiRiskConfig(TypedDict):
     timeframes: list[str]
     volatility_bias: VolatilityBias
     max_loss_per_trade_pct: float
+
+
+class TradeSnapshot(TypedDict, total=False):
+    timestamp: object
+    symbol: object
+    quantity: object
+    price: object
+    realised_pnl: object
+
+
+class SessionSnapshot(TypedDict, total=False):
+    equity: object
+    cash: object
+    trades: list[TradeSnapshot]
+    fsd: object
+
+
+class _KeyEvent(Protocol):
+    keysym: str
+
+
+class _MouseWheelEvent(Protocol):
+    delta: int
+
+
+class _ConfigureEvent(Protocol):
+    width: int
+
+
+class StopControllerProtocol(Protocol):
+    def request_stop(self, reason: str) -> None:
+        ...
+
+
+class CapitalManagerProtocol(Protocol):
+    def get_stats(self) -> dict[str, object]:
+        ...
+
+
+class RiskConfigProtocol(Protocol):
+    max_daily_loss_pct: float
+    max_drawdown_pct: float
+
+
+class RiskProtocol(Protocol):
+    config: RiskConfigProtocol
+
+
+class SessionProtocol(Protocol):
+    risk: RiskProtocol
+    decision_engine: object
+    stop_controller: StopControllerProtocol | None
+    capital_manager: CapitalManagerProtocol | None
+
+    def start(self) -> None:
+        ...
+
+    def stop(self) -> None:
+        ...
+
+    def snapshot(self) -> dict[str, object]:
+        ...
 
 
 class SimpleGUI:
@@ -92,7 +157,8 @@ class SimpleGUI:
 
     def _init_fonts(self) -> None:
         try:
-            available = {name.lower() for name in tkfont.families(self.root)}
+            families = tkfont.families(self.root)
+            available: set[str] = {name.lower() for name in families}
         except tk.TclError:
             available = set()
 
@@ -109,7 +175,8 @@ class SimpleGUI:
 
     def _configure_style(self) -> None:
         font_spec = f'{{{self.font_family}}} 11' if ' ' in self.font_family else f'{self.font_family} 11'
-        self.root.option_add('*Font', font_spec)
+        option_add = cast(Callable[[str, str], None], self.root.option_add)
+        option_add('*Font', font_spec)
         style = ttk.Style()
         with suppress(tk.TclError):
             style.theme_use('clam')
@@ -165,8 +232,9 @@ class SimpleGUI:
         self.symbols: list[str] = []
 
         # Session state
-        self.session = None  # TradingCoordinator from new modular architecture
+        self.session: TradingCoordinator | None = None  # TradingCoordinator from new modular architecture
         self._stop_in_progress = False
+        self._logged_trade_ids: set[str] = set()
 
         self.trade_tempo_var = tk.StringVar(value='balanced')
 
@@ -392,13 +460,14 @@ class SimpleGUI:
 
         # Canvas for scrolling
         canvas = tk.Canvas(container, bg='#f5f7fb', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(container, orient='vertical', command=canvas.yview)
+        canvas_yview = cast(Callable[..., tuple[float, float] | None], canvas.yview)
+        scrollbar = ttk.Scrollbar(container, orient='vertical', command=canvas_yview)
 
         # Scrollable frame inside canvas
         scrollable_frame = ttk.Frame(canvas, padding=30)
 
         # Configure canvas scrolling
-        def on_frame_configure(event: Any) -> None:
+        def on_frame_configure(event: object) -> None:
             canvas.configure(scrollregion=canvas.bbox('all'))
 
         scrollable_frame.bind('<Configure>', on_frame_configure)
@@ -406,8 +475,9 @@ class SimpleGUI:
         canvas_frame = canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
 
         # Update scroll region when window is resized
-        def on_canvas_configure(event: Any) -> None:
-            canvas.itemconfig(canvas_frame, width=event.width)
+        def on_canvas_configure(event: object) -> None:
+            configure_event = cast(_ConfigureEvent, event)
+            canvas.itemconfig(canvas_frame, width=configure_event.width)
 
         canvas.bind('<Configure>', on_canvas_configure)
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -417,24 +487,26 @@ class SimpleGUI:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Enable mouse wheel scrolling
-        def on_mousewheel(event: Any) -> None:
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
+        def on_mousewheel(event: object) -> None:
+            wheel_event = cast(_MouseWheelEvent, event)
+            canvas.yview_scroll(int(-1 * (wheel_event.delta / 120)), 'units')
 
         canvas.bind_all('<MouseWheel>', on_mousewheel)
 
         # Enable keyboard scrolling
-        def on_keypress(event: Any) -> None:
-            if event.keysym == 'Prior':  # Page Up
+        def on_keypress(event: object) -> None:
+            key_event = cast(_KeyEvent, event)
+            if key_event.keysym == 'Prior':  # Page Up
                 canvas.yview_scroll(-1, 'pages')
-            elif event.keysym == 'Next':  # Page Down
+            elif key_event.keysym == 'Next':  # Page Down
                 canvas.yview_scroll(1, 'pages')
-            elif event.keysym == 'Home':
+            elif key_event.keysym == 'Home':
                 canvas.yview_moveto(0)
-            elif event.keysym == 'End':
+            elif key_event.keysym == 'End':
                 canvas.yview_moveto(1)
-            elif event.keysym == 'Up':
+            elif key_event.keysym == 'Up':
                 canvas.yview_scroll(-1, 'units')
-            elif event.keysym == 'Down':
+            elif key_event.keysym == 'Down':
                 canvas.yview_scroll(1, 'units')
 
         self.root.bind('<Prior>', on_keypress)  # Page Up
@@ -1099,7 +1171,8 @@ class SimpleGUI:
         self.activity_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Configure scrollbar
-        log_scrollbar.config(command=self.activity_text.yview)
+        text_yview = cast(Callable[..., tuple[float, float] | None], self.activity_text.yview)
+        log_scrollbar.config(command=text_yview)
 
         self._log_activity('🤖 Robot initialized and ready to trade')
         self._log_activity('💡 Select your starting capital and risk level, then click START!')
@@ -1611,7 +1684,7 @@ class SimpleGUI:
                 fsd_config=fsd_config,
                 enable_professional_features=True,
             )
-            self.session = factory.create_trading_session(
+            session = factory.create_trading_session(
                 symbols=list(data_source.symbols) if data_source.symbols else [],
                 checkpoint_dir='state',
                 minimum_balance=minimum_balance,
@@ -1619,24 +1692,25 @@ class SimpleGUI:
                 timeframes=timeframes,
                 safeguard_config=safeguard_config,
             )
+            self.session = session
 
             # Apply risk limit overrides if provided
             if risk_limit_overrides:
                 for key, value in risk_limit_overrides.items():
                     if key == 'max_daily_loss_pct':
-                        self.session.risk.config.max_daily_loss_pct = max(0.0001, min(float(value), 1.0))
+                        session.risk.config.max_daily_loss_pct = max(0.0001, min(float(value), 1.0))
                     elif key == 'max_drawdown_pct':
-                        self.session.risk.config.max_drawdown_pct = max(0.0001, min(float(value), 1.0))
+                        session.risk.config.max_drawdown_pct = max(0.0001, min(float(value), 1.0))
 
             # Attach logging callback so FSD decisions appear in GUI (if supported).
-            if isinstance(self.session.decision_engine, SupportsGuiLogCallback):
-                self.session.decision_engine.gui_log_callback = self._log_activity
+            if isinstance(session.decision_engine, SupportsGuiLogCallback):
+                session.decision_engine.gui_log_callback = self._log_activity
 
             self._log_activity('🔌 Starting session...')
             self.status_var.set('🔌 Connecting...')
 
             # Start IBKR connection and subscribe to multi-timeframe bars
-            self.session.start()
+            session.start()
 
             # IBKR modes: subscribe to real-time bars
             if trading_mode == 'ibkr_paper':
@@ -1691,7 +1765,7 @@ class SimpleGUI:
         if auto_liquidate:
             stop_controller = getattr(self.session, 'stop_controller', None)
             if stop_controller is not None:
-                stop_controller.request_stop('user_manual_stop')
+                cast(StopControllerProtocol, stop_controller).request_stop('user_manual_stop')
                 self._log_activity('🛑 STOP requested - cancelling orders and liquidating (auto-liquidate enabled)')
             else:
                 self._log_activity('⚠️ Stop controller not available - stopping session without liquidation')
@@ -1725,7 +1799,7 @@ class SimpleGUI:
 
         stop_controller = getattr(self.session, 'stop_controller', None)
         if stop_controller is not None:
-            stop_controller.request_stop('user_emergency_stop')
+            cast(StopControllerProtocol, stop_controller).request_stop('user_emergency_stop')
             self._log_activity('⚠️ Cancelling orders and liquidating positions...')
         else:
             self._log_activity('⚠️ Stop controller not available - stopping session without liquidation')
@@ -1751,12 +1825,11 @@ class SimpleGUI:
 
         threading.Thread(target=stop_worker, daemon=True, name='GUIStop').start()
 
-    def _finish_stop(self, session: Any, error: Exception | None) -> None:
+    def _finish_stop(self, session: TradingCoordinator, error: Exception | None) -> None:
         if self.session is session:
             self.session = None
 
-        if hasattr(self, '_logged_trade_ids'):
-            self._logged_trade_ids.clear()
+        self._logged_trade_ids.clear()
 
         if error is not None:
             self._log_activity(f'⚠️ Error while stopping: {error}')
@@ -1772,12 +1845,14 @@ class SimpleGUI:
         self._stop_in_progress = False
 
     def _update_dashboard(self) -> None:
-        if self.session:
+        session = self.session
+        if session is not None:
             try:
-                snapshot = self.session.snapshot()
+                snapshot = cast(SessionSnapshot, session.snapshot())
 
                 # Update metrics
-                equity = float(snapshot.get('equity', 0.0))
+                equity_value = snapshot.get('equity', 0.0)
+                equity = float(equity_value) if isinstance(equity_value, (int, float, Decimal)) else 0.0
                 initial_equity = float(self.capital_var.get() or 0.0)
                 profit = equity - initial_equity
 
@@ -1799,30 +1874,35 @@ class SimpleGUI:
                     trade_id = '|'.join(
                         [
                             str(latest_trade.get('timestamp')),
-                            latest_trade.get('symbol', ''),
+                            str(latest_trade.get('symbol', '')),
                             str(latest_trade.get('quantity')),
                             str(latest_trade.get('price')),
                         ]
                     )
-                    logged_ids = getattr(self, '_logged_trade_ids', set())
+                    logged_ids = self._logged_trade_ids
                     if trade_id not in logged_ids:
-                        trade_pnl = latest_trade.get('realised_pnl', 0.0)
-                        symbol = latest_trade['symbol']
-                        qty = latest_trade['quantity']
-                        price = latest_trade['price']
+                        trade_pnl_value = latest_trade.get('realised_pnl', 0.0)
+                        trade_pnl = (
+                            float(trade_pnl_value) if isinstance(trade_pnl_value, (int, float, Decimal)) else 0.0
+                        )
+                        symbol = str(latest_trade.get('symbol', ''))
+                        qty_value = latest_trade.get('quantity', 0.0)
+                        qty = float(qty_value) if isinstance(qty_value, (int, float, Decimal)) else 0.0
+                        price_value = latest_trade.get('price', 0.0)
+                        price = float(price_value) if isinstance(price_value, (int, float, Decimal)) else 0.0
 
                         emoji = '📈' if trade_pnl > 0 else '📉' if trade_pnl < 0 else '➡️'
                         self._log_activity(
                             f'{emoji} AI traded: {qty:.2f} {symbol} @ ${price:.2f} | PnL: ${trade_pnl:+,.2f}'
                         )
 
-                        if not hasattr(self, '_logged_trade_ids'):
-                            self._logged_trade_ids = set()
                         self._logged_trade_ids.add(trade_id)
 
                 # Update status with learning stats
-                fsd = snapshot.get('fsd', {})
-                total_trades = fsd.get('total_trades', 0)
+                fsd_value = snapshot.get('fsd', {})
+                fsd = cast(dict[str, object], fsd_value) if isinstance(fsd_value, dict) else {}
+                total_trades_value = fsd.get('total_trades', 0)
+                total_trades = int(total_trades_value) if isinstance(total_trades_value, (int, float)) else 0
                 if total_trades > 0:
                     self.status_var.set(f'🟢 TRADING\n🧠 {total_trades} decisions made')
 
@@ -1834,7 +1914,8 @@ class SimpleGUI:
                         self.min_balance_display_var.set(f'${min_balance:,.2f}')
 
                         # Visual warning system based on proximity to minimum
-                        cash = float(snapshot.get('cash', 0.0))
+                        cash_value = snapshot.get('cash', 0.0)
+                        cash = float(cash_value) if isinstance(cash_value, (int, float, Decimal)) else 0.0
                         margin = cash - min_balance
                         margin_pct = (margin / cash * 100) if cash > 0 else 0
 
@@ -1869,25 +1950,36 @@ class SimpleGUI:
                     self.min_balance_display_label.config(bg='#f5f5f5', fg='#9e9e9e')
 
                 # Update withdrawal statistics
-                if hasattr(self.session, 'capital_manager'):
-                    try:
-                        stats = self.session.capital_manager.get_stats()
-                        total_withdrawn = stats.get('total_withdrawn', 0)
-                        last_withdrawal = stats.get('last_withdrawal')  # ISO string or None
+                try:
+                    stats = cast(dict[str, object], session.capital_manager.get_stats())
+                    total_withdrawn_value = stats.get('total_withdrawn')
+                    total_withdrawn = 0.0
+                    if isinstance(total_withdrawn_value, (int, float, Decimal)):
+                        total_withdrawn = float(total_withdrawn_value)
+                    elif isinstance(total_withdrawn_value, str):
+                        try:
+                            total_withdrawn = float(total_withdrawn_value)
+                        except ValueError:
+                            total_withdrawn = 0.0
 
-                        self.total_withdrawn_var.set(f'${float(total_withdrawn):,.2f}')
+                    self.total_withdrawn_var.set(f'${total_withdrawn:,.2f}')
 
-                        if last_withdrawal:
-                            # Parse ISO string back to datetime for formatting
-                            from datetime import datetime
+                    last_withdrawal = stats.get('last_withdrawal')  # ISO string or None
+                    if isinstance(last_withdrawal, str):
+                        # Parse ISO string back to datetime for formatting
+                        from datetime import datetime
 
+                        try:
                             last_withdrawal_dt = datetime.fromisoformat(last_withdrawal)
+                        except ValueError:
+                            self.last_withdrawal_var.set('Never')
+                        else:
                             last_withdrawal_str = last_withdrawal_dt.strftime('%Y-%m-%d %H:%M')
                             self.last_withdrawal_var.set(last_withdrawal_str)
-                        else:
-                            self.last_withdrawal_var.set('Never')
-                    except Exception as e:
-                        self.logger.debug(f'Could not update withdrawal stats: {e}')
+                    else:
+                        self.last_withdrawal_var.set('Never')
+                except Exception as e:
+                    self.logger.debug(f'Could not update withdrawal stats: {e}')
 
             except Exception as e:
                 self.logger.error(f'Error updating dashboard: {e}')

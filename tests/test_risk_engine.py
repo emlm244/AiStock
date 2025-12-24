@@ -265,6 +265,30 @@ class RiskEngineTests(unittest.TestCase):
         except RiskViolation as exc:  # pragma: no cover - explicit failure path
             self.fail(f'Withdrawal should not trigger daily loss halt: {exc}')
 
+    def test_zero_baseline_does_not_raise(self):
+        """Zero baselines should not crash risk checks."""
+        portfolio = Portfolio(cash=Decimal('100000'))
+        limits = RiskLimits(max_daily_loss_pct=0.02, max_drawdown_pct=0.5)
+        risk = RiskEngine(limits, portfolio, bar_interval=timedelta(minutes=1))
+        timestamp = datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc)
+        last_prices = {'AAPL': Decimal('100')}
+
+        risk._ensure_reset(timestamp, Decimal('100000'))
+        portfolio.withdraw_cash(Decimal('100000'), reason='test')
+        risk.adjust_for_withdrawal(Decimal('100000'))
+
+        try:
+            risk.check_pre_trade(
+                'AAPL',
+                Decimal('0'),
+                Decimal('100'),
+                Decimal('0'),
+                last_prices,
+                timestamp=timestamp + timedelta(minutes=1),
+            )
+        except Exception as exc:
+            self.fail(f'Zero baseline should not raise: {exc}')
+
 
 if __name__ == '__main__':
     unittest.main()

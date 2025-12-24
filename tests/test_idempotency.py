@@ -109,6 +109,9 @@ class IdempotencyTests(unittest.TestCase):
 
             tracker = OrderIdempotencyTracker(path)
             self.assertTrue(tracker.is_duplicate(legacy_id))
+            with open(path, encoding='utf-8') as handle:
+                payload = json.load(handle)
+            self.assertIn(legacy_id, payload.get('submitted_ids', []))
 
 
 if __name__ == '__main__':

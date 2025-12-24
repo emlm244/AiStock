@@ -24,9 +24,10 @@ import argparse
 import json
 import logging
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TypeAlias, TypedDict, cast
 
 # Configure logging
 logging.basicConfig(
@@ -48,7 +49,25 @@ class RerunPlanItem(TypedDict):
     symbols: list[str]
     start_date: str | None
     end_date: str | None
-    params: dict[str, Any]
+    params: dict[str, object]
+
+
+@dataclass(frozen=True)
+class Args:
+    results_dir: Path
+    mark_invalid: bool
+    generate_plan: Path | None
+
+
+JSONDict: TypeAlias = dict[str, object]
+
+
+def _load_json_dict(path: Path) -> JSONDict:
+    with path.open() as f:
+        payload = cast(object, json.load(f))
+    if not isinstance(payload, dict):
+        raise ValueError(f'Expected JSON object in {path}')
+    return cast(JSONDict, payload)
 
 
 def find_backtest_results(results_dir: Path) -> list[Path]:
@@ -59,7 +78,7 @@ def find_backtest_results(results_dir: Path) -> list[Path]:
         '**/results/*.json',
     ]
 
-    results = set()
+    results: set[Path] = set()
     for pattern in patterns:
         results.update(results_dir.glob(pattern))
 
@@ -69,12 +88,12 @@ def find_backtest_results(results_dir: Path) -> list[Path]:
 def is_pre_fix_result(result_file: Path) -> bool:
     """Check if backtest result predates the P&L fix."""
     try:
-        with open(result_file) as f:
-            data = json.load(f)
+        data = _load_json_dict(result_file)
 
         # Check if result has timestamp
-        if 'timestamp' in data:
-            result_ts = datetime.fromisoformat(data['timestamp'])
+        timestamp_value = data.get('timestamp')
+        if isinstance(timestamp_value, str):
+            result_ts = datetime.fromisoformat(timestamp_value)
             return result_ts < FIX_DATE
 
         # Check file modification time as fallback
@@ -89,8 +108,7 @@ def is_pre_fix_result(result_file: Path) -> bool:
 def mark_invalid(result_file: Path) -> None:
     """Mark a backtest result as INVALID."""
     try:
-        with open(result_file) as f:
-            data = json.load(f)
+        data = _load_json_dict(result_file)
 
         # Add invalidation metadata
         data['INVALID'] = True
@@ -99,7 +117,7 @@ def mark_invalid(result_file: Path) -> None:
 
         # Save with .INVALID suffix
         invalid_path = result_file.with_suffix('.INVALID.json')
-        with open(invalid_path, 'w') as f:
+        with invalid_path.open('w') as f:
             json.dump(data, f, indent=2)
 
         logger.info(f'Marked invalid: {result_file} -> {invalid_path}')
@@ -108,11 +126,10 @@ def mark_invalid(result_file: Path) -> None:
         logger.error(f'Failed to mark invalid {result_file}: {e}')
 
 
-def extract_strategy_params(result_file: Path) -> dict[str, Any]:
+def extract_strategy_params(result_file: Path) -> dict[str, object]:
     """Extract strategy parameters from backtest result."""
     try:
-        with open(result_file) as f:
-            data = json.load(f)
+        data = _load_json_dict(result_file)
 
         return {
             'symbols': data.get('symbols', []),
@@ -126,7 +143,7 @@ def extract_strategy_params(result_file: Path) -> dict[str, Any]:
         return {}
 
 
-def calculate_impact_score(old_result: dict[str, Any]) -> float:
+def calculate_impact_score(old_result: dict[str, object]) -> float:
     """
     Calculate impact score for prioritizing backtest reruns.
 
@@ -140,15 +157,17 @@ def calculate_impact_score(old_result: dict[str, Any]) -> float:
     score = 0.0
 
     # Factor 1: Total return magnitude
-    total_return = abs(float(old_result.get('total_return', 0)))
+    total_return_value = old_result.get('total_return', 0)
+    total_return = abs(float(total_return_value)) if isinstance(total_return_value, (int, float)) else 0.0
     score += total_return * 10  # Weight: 10x
 
     # Factor 2: Number of trades
-    num_trades = int(old_result.get('num_trades', 0))
+    num_trades_value = old_result.get('num_trades', 0)
+    num_trades = int(num_trades_value) if isinstance(num_trades_value, int) else 0
     score += num_trades * 0.1  # Weight: 0.1x
 
     # Factor 3: Production flag
-    if old_result.get('is_production', False):
+    if old_result.get('is_production', False) is True:
         score *= 2  # 2x multiplier for production strategies
 
     return score
@@ -167,8 +186,7 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
     rerun_plan: list[RerunPlanItem] = []
     for result_file in pre_fix_results:
         try:
-            with open(result_file) as f:
-                data = json.load(f)
+            data = _load_json_dict(result_file)
 
             impact = calculate_impact_score(data)
             params = extract_strategy_params(result_file)
@@ -178,7 +196,10 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
             num_trades_obj = data.get('num_trades')
             num_trades = int(num_trades_obj) if isinstance(num_trades_obj, int) else None
             symbols_obj = params.get('symbols', [])
-            symbols = [str(symbol) for symbol in symbols_obj] if isinstance(symbols_obj, list) else []
+            if isinstance(symbols_obj, list):
+                symbols = [str(symbol) for symbol in cast(list[object], symbols_obj)]
+            else:
+                symbols = []
             start_date = str(params.get('start_date')) if params.get('start_date') is not None else None
             end_date = str(params.get('end_date')) if params.get('end_date') is not None else None
 
@@ -209,7 +230,7 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
         'rerun_plan': rerun_plan,
     }
 
-    with open(output_file, 'w') as f:
+    with output_file.open('w') as f:
         json.dump(plan_data, f, indent=2)
 
     logger.info(f'Rerun plan saved to: {output_file}')
@@ -221,7 +242,7 @@ def generate_rerun_plan(results_dir: Path, output_file: Path) -> None:
         )
 
 
-def main():
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Bulk backtest rerun automation (post P&L fix)')
     parser.add_argument(
         '--results-dir',
@@ -239,8 +260,21 @@ def main():
         type=Path,
         help='Generate prioritized rerun plan (output JSON file)',
     )
+    return parser
 
-    args = parser.parse_args()
+
+def _parse_args(parser: argparse.ArgumentParser) -> Args:
+    parsed = parser.parse_args()
+    return Args(
+        results_dir=cast(Path, parsed.results_dir),
+        mark_invalid=cast(bool, parsed.mark_invalid),
+        generate_plan=cast(Path | None, parsed.generate_plan),
+    )
+
+
+def main() -> None:
+    parser = _build_parser()
+    args = _parse_args(parser)
 
     if not args.results_dir.exists():
         logger.error(f'Results directory not found: {args.results_dir}')

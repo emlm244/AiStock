@@ -4,7 +4,7 @@ import itertools
 import threading
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Callable, Protocol, TypeAlias
 
 from ..config import BrokerConfig, ContractSpec
 from ..data import Bar  # For optional historical bars
@@ -12,49 +12,170 @@ from ..execution import ExecutionReport, Order, OrderSide, OrderType
 from ..logging import configure_logger
 from .base import BaseBroker
 
-try:  # pragma: no cover - ibapi not available in test environment
-    from ibapi.client import EClient  # type: ignore[assignment]
-    from ibapi.contract import Contract  # type: ignore[assignment,no-redef]
-    from ibapi.order import Order as IBOrder  # type: ignore[assignment,no-redef]
-    from ibapi.wrapper import EWrapper  # type: ignore[assignment]
+RealTimeBarHandler: TypeAlias = Callable[[datetime, str, float, float, float, float, float], None]
 
-    _IBAPI_AVAILABLE = True
-except ImportError:  # pragma: no cover - handled gracefully at runtime
 
-    class _DummyWrapper:  # pragma: no cover
-        pass
+class ExecutionDetails(Protocol):
+    side: str
+    orderId: int  # noqa: N815 - IBAPI convention
+    shares: float
+    cumQty: float  # noqa: N815 - IBAPI convention
+    price: float
+    time: int | float | str
 
-    class _DummyClient:  # pragma: no cover
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
+
+class HistoricalBar(Protocol):
+    date: str | int | float
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+
+class PositionLike(Protocol):
+    quantity: Decimal
+
+
+class PortfolioLike(Protocol):
+    def get_position(self, symbol: str) -> Decimal:
+        ...
+
+    def snapshot_positions(self) -> dict[str, PositionLike]:
+        ...
+
+
+_ibapi_available = False
+
+
+if TYPE_CHECKING:
+
+    class EWrapper:
+        def __init__(self) -> None:
+            ...
+
+    class EClient:
+        def __init__(self, wrapper: EWrapper) -> None:
+            ...
+
+        def isConnected(self) -> bool:
+            ...
+
+        def connect(self, host: str, port: int, client_id: int) -> None:
+            ...
+
+        def disconnect(self) -> None:
+            ...
+
+        def run(self) -> None:
+            ...
+
+        def reqIds(self, num_ids: int) -> None:
+            ...
+
+        def reqRealTimeBars(
+            self,
+            req_id: int,
+            contract: Contract,
+            bar_size: int,
+            what_to_show: str,
+            use_rth: bool,
+            real_time_bars_options: list[object],
+        ) -> None:
+            ...
+
+        def cancelRealTimeBars(self, req_id: int) -> None:
+            ...
+
+        def placeOrder(self, order_id: int, contract: Contract, order: IBOrder) -> None:
+            ...
+
+        def cancelOrder(self, order_id: int) -> None:
+            ...
+
+        def reqGlobalCancel(self) -> None:
+            ...
+
+        def reqPositions(self) -> None:
+            ...
+
+        def reqHistoricalData(
+            self,
+            req_id: int,
+            contract: Contract,
+            end_dt: str,
+            duration: str,
+            bar_size: str,
+            what_to_show: str,
+            use_rth: int,
+            format_date: int,
+            keep_up_to_date: bool,
+            chart_options: list[object],
+        ) -> None:
+            ...
+
+    class Contract:
+        symbol: str
+        secType: str  # noqa: N815 - IBAPI convention
+        exchange: str
+        currency: str
+        localSymbol: str  # noqa: N815 - IBAPI convention
+        multiplier: str
+        account: str
+
+        def __init__(self) -> None:
+            ...
+
+    class IBOrder:
+        action: str
+        totalQuantity: float  # noqa: N815 - IBAPI convention
+        orderType: str  # noqa: N815 - IBAPI convention
+        lmtPrice: float  # noqa: N815 - IBAPI convention
+        auxPrice: float  # noqa: N815 - IBAPI convention
+        tif: str
+        transmit: bool
+
+        def __init__(self) -> None:
+            ...
+
+else:  # pragma: no cover - ibapi not available in test environment
+    try:
+        from ibapi.client import EClient
+        from ibapi.contract import Contract
+        from ibapi.order import Order as IBOrder
+        from ibapi.wrapper import EWrapper
+
+        _ibapi_available = True
+    except ImportError:  # pragma: no cover - handled gracefully at runtime
+
+        class EWrapper:
             pass
 
-    class Contract:  # type: ignore[no-redef]  # pragma: no cover
-        """Dummy Contract for type checking when ibapi not available."""
+        class EClient:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                pass
 
-        symbol: str = ''
-        secType: str = ''  # noqa: N815 - IBAPI convention
-        exchange: str = ''
-        currency: str = ''
-        localSymbol: str = ''  # noqa: N815 - IBAPI convention
-        multiplier: str = ''
-        account: str = ''
+        class Contract:
+            symbol: str = ''
+            secType: str = ''  # noqa: N815 - IBAPI convention
+            exchange: str = ''
+            currency: str = ''
+            localSymbol: str = ''  # noqa: N815 - IBAPI convention
+            multiplier: str = ''
+            account: str = ''
 
-    class IBOrder:  # type: ignore[no-redef]  # pragma: no cover
-        """Dummy IBOrder for type checking when ibapi not available."""
+        class IBOrder:
+            action: str = ''
+            totalQuantity: float = 0.0  # noqa: N815 - IBAPI convention
+            orderType: str = ''  # noqa: N815 - IBAPI convention
+            lmtPrice: float = 0.0  # noqa: N815 - IBAPI convention
+            auxPrice: float = 0.0  # noqa: N815 - IBAPI convention
+            tif: str = ''
+            transmit: bool = True
 
-        action: str = ''
-        totalQuantity: float = 0.0  # noqa: N815 - IBAPI convention
-        orderType: str = ''  # noqa: N815 - IBAPI convention
-        lmtPrice: float = 0.0  # noqa: N815 - IBAPI convention
-        auxPrice: float = 0.0  # noqa: N815 - IBAPI convention
-        tif: str = ''
-        transmit: bool = True
+        _ibapi_available = False
 
-    EClient = _DummyClient  # type: ignore[misc,assignment]
-    EWrapper = _DummyWrapper  # type: ignore[misc,assignment]
-    _IBAPI_AVAILABLE = False
-
-IBAPI_AVAILABLE = _IBAPI_AVAILABLE  # Export as constant
+IBAPI_AVAILABLE = _ibapi_available  # Export as constant
 
 
 class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma: no cover - requires IB connection
@@ -79,16 +200,12 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._next_order_id = 1
         self._order_lock = threading.Lock()  # Protects _next_order_id and _order_symbol
         self._req_id_seq = itertools.count(start=1000)
-        self._market_handlers: dict[
-            int, tuple[str, Callable[[datetime, str, float, float, float, float, float], None]]
-        ] = {}
+        self._market_handlers: dict[int, tuple[str, RealTimeBarHandler]] = {}
         self._market_lock = threading.Lock()  # Protects _market_handlers
         self._order_symbol: dict[int, str] = {}
 
         # P1-1 Fix: Track subscription details for re-subscription after reconnect
-        self._active_subscriptions: dict[
-            str, tuple[Callable[[datetime, str, float, float, float, float, float], None], int]
-        ] = {}  # symbol -> (handler, bar_size)
+        self._active_subscriptions: dict[str, tuple[RealTimeBarHandler, int]] = {}  # symbol -> (handler, bar_size)
 
         # P0 Fix: Position reconciliation state
         self._positions: dict[str, tuple[float, float]] = {}  # symbol -> (quantity, avg_price)
@@ -152,7 +269,10 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
                     'Connecting to IBKR',
                     extra={'host': self._config.ib_host, 'port': self._config.ib_port, 'attempt': attempt + 1},
                 )
-                self.connect(self._config.ib_host, self._config.ib_port, self._config.ib_client_id)
+                client_id = self._config.ib_client_id
+                if client_id is None:
+                    raise RuntimeError('IBKR client ID is required to establish a connection.')
+                self.connect(self._config.ib_host, self._config.ib_port, client_id)
                 self._thread = threading.Thread(target=self.run, daemon=True, name='IBKRClientLoop')
                 self._thread.start()
 
@@ -300,7 +420,7 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
     def subscribe_realtime_bars(
         self,
         symbol: str,
-        handler: Callable[[datetime, str, float, float, float, float, float], None],
+        handler: RealTimeBarHandler,
         bar_size: int = 5,
     ) -> int:
         """
@@ -387,7 +507,12 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
             with self._order_lock:
                 self._order_symbol.pop(orderId, None)
 
-    def execDetails(self, reqId: int, contract: Any, execution: Any) -> None:  # noqa: N802 - IBKR API callback name
+    def execDetails(  # noqa: N802 - IBKR API callback name
+        self,
+        reqId: int,
+        contract: Contract,
+        execution: ExecutionDetails,
+    ) -> None:
         action = execution.side.upper()
         side = OrderSide.BUY if action in {'BOT', 'BUY'} else OrderSide.SELL
 
@@ -433,11 +558,11 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
             handler(datetime.fromtimestamp(time, tz=timezone.utc), symbol, open_, high, low, close, volume)
 
     # Historical data callbacks
-    def historicalData(self, reqId: int, bar: Any) -> None:  # noqa: N802 - IBKR API callback name
+    def historicalData(self, reqId: int, bar: HistoricalBar) -> None:  # noqa: N802 - IBKR API callback name
         """Collect historical bar into buffer."""
         if reqId not in self._hist_buffers:
             return
-        ts = self._parse_historical_timestamp(getattr(bar, 'date', None))
+        ts = self._parse_historical_timestamp(bar.date)
         symbol = self._hist_symbol.get(reqId, '') or self._get_symbol_from_req(reqId) or ''
         b = Bar(
             symbol=symbol,
@@ -456,7 +581,13 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         if ev:
             ev.set()
 
-    def position(self, account: str, contract: Any, position: float, avgCost: float) -> None:  # noqa: N803 - IBKR API callback signature
+    def position(  # noqa: N803 - IBKR API callback signature
+        self,
+        account: str,
+        contract: Contract,
+        position: float,
+        avgCost: float,
+    ) -> None:
         """P0 Fix: Callback when IBKR sends position data (thread-safe)."""
         symbol = contract.symbol or contract.localSymbol or ''
         with self._positions_lock:
@@ -471,7 +602,7 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._positions_ready.set()
         self._logger.info('positions_received', extra={'count': len(self._positions)})
 
-    def reconcile_positions(self, portfolio: Any, timeout: float = 10.0) -> bool:
+    def reconcile_positions(self, portfolio: PortfolioLike, timeout: float = 10.0) -> bool:
         """
         P0-5 Fix: Reconcile portfolio positions with IBKR broker (blocking).
 
@@ -651,7 +782,7 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         return sorted(data, key=lambda b: b.timestamp)
 
     @staticmethod
-    def _parse_historical_timestamp(raw: Any) -> datetime:
+    def _parse_historical_timestamp(raw: object) -> datetime:
         """Parse IBKR historical bar timestamps for `historicalData`."""
         if isinstance(raw, (int, float)):
             return datetime.fromtimestamp(float(raw), tz=timezone.utc)

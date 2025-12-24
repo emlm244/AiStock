@@ -5,18 +5,61 @@ Broker configuration reconciliation and capital allocation utilities.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Callable, TypeAlias, cast
 
-from ..audit import AuditLogger
+from ..audit import AuditLogger, JSONValue
 from ..config import ContractSpec, RiskLimits
 from ..logging import configure_logger
 
 if TYPE_CHECKING:
     from .base import BaseBroker
+
+
+JSONDict: TypeAlias = dict[str, object]
+
+
+def _load_json_dict(path: Path) -> JSONDict | None:
+    with path.open('r', encoding='utf-8') as handle:
+        payload = cast(object, json.load(handle))
+    if not isinstance(payload, dict):
+        return None
+    return cast(JSONDict, payload)
+
+
+def _parse_optional_int(value: object) -> int | None:
+    return value if isinstance(value, int) else None
+
+
+def _build_contract_spec(symbol: str, payload: dict[str, object]) -> ContractSpec:
+    symbol_value = payload.get('symbol')
+    sec_type_value = payload.get('sec_type')
+    exchange_value = payload.get('exchange')
+    currency_value = payload.get('currency')
+    local_symbol_value = payload.get('local_symbol')
+    multiplier = _parse_optional_int(payload.get('multiplier'))
+    return ContractSpec(
+        symbol=symbol_value if isinstance(symbol_value, str) else symbol,
+        sec_type=sec_type_value if isinstance(sec_type_value, str) else 'STK',
+        exchange=exchange_value if isinstance(exchange_value, str) else 'SMART',
+        currency=currency_value if isinstance(currency_value, str) else 'USD',
+        local_symbol=local_symbol_value if isinstance(local_symbol_value, str) else '',
+        multiplier=multiplier,
+    )
+
+
+def _serialize_contract_spec(spec: ContractSpec) -> dict[str, JSONValue]:
+    return {
+        'symbol': spec.symbol,
+        'sec_type': spec.sec_type,
+        'exchange': spec.exchange,
+        'currency': spec.currency,
+        'local_symbol': spec.local_symbol,
+        'multiplier': spec.multiplier,
+    }
 
 
 @dataclass
@@ -56,17 +99,20 @@ class ContractRegistry:
     def symbols(self) -> list[str]:
         return sorted(self._contracts)
 
-    def snapshot(self) -> dict[str, dict[str, Any]]:
-        return {symbol: asdict(spec) for symbol, spec in self._contracts.items()}
+    def snapshot(self) -> dict[str, dict[str, JSONValue]]:
+        return {symbol: _serialize_contract_spec(spec) for symbol, spec in self._contracts.items()}
 
     # ------------------------------------------------------------------
     def _load(self) -> None:
         if not self.path.exists():
             return
-        with self.path.open('r', encoding='utf-8') as handle:
-            data = json.load(handle)
+        data = _load_json_dict(self.path)
+        if not data:
+            return
         for symbol, payload in data.items():
-            self._contracts[symbol.upper()] = ContractSpec(**payload)
+            if not isinstance(payload, dict):
+                continue
+            self._contracts[symbol.upper()] = _build_contract_spec(symbol, cast(dict[str, object], payload))
 
     def _save(self) -> None:
         with self.path.open('w', encoding='utf-8') as handle:
@@ -85,12 +131,13 @@ class CapitalAllocationEngine:
         self,
         equity: float,
         prices: dict[str, float],
-        thresholds: dict[str, Any] | None = None,  # Generic dict for thresholds (FSD mode)
+        thresholds: Mapping[str, float] | None = None,  # Generic dict for thresholds (FSD mode)
     ) -> dict[str, AllocationResult]:
         allocations: dict[str, AllocationResult] = {}
         max_fraction = self.risk.max_position_fraction
-        if thresholds and thresholds.get('max_position_fraction_cap') is not None:
-            max_fraction = min(max_fraction, thresholds['max_position_fraction_cap'])
+        cap_value = thresholds.get('max_position_fraction_cap') if thresholds else None
+        if isinstance(cap_value, (int, float)):
+            max_fraction = min(max_fraction, float(cap_value))
 
         for symbol, price in prices.items():
             if price <= 0:
@@ -195,13 +242,25 @@ class BrokerReconciliationService:
         )
 
         if self.audit_logger:
+            missing_payload: list[JSONValue] = cast(list[JSONValue], list(missing_contracts))
+            drift_payloads: list[JSONValue] = [
+                {
+                    'symbol': drift.symbol,
+                    'current_qty': drift.current_qty,
+                    'target_qty': drift.target_qty,
+                    'difference': drift.difference,
+                    'severity': drift.severity,
+                }
+                for drift in drifts
+            ]
+            orphan_payloads: list[JSONValue] = cast(list[JSONValue], list(report.orphan_positions))
             self.audit_logger.append(
                 'broker_reconciliation',
                 actor='auto',
                 details={
-                    'missing_contracts': missing_contracts,
-                    'position_drift': [drift.__dict__ for drift in drifts],
-                    'orphan_positions': report.orphan_positions,
+                    'missing_contracts': missing_payload,
+                    'position_drift': drift_payloads,
+                    'orphan_positions': orphan_payloads,
                 },
                 artefacts={'generated_at': datetime.now(timezone.utc).isoformat()},
             )

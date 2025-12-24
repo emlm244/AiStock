@@ -12,7 +12,9 @@ import threading
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import cast
+
+from .audit import JSONValue
 
 
 class OrderIdempotencyTracker:
@@ -56,44 +58,61 @@ class OrderIdempotencyTracker:
             if not path.exists() and not backup_path.exists():
                 return
 
-            def _load_json(target: Path) -> Any | None:
+            def _load_json(target: Path) -> object | None:
                 try:
                     with target.open('r', encoding='utf-8') as handle:
-                        return json.load(handle)
+                        return cast(object, json.load(handle))
                 except (OSError, json.JSONDecodeError):
                     return None
 
-            data: Any | None = _load_json(path)
+            data: object | None = _load_json(path)
+            restored_from_backup = False
             if data is None and backup_path.exists():
                 data = _load_json(backup_path)
+                restored_from_backup = data is not None
 
             if not isinstance(data, dict):
                 self._submitted_ids.clear()
                 return
+            payload = cast(dict[str, object], data)
 
-            submitted_payload: Any = data.get('submitted_ids', [])
+            if restored_from_backup:
+                try:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    with path.open('w', encoding='utf-8') as handle:
+                        json.dump(payload, handle, indent=2)
+                except OSError:
+                    pass
+
+            submitted_payload_obj = payload.get('submitted_ids', [])
+            submitted_payload: list[object] = (
+                cast(list[object], submitted_payload_obj) if isinstance(submitted_payload_obj, list) else []
+            )
             self._submitted_ids.clear()
             if submitted_payload and isinstance(submitted_payload[0], dict):
-                for entry in submitted_payload:
+                for entry_obj in submitted_payload:
+                    if not isinstance(entry_obj, dict):
+                        continue
+                    entry = cast(dict[str, object], entry_obj)
                     cid = entry.get('id')
                     timestamp_ms = entry.get('timestamp_ms')
                     if isinstance(cid, str) and isinstance(timestamp_ms, int):
                         self._submitted_ids[cid] = timestamp_ms
             else:
                 # Legacy v1 format: plain list of ids without timestamps
-                for cid in submitted_payload:
-                    if isinstance(cid, str):
-                        self._submitted_ids[cid] = self._extract_timestamp_ms(cid)
+                for cid_obj in submitted_payload:
+                    if isinstance(cid_obj, str):
+                        self._submitted_ids[cid_obj] = self._extract_timestamp_ms(cid_obj)
 
     def _write_locked(self) -> None:
         """Persist submitted order IDs to disk (expects lock to be held)."""
         path = Path(self.storage_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        serialisable = [
+        serialisable: list[JSONValue] = [
             {'id': cid, 'timestamp_ms': ts}
             for cid, ts in sorted(self._submitted_ids.items(), key=lambda item: (item[1], item[0]))
         ]
-        payload: dict[str, Any] = {
+        payload: dict[str, JSONValue] = {
             'version': self._SCHEMA_VERSION,
             'submitted_ids': serialisable,
             'last_updated': datetime.now(timezone.utc).isoformat(),
