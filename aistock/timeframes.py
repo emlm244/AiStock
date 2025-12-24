@@ -102,10 +102,10 @@ class TimeframeManager:
             timeframes: List of timeframes (e.g., ['1m', '5m', '15m'])
             max_bars_per_timeframe: Maximum bars to keep in memory per timeframe
         """
+        self.logger = configure_logger('TimeframeManager', structured=True)
         self.symbols = symbols
         self.timeframes = self._validate_timeframes(timeframes)
         self.max_bars = max_bars_per_timeframe
-        self.logger = configure_logger('TimeframeManager', structured=True)
 
         # P0 Fix (Code Review): Thread safety lock for IBKR callback access
         self._lock = Lock()

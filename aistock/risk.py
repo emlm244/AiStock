@@ -255,6 +255,26 @@ class RiskEngine:
         with self._lock:
             self._record_order_submission(timestamp)
 
+    def adjust_for_withdrawal(self, amount: Decimal) -> None:
+        """
+        Adjust equity baselines after a cash withdrawal to avoid false loss halts.
+
+        Withdrawals reduce available equity but should not count as trading losses.
+        This keeps daily loss and drawdown calculations aligned with actual risk.
+        """
+        if amount <= 0:
+            return
+        with self._lock:
+            updated_daily = max(Decimal('0'), self.daily_start_equity - amount)
+            updated_peak = max(Decimal('0'), self.peak_equity - amount)
+
+            self.daily_start_equity = updated_daily
+            self.state.daily_start_equity = updated_daily
+            self.state.start_of_day_equity = updated_daily
+
+            self.peak_equity = updated_peak
+            self.state.peak_equity = updated_peak
+
     def halt(self, reason: str):
         """
         Halt trading with a reason.

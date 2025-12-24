@@ -93,6 +93,23 @@ class IdempotencyTests(unittest.TestCase):
             new_id = tracker.generate_client_order_id('AAPL', timestamp, 1)
             self.assertTrue(new_id.startswith('AAPL_'))
 
+    def test_corrupt_file_falls_back_to_backup(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = f'{tmpdir}/orders.json'
+            backup_path = f'{tmpdir}/orders.backup'
+            timestamp = datetime.now(timezone.utc)
+            timestamp_ms = int(timestamp.timestamp() * 1000)
+            legacy_id = f'AAPL_{timestamp_ms}_deadbeef'
+
+            with open(path, 'w', encoding='utf-8') as handle:
+                handle.write('{invalid-json')
+
+            with open(backup_path, 'w', encoding='utf-8') as handle:
+                json.dump({'submitted_ids': [legacy_id]}, handle)
+
+            tracker = OrderIdempotencyTracker(path)
+            self.assertTrue(tracker.is_duplicate(legacy_id))
+
 
 if __name__ == '__main__':
     unittest.main()
