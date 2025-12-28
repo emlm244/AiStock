@@ -992,14 +992,14 @@ class SimpleGUI:
 
         tk.Label(
             stop_frame,
-            text='⏹️ STOP ROBOT pauses trading only (no new orders; positions are not liquidated).',
+            text='⏹️ STOP ROBOT cancels open orders and pauses trading (positions are not liquidated).',
             font=self._font(9),
             fg='#666666',
             justify='left',
         ).pack(anchor='w', pady=(0, 10))
         tk.Label(
             stop_frame,
-            text='🛑 EMERGENCY STOP cancels orders and liquidates positions immediately.',
+            text='🛑 LIQUIDATE & STOP cancels orders and liquidates positions immediately.',
             font=self._font(9),
             fg='#666666',
             justify='left',
@@ -1761,10 +1761,10 @@ class SimpleGUI:
         if not self.session or self._stop_in_progress:
             return
 
-        self._log_activity('⏹️ STOP requested - pausing trading (no liquidation)')
+        self._log_activity('⏹️ STOP requested - cancelling open orders, pausing trading (no liquidation)')
 
         self.status_var.set('⏹️ Stopping...')
-        self._stop_session_async()
+        self._stop_session_async(cancel_orders=True)
 
     def _emergency_stop(self) -> None:
         """Execute emergency stop with confirmation dialog."""
@@ -1797,7 +1797,7 @@ class SimpleGUI:
 
         self._stop_session_async()
 
-    def _stop_session_async(self) -> None:
+    def _stop_session_async(self, *, cancel_orders: bool = False) -> None:
         if not self.session or self._stop_in_progress:
             return
 
@@ -1808,11 +1808,32 @@ class SimpleGUI:
 
         def stop_worker() -> None:
             error: Exception | None = None
+            cancel_message: str | None = None
+            cancel_error: Exception | None = None
+            if cancel_orders:
+                try:
+                    broker = getattr(session, 'broker', None)
+                    cancel_fn = getattr(broker, 'cancel_all_orders', None)
+                    if callable(cancel_fn):
+                        cancelled = cancel_fn()
+                        cancel_message = f'🧹 Cancelled {cancelled} open orders'
+                    else:
+                        cancel_message = '⚠️ Broker unavailable to cancel open orders'
+                except Exception as exc:
+                    cancel_error = exc
             try:
                 session.stop()
             except Exception as exc:
                 error = exc
-            self.root.after(0, self._finish_stop, session, error)
+
+            def finish() -> None:
+                if cancel_message:
+                    self._log_activity(cancel_message)
+                if cancel_error is not None:
+                    self._log_activity(f'⚠️ Failed to cancel orders: {cancel_error}')
+                self._finish_stop(session, error)
+
+            self.root.after(0, finish)
 
         threading.Thread(target=stop_worker, daemon=True, name='GUIStop').start()
 
