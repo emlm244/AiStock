@@ -207,6 +207,11 @@ class SimpleGUI:
 
     def _init_variables(self) -> None:
         # Simple user inputs
+        """
+        Initialize all Tkinter control variables and internal state used by the GUI.
+        
+        Sets up user-facing input variables (starting capital, risk level, investment goal, per-trade max loss, trading mode, extended-hours, trade tempo, session time limit), IBKR runtime configuration fields (account, client, host and ports, timezone), default hidden configuration (data folder and discovered symbol list), session management state (session handle, stopping flags, logged trade ids, session timeout handle), safety limits (daily loss, drawdown, trade-rate caps, chase threshold, news multiplier, end-of-day minutes), dashboard display variables (balance, profit, status, activity log widget), minimum-balance protection controls, capital-management / withdrawal settings (enablement, target, threshold, frequency), stop-control settings for end-of-day flatten, and withdrawal statistics.
+        """
         self.capital_var = tk.StringVar(value='200')
         self.risk_level_var = tk.StringVar(value='conservative')
         self.investment_goal_var = tk.StringVar(value='steady_growth')
@@ -338,10 +343,12 @@ class SimpleGUI:
 
     def _try_ibkr_scanner(self) -> list[str]:
         """
-        Try to use IBKR market scanner for live stock discovery.
-
+        Discover tradable symbols using the IBKR market scanner when available.
+        
+        May prompt the user to enable end-of-day auto-flattening if performing a live scan with EOD flatten disabled.
+        
         Returns:
-            List of symbols from scanner, or empty list if scanner unavailable/fails
+            List of discovered symbol strings; empty list if the scanner is unavailable or the scan fails.
         """
         try:
             # Check if scanner is available
@@ -411,6 +418,11 @@ class SimpleGUI:
 
     def _build_layout(self) -> None:
         # Header with mode switching
+        """
+        Builds and lays out the main Tkinter user interface for the Full Self-Driving (FSD) control panel.
+        
+        Creates the header, a scrollable main content area, the sequence of user questions (capital, risk, goal, session time, per-trade loss, tempo, minimum-balance protection), safety limits, trading mode selection, capital-management settings, stop controls, START/STOP/EMERGENCY controls, and the dashboard with metric cards and a recent-activity log. Binds keyboard and mouse scrolling, initializes widget state, and registers important widget references on self (e.g., main_canvas, start_btn, stop_btn, emergency_stop_btn, activity_text, min_balance_entry, min_balance_display_label) for later use by event handlers and session management.
+        """
         header = tk.Frame(self.root, bg='#1a237e', padx=24, pady=20)
         header.pack(fill=tk.X)
 
@@ -1288,6 +1300,16 @@ class SimpleGUI:
         return config
 
     def _start_robot(self) -> None:
+        """
+        Start a new Full Self-Driving (FSD) trading session using current GUI settings.
+        
+        Validates user inputs and safety limits, constructs data, engine, broker, capital management,
+        stop-control, and FSD configurations, creates a trading session, and starts it. On success
+        the method schedules the session timeout, updates UI state (status, buttons, activity log),
+        and enables emergency stop. Prompts the user for confirmations when using IBKR paper or
+        live modes. On validation or startup failure the method shows an error dialog, logs the
+        failure, stops any partially started session, and resets session state.
+        """
         if self.session is not None:
             messagebox.showwarning(
                 'Already Running', 'The robot is already running! Stop it first before starting again.'
@@ -1768,6 +1790,11 @@ class SimpleGUI:
                 self.session = None
 
     def _stop_robot(self) -> None:
+        """
+        Initiates a graceful stop of the running trading session, requesting cancellation of open orders and updating the UI status.
+        
+        If no session is active or a stop is already in progress, this is a no-op.
+        """
         if not self.session or self._stop_in_progress:
             return
 
@@ -1777,7 +1804,11 @@ class SimpleGUI:
         self._stop_session_async(cancel_orders=True)
 
     def _emergency_stop(self) -> None:
-        """Execute emergency stop with confirmation dialog."""
+        """
+        Prompt the user to liquidate positions and stop the running session.
+        
+        Displays a confirmation dialog labelled "Liquidate & Stop". If the user confirms, logs the action, requests an emergency stop from the session's stop_controller (when available) to cancel orders and liquidate positions, updates the UI status, and initiates the session shutdown.
+        """
         if not self.session or self._stop_in_progress:
             return
 
@@ -1808,6 +1839,14 @@ class SimpleGUI:
         self._stop_session_async()
 
     def _stop_session_async(self, *, cancel_orders: bool = False) -> None:
+        """
+        Initiates an asynchronous shutdown of the current trading session, optionally cancelling open orders first.
+        
+        Attempts to cancel open orders when requested, disables relevant UI controls, runs the session stop procedure on a background thread, and posts cancellation or error messages to the activity log before finalizing the stop.
+        
+        Parameters:
+            cancel_orders (bool): If True, attempt to cancel all open broker orders before stopping the session; if False, stop without cancelling orders.
+        """
         if not self.session or self._stop_in_progress:
             return
 
@@ -1817,6 +1856,11 @@ class SimpleGUI:
         self.emergency_stop_btn.config(state=tk.DISABLED)
 
         def stop_worker() -> None:
+            """
+            Stop the active trading session worker: optionally cancel open orders, stop the session, and schedule UI finalization.
+            
+            If order cancellation is requested, attempts to cancel all open orders via the session's broker and records a summary message or any cancellation error. Stops the session (capturing any stop error), then schedules a callback on the GUI thread to log cancellation results and invoke the GUI's stop-completion handler.
+            """
             error: Exception | None = None
             cancel_message: str | None = None
             cancel_error: Exception | None = None
@@ -1837,6 +1881,11 @@ class SimpleGUI:
                 error = exc
 
             def finish() -> None:
+                """
+                Finalize the stop procedure by recording cancellation outcomes and completing session shutdown.
+                
+                If a cancellation message is present, append it to the activity log. If a cancellation error occurred, record a warning in the activity log. After logging, perform final shutdown/cleanup for the session using the provided error state.
+                """
                 if cancel_message:
                     self._log_activity(cancel_message)
                 if cancel_error is not None:
@@ -1848,6 +1897,15 @@ class SimpleGUI:
         threading.Thread(target=stop_worker, daemon=True, name='GUIStop').start()
 
     def _finish_stop(self, session: TradingCoordinator, error: Exception | None) -> None:
+        """
+        Finalize stopping of a trading session and update the GUI and internal state accordingly.
+        
+        Performs final cleanup after a session stop: if the provided `session` matches the currently tracked session, clears the session reference; cancels any scheduled session timeout; clears internal seen-trade history; attempts to read and log up to five remaining open position symbols; logs any error passed in; records a "Robot stopped" activity; updates the status displayed in the UI; swaps the Start/Stop controls and disables the emergency-stop control; and clears the internal stop-in-progress flag.
+        
+        Parameters:
+            session (TradingCoordinator): The session instance that completed stopping.
+            error (Exception | None): An optional exception raised during stop; if present, an activity log entry is created describing the error.
+        """
         if self.session is session:
             self.session = None
 
@@ -1880,6 +1938,14 @@ class SimpleGUI:
         self._stop_in_progress = False
 
     def _schedule_session_timeout(self, minutes: int) -> None:
+        """
+        Schedule a session timeout that will stop the robot after the given number of minutes.
+        
+        If a previous timeout is scheduled it is cancelled first. If `minutes` is less than or equal to zero no timeout is scheduled. The scheduled timer id is stored in `self._session_stop_after_id` and will trigger `self._handle_session_timeout` when it fires.
+        
+        Parameters:
+            minutes (int): Session duration in minutes after which the session should be stopped.
+        """
         self._cancel_session_timeout()
         if minutes <= 0:
             return
@@ -1887,6 +1953,12 @@ class SimpleGUI:
         self._session_stop_after_id = self.root.after(delay_ms, self._handle_session_timeout)
 
     def _cancel_session_timeout(self) -> None:
+        """
+        Cancel any scheduled session timeout and clear its internal timer handle.
+        
+        If no timeout is scheduled this is a no-op. If cancelling the pending callback fails
+        (such as when the callback has already executed or been removed), the error is ignored.
+        """
         if self._session_stop_after_id is None:
             return
         try:
@@ -1896,6 +1968,11 @@ class SimpleGUI:
         self._session_stop_after_id = None
 
     def _handle_session_timeout(self) -> None:
+        """
+        Handle a scheduled session timeout by initiating a stop of the running session.
+        
+        Clears the internal timeout handle, logs a session-time-limit message to the activity feed, and calls the stop routine when a session is active and a stop is not already in progress.
+        """
         self._session_stop_after_id = None
         if not self.session or self._stop_in_progress:
             return
@@ -1903,6 +1980,11 @@ class SimpleGUI:
         self._stop_robot()
 
     def _update_dashboard(self) -> None:
+        """
+        Refresh the GUI dashboard from the current trading session snapshot and schedule the next refresh.
+        
+        Updates displayed metrics (balance, profit with color coding), logs newly observed trades to the activity log, updates AI status with decision counts, manages the minimum-balance protection display and visual warnings (safe / caution / danger / critical), and refreshes withdrawal statistics (total withdrawn and last withdrawal time). If no session is running, resets visible metrics to initial/disabled values and sets the UI status to "Ready to start". Exceptions during update are caught and logged; the method schedules itself to run again after one second.
+        """
         session = self.session
         if session is not None:
             try:
