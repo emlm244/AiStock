@@ -360,6 +360,16 @@ class SimpleGUI:
                 return []
 
             trading_mode = self.trading_mode_var.get()
+
+            if trading_mode == 'ibkr_live' and not self.enable_eod_flatten_var.get():
+                enable_flatten = messagebox.askyesno(
+                    'Live Trading Safety',
+                    'End-of-day auto-flatten is OFF.\n\n'
+                    'Day traders typically flatten before the close to avoid overnight risk.\n'
+                    'Enable auto-flatten now?',
+                )
+                if enable_flatten:
+                    self.enable_eod_flatten_var.set(True)
             port = self.ibkr_paper_port if trading_mode == 'ibkr_paper' else self.ibkr_live_port
             scanner_client_id = self.ibkr_client_id + 1
 
@@ -1843,6 +1853,18 @@ class SimpleGUI:
 
         self._cancel_session_timeout()
         self._logged_trade_ids.clear()
+
+        try:
+            positions = session.portfolio.snapshot_positions()
+            open_symbols = [
+                symbol for symbol, position in positions.items() if abs(position.quantity) > Decimal('0.01')
+            ]
+            if open_symbols:
+                preview = ', '.join(open_symbols[:5])
+                suffix = '...' if len(open_symbols) > 5 else ''
+                self._log_activity(f'📌 Open positions after stop: {preview}{suffix}')
+        except Exception as exc:
+            self.logger.debug(f'Could not read positions on stop: {exc}')
 
         if error is not None:
             self._log_activity(f'⚠️ Error while stopping: {error}')
