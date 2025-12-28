@@ -563,9 +563,10 @@ class TradingCoordinator:
 
     def _trigger_stop_async(self) -> None:
         """Run stop() on a dedicated thread to avoid joining the broker callback thread."""
-        if self._stop_thread_started:
-            return
-        self._stop_thread_started = True
+        with self._stop_lock:
+            if self._stop_thread_started:
+                return
+            self._stop_thread_started = True
         threading.Thread(target=self.stop, daemon=True, name='TradingCoordinatorStop').start()
 
     def _on_realtime_bar(
