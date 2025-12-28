@@ -9,8 +9,9 @@ from collections.abc import Iterable
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import TypeAlias, cast
 
+from .audit import JSONValue
 from .engine import Trade
 from .interfaces.portfolio import PortfolioProtocol
 from .portfolio import Portfolio, Position
@@ -19,8 +20,10 @@ from .risk import RiskState
 # P0-5 Fix: Global lock for atomic file writes
 _PERSISTENCE_LOCK = threading.Lock()
 
+JSONDict: TypeAlias = dict[str, JSONValue]
 
-def _atomic_write_json(data: Any, filepath: Path) -> None:
+
+def _atomic_write_json(data: JSONValue, filepath: Path) -> None:
     """
     P0-5 Fix: Atomic write with locking to prevent corruption.
     P2-1 Fix: Enhanced temp file cleanup in finally block.
@@ -70,6 +73,11 @@ def _atomic_write_json(data: Any, filepath: Path) -> None:
                     temp_path.unlink()
 
 
+def atomic_write_json(data: JSONValue, filepath: Path) -> None:
+    """Public wrapper for atomic JSON writes."""
+    _atomic_write_json(data, filepath)
+
+
 def write_trades(trades: Iterable[Trade], path: str) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +112,7 @@ def write_equity_curve(equity_curve: Iterable[tuple[datetime, float]], path: str
 # P0 Fix: State persistence for crash recovery
 
 
-def _serialize_decimal(obj: Any) -> Any:
+def _serialize_decimal(obj: object) -> JSONValue:
     """Convert Decimal and datetime objects to JSON-serializable types."""
     if isinstance(obj, Decimal):
         return str(obj)
@@ -112,7 +120,7 @@ def _serialize_decimal(obj: Any) -> Any:
         return obj.isoformat()
     if isinstance(obj, date):
         return obj.isoformat()
-    return obj
+    return cast(JSONValue, obj)
 
 
 def save_portfolio_snapshot(portfolio: PortfolioProtocol, path: str) -> None:
@@ -124,40 +132,36 @@ def save_portfolio_snapshot(portfolio: PortfolioProtocol, path: str) -> None:
         path: Target file path (will create parent directories)
     """
     positions_snapshot = portfolio.snapshot_positions()
-    positions_data = []
+    positions_data: list[JSONValue] = []
     for _symbol, pos in positions_snapshot.items():
-        positions_data.append(
-            {
-                'symbol': pos.symbol,
-                'quantity': str(pos.quantity),
-                'average_price': str(pos.average_price),
-                'entry_time_utc': pos.entry_time_utc.isoformat() if pos.entry_time_utc else None,
-                'last_update_utc': pos.last_update_utc.isoformat() if pos.last_update_utc else None,
-                'total_volume': str(pos.total_volume),
-            }
-        )
+        position_record: dict[str, JSONValue] = {
+            'symbol': pos.symbol,
+            'quantity': str(pos.quantity),
+            'average_price': str(pos.average_price),
+            'entry_time_utc': pos.entry_time_utc.isoformat() if pos.entry_time_utc else None,
+            'last_update_utc': pos.last_update_utc.isoformat() if pos.last_update_utc else None,
+            'total_volume': str(pos.total_volume),
+        }
+        positions_data.append(position_record)
 
-    trade_log_snapshot = portfolio.get_trade_log_snapshot(limit=1000)
+    trade_log_snapshot = cast(list[dict[str, object]], portfolio.get_trade_log_snapshot(limit=1000))
 
-    snapshot = {
+    serialized_trades: list[JSONValue] = []
+    for trade in trade_log_snapshot:
+        serialized_trade: dict[str, JSONValue] = {}
+        for key, value in trade.items():
+            serialized_trade[key] = _serialize_decimal(value)
+        serialized_trades.append(serialized_trade)
+
+    snapshot: JSONDict = {
         'version': '1.0',
         'timestamp': datetime.now(timezone.utc).isoformat(),
         'cash': str(portfolio.get_cash()),
         'positions': positions_data,
         'realised_pnl': str(portfolio.get_realised_pnl()),
         'commissions_paid': str(portfolio.get_commissions_paid()),
-        'trade_log': trade_log_snapshot,
+        'trade_log': serialized_trades,
     }
-
-    # Serialize trade log (contains Decimal objects)
-    serialized_trades = []
-    trade_log: list[dict[str, Any]] = snapshot.get('trade_log', [])  # type: ignore[assignment]
-    for trade in trade_log:
-        serialized_trade: dict[str, Any] = {}
-        for key, value in trade.items():
-            serialized_trade[key] = _serialize_decimal(value)
-        serialized_trades.append(serialized_trade)
-    snapshot['trade_log'] = serialized_trades
 
     # P0-5 Fix: Use atomic write to prevent corruption
     _atomic_write_json(snapshot, Path(path))
@@ -186,57 +190,70 @@ def load_portfolio_snapshot(path: str) -> Portfolio:
         raise FileNotFoundError(f'Portfolio checkpoint not found: {path}')
 
     # P0-5 Fix: Try primary file, fall back to backup if corrupted
-    snapshot = None
+    snapshot_obj: object | None = None
     load_error = None
 
     # Try primary file first
     if target.exists():
         try:
             with target.open('r') as handle:
-                snapshot = json.load(handle)
+                snapshot_obj = cast(object, json.load(handle))
         except json.JSONDecodeError as exc:
             load_error = exc
             # Primary corrupted, will try backup
 
     # If primary failed or doesn't exist, try backup
-    if snapshot is None and backup_path.exists():
+    if snapshot_obj is None and backup_path.exists():
         try:
             with backup_path.open('r') as handle:
-                snapshot = json.load(handle)
+                snapshot_obj = cast(object, json.load(handle))
         except json.JSONDecodeError as exc:
             raise ValueError(f'Both primary and backup checkpoints corrupted: {path}') from exc
 
-    if snapshot is None:
+    if snapshot_obj is None:
         raise ValueError(f'Failed to load portfolio checkpoint: {path}') from load_error
 
+    if not isinstance(snapshot_obj, dict):
+        raise ValueError(f'Portfolio checkpoint is not a JSON object: {path}')
+
+    snapshot = cast(dict[str, object], snapshot_obj)
     if snapshot.get('version') != '1.0':
         raise ValueError(f'Unsupported checkpoint version: {snapshot.get("version")}')
 
     # Reconstruct portfolio
-    portfolio = Portfolio(cash=Decimal(snapshot['cash']))
-    portfolio.realised_pnl = Decimal(snapshot['realised_pnl'])
-    portfolio.commissions_paid = Decimal(snapshot['commissions_paid'])
+    portfolio = Portfolio(cash=Decimal(str(snapshot.get('cash'))))
+    portfolio.realised_pnl = Decimal(str(snapshot.get('realised_pnl')))
+    portfolio.commissions_paid = Decimal(str(snapshot.get('commissions_paid')))
 
     # Restore positions
     restored_positions: dict[str, Position] = {}
-    for pos_data in snapshot['positions']:
+    positions_obj = snapshot.get('positions')
+    positions_data: list[dict[str, object]] = (
+        cast(list[dict[str, object]], positions_obj) if isinstance(positions_obj, list) else []
+    )
+    for pos_data in positions_data:
         pos = Position(
-            symbol=pos_data['symbol'],
-            quantity=Decimal(pos_data['quantity']),
-            average_price=Decimal(pos_data['average_price']),
-            entry_time_utc=datetime.fromisoformat(pos_data['entry_time_utc']) if pos_data['entry_time_utc'] else None,
-            last_update_utc=datetime.fromisoformat(pos_data['last_update_utc'])
-            if pos_data['last_update_utc']
+            symbol=str(pos_data.get('symbol', '')),
+            quantity=Decimal(str(pos_data.get('quantity'))),
+            average_price=Decimal(str(pos_data.get('average_price'))),
+            entry_time_utc=datetime.fromisoformat(str(pos_data.get('entry_time_utc')))
+            if pos_data.get('entry_time_utc')
             else None,
-            total_volume=Decimal(pos_data['total_volume']),
+            last_update_utc=datetime.fromisoformat(str(pos_data.get('last_update_utc')))
+            if pos_data.get('last_update_utc')
+            else None,
+            total_volume=Decimal(str(pos_data.get('total_volume'))),
         )
         restored_positions[pos.symbol] = pos
     portfolio.replace_positions(restored_positions)
 
     # Restore trade log (deserialize Decimals)
-    trade_log_data: list[dict[str, Any]] = snapshot.get('trade_log', [])  # type: ignore[assignment]
+    trade_log_obj = snapshot.get('trade_log')
+    trade_log_data: list[dict[str, object]] = (
+        cast(list[dict[str, object]], trade_log_obj) if isinstance(trade_log_obj, list) else []
+    )
     for trade_data in trade_log_data:
-        restored_trade: dict[str, Any] = {}
+        restored_trade: dict[str, object] = {}
         for key, value in trade_data.items():
             if key in {'quantity', 'price', 'realised_pnl', 'commission'}:
                 restored_trade[key] = Decimal(str(value))
@@ -260,7 +277,7 @@ def save_risk_state(risk_state: RiskState, path: str) -> None:
     # last_reset_date is stored as string in RiskState
     last_reset_str = str(risk_state.last_reset_date)
 
-    snapshot = {
+    snapshot: JSONDict = {
         'version': '1.0',
         'timestamp': datetime.now(timezone.utc).isoformat(),
         'last_reset_date': last_reset_str,
@@ -272,7 +289,7 @@ def save_risk_state(risk_state: RiskState, path: str) -> None:
     }
 
     # P0-5 Fix: Use atomic write to prevent corruption
-    _atomic_write_json(snapshot, Path(path))
+    atomic_write_json(snapshot, Path(path))
 
 
 def load_risk_state(path: str) -> RiskState:
@@ -294,39 +311,43 @@ def load_risk_state(path: str) -> RiskState:
         raise FileNotFoundError(f'Risk state checkpoint not found: {path}')
 
     # P0-5 Fix: Try primary file, fall back to backup if corrupted
-    snapshot = None
+    snapshot_obj: object | None = None
     load_error = None
 
     # Try primary file first
     if target.exists():
         try:
             with target.open('r') as handle:
-                snapshot = json.load(handle)
+                snapshot_obj = cast(object, json.load(handle))
         except json.JSONDecodeError as exc:
             load_error = exc
             # Primary corrupted, will try backup
 
     # If primary failed or doesn't exist, try backup
-    if snapshot is None and backup_path.exists():
+    if snapshot_obj is None and backup_path.exists():
         try:
             with backup_path.open('r') as handle:
-                snapshot = json.load(handle)
+                snapshot_obj = cast(object, json.load(handle))
         except json.JSONDecodeError as exc:
             raise ValueError(f'Both primary and backup checkpoints corrupted: {path}') from exc
 
-    if snapshot is None:
+    if snapshot_obj is None:
         raise ValueError(f'Failed to load risk state checkpoint: {path}') from load_error
 
+    if not isinstance(snapshot_obj, dict):
+        raise ValueError(f'Risk state checkpoint is not a JSON object: {path}')
+
+    snapshot = cast(dict[str, object], snapshot_obj)
     if snapshot.get('version') != '1.0':
         raise ValueError(f'Unsupported checkpoint version: {snapshot.get("version")}')
 
     return RiskState(
-        last_reset_date=snapshot['last_reset_date'],  # Keep as string
-        daily_pnl=Decimal(snapshot['daily_pnl']),
-        peak_equity=Decimal(snapshot['peak_equity']),
-        start_of_day_equity=Decimal(snapshot['start_of_day_equity']),
-        halted=snapshot['halted'],
-        halt_reason=snapshot['halt_reason'],
+        last_reset_date=str(snapshot.get('last_reset_date', '')),  # Keep as string
+        daily_pnl=Decimal(str(snapshot.get('daily_pnl'))),
+        peak_equity=Decimal(str(snapshot.get('peak_equity'))),
+        start_of_day_equity=Decimal(str(snapshot.get('start_of_day_equity'))),
+        halted=bool(snapshot.get('halted')),
+        halt_reason=cast(str, snapshot.get('halt_reason', '')),
     )
 
 
@@ -356,43 +377,43 @@ class FileStateManager:
     def load_checkpoint(self, checkpoint_dir: str) -> tuple[Portfolio, RiskState]:
         return load_checkpoint(checkpoint_dir)
 
-    def save_state(self, state: dict[str, Any], filepath: str) -> None:
+    def save_state(self, state: JSONDict, filepath: str) -> None:
         _atomic_write_json(state, Path(filepath))
 
-    def load_state(self, filepath: str) -> dict[str, Any]:
+    def load_state(self, filepath: str) -> JSONDict:
         target = Path(filepath)
         backup = target.with_suffix('.backup')
 
         if not target.exists() and not backup.exists():
             raise FileNotFoundError(f'State file not found: {filepath}')
 
-        snapshot = None
+        snapshot_obj: object | None = None
         load_error = None
 
         # Try primary file first
         if target.exists():
             try:
                 with target.open('r', encoding='utf-8') as handle:
-                    snapshot = json.load(handle)
+                    snapshot_obj = cast(object, json.load(handle))
             except json.JSONDecodeError as exc:
                 load_error = exc
                 # Primary corrupted, will try backup
 
         # If primary failed or doesn't exist, try backup
-        if snapshot is None and backup.exists():
+        if snapshot_obj is None and backup.exists():
             try:
                 with backup.open('r', encoding='utf-8') as handle:
-                    snapshot = json.load(handle)
+                    snapshot_obj = cast(object, json.load(handle))
             except json.JSONDecodeError as exc:
                 raise ValueError(f'Both primary and backup state files corrupted: {filepath}') from exc
 
-        if snapshot is None:
+        if snapshot_obj is None:
             raise ValueError(f'Failed to load state file: {filepath}') from load_error
 
-        if not isinstance(snapshot, dict):
+        if not isinstance(snapshot_obj, dict):
             raise ValueError(f'State file does not contain a JSON object: {filepath}')
 
-        return snapshot
+        return cast(JSONDict, snapshot_obj)
 
 
 def load_checkpoint(checkpoint_dir: str = 'state') -> tuple[Portfolio, RiskState]:

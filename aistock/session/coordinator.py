@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 from ..calendar import is_trading_time
 from ..capital_management import CompoundingStrategy, ProfitWithdrawalStrategy
@@ -37,6 +38,16 @@ class _AggregatedOHLCV:
     low: float
     close: float
     volume: float
+
+
+class DecisionAction(TypedDict, total=False):
+    size_fraction: float | int
+    signal: int
+
+
+class DecisionPayload(TypedDict, total=False):
+    should_trade: bool
+    action: DecisionAction
 
 
 class _BarAggregator:
@@ -292,7 +303,7 @@ class TradingCoordinator:
             return
 
         # Get decision
-        decision = self.decision_engine.evaluate_opportunity(symbol, history, last_prices)
+        decision = cast(DecisionPayload, self.decision_engine.evaluate_opportunity(symbol, history, last_prices))
 
         if not decision.get('should_trade'):
             return
@@ -320,13 +331,13 @@ class TradingCoordinator:
     def _execute_trade(
         self,
         symbol: str,
-        decision: dict[str, Any],
+        decision: DecisionPayload,
         history: list[Bar],
         last_prices: dict[str, Decimal],
         timestamp: datetime,
     ) -> None:
         """Execute a trade based on decision."""
-        action = decision.get('action', {})
+        action = decision.get('action')
         if not action:
             return
 
@@ -379,7 +390,7 @@ class TradingCoordinator:
             self.decision_engine.register_trade_intent(
                 symbol,
                 timestamp,
-                decision,
+                cast(dict[str, Any], decision),
                 float(target_notional),
                 float(desired_qty),
             )
@@ -478,7 +489,11 @@ class TradingCoordinator:
     def _infer_timeframes(self) -> list[str]:
         """Infer configured timeframes from the optional timeframe manager."""
         tfm = getattr(self.bar_processor, 'timeframe_manager', None)
-        timeframes = list(getattr(tfm, 'timeframes', []) or [])
+        timeframes_obj = getattr(tfm, 'timeframes', None)
+        if isinstance(timeframes_obj, Sequence) and not isinstance(timeframes_obj, (str, bytes)):
+            timeframes = [str(tf) for tf in cast(Sequence[object], timeframes_obj)]
+        else:
+            timeframes = []
         if self._decision_timeframe not in timeframes:
             timeframes.insert(0, self._decision_timeframe)
         # Deduplicate while preserving order
@@ -494,7 +509,7 @@ class TradingCoordinator:
 
     def _start_market_data(self) -> None:
         """Subscribe to live market data (IBKR) and aggregate 5s bars into configured timeframes."""
-        broker_config = getattr(self.config, 'broker', None)
+        broker_config = self.config.broker
         backend = getattr(broker_config, 'backend', '').lower() if broker_config else ''
         if backend != 'ibkr':
             return
@@ -636,7 +651,7 @@ class TradingCoordinator:
             'total_trades': int(fsd_total_trades) if isinstance(fsd_total_trades, (int, float)) else len(trades)
         }
 
-        positions = []
+        positions: list[dict[str, object]] = []
         for symbol, pos in self.portfolio.snapshot_positions().items():
             positions.append(
                 {

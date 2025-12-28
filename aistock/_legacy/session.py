@@ -659,9 +659,7 @@ class LiveTradingSession:
             remaining_capital = Decimal('0')
 
         exposure_headroom = remaining_capital
-        if (trade_signal < 0 and current_position.quantity > 0) or (
-            trade_signal > 0 and current_position.quantity < 0
-        ):
+        if (trade_signal < 0 and current_position.quantity > 0) or (trade_signal > 0 and current_position.quantity < 0):
             exposure_headroom += current_symbol_exposure
 
         exposure_headroom = max(Decimal('0'), exposure_headroom)
@@ -1016,9 +1014,7 @@ class LiveTradingSession:
                     broker_qty = mismatch['broker_qty']
                     delta = abs(mismatch['delta'])
                     # Calculate percentage difference (relative to broker truth)
-                    pct_diff = (
-                        (delta / abs(broker_qty)) * 100 if broker_qty != 0 else 100.0 if delta > 0 else 0.0
-                    )
+                    pct_diff = (delta / abs(broker_qty)) * 100 if broker_qty != 0 else 100.0 if delta > 0 else 0.0
 
                     if pct_diff >= 10.0:  # >= 10% difference is critical
                         critical_mismatches.append({**mismatch, 'pct_diff': pct_diff})

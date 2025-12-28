@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
+from typing import cast
 
 
 class StructuredFormatter(logging.Formatter):
@@ -19,7 +20,7 @@ class StructuredFormatter(logging.Formatter):
         attributes on the LogRecord. We detect non-standard attributes and
         include them in the structured payload.
         """
-        log_data = {
+        log_data: dict[str, object] = {
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'level': record.levelname,
             'logger': record.name,
@@ -29,7 +30,8 @@ class StructuredFormatter(logging.Formatter):
         # Merge any custom attributes that were provided via `extra=`
         try:
             base_keys = set(logging.LogRecord('', 0, '', 0, '', (), None).__dict__.keys())
-            for key, value in record.__dict__.items():
+            record_dict = cast(dict[str, object], record.__dict__)
+            for key, value in record_dict.items():
                 if key not in base_keys and key not in {'args', 'message'}:
                     log_data[key] = value
         except Exception:
@@ -59,14 +61,22 @@ def configure_logger(name: str, level: str = 'INFO', structured: bool = False) -
         Configured logger instance
     """
     logger = logging.getLogger(name)
-    logger.setLevel(getattr(logging, level.upper()))
+    level_name = level.upper()
+    level_value = {
+        'CRITICAL': logging.CRITICAL,
+        'ERROR': logging.ERROR,
+        'WARNING': logging.WARNING,
+        'INFO': logging.INFO,
+        'DEBUG': logging.DEBUG,
+    }.get(level_name, logging.INFO)
+    logger.setLevel(level_value)
 
     # Remove existing handlers
     logger.handlers = []
 
     # Create console handler
     handler = logging.StreamHandler()
-    handler.setLevel(getattr(logging, level.upper()))
+    handler.setLevel(level_value)
 
     # Set formatter
     if structured:

@@ -1,13 +1,29 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from datetime import timezone
 from pathlib import Path
+from typing import TypedDict, cast
 
 from aistock.config import BacktestConfig, BrokerConfig, DataSource, EngineConfig
 from aistock.data import load_csv_file
 from aistock.factories import SessionFactory
 from aistock.fsd import FSDConfig
+
+
+class SessionSnapshot(TypedDict):
+    equity: float
+    cash: float
+    positions: list[object]
+    trades: list[object]
+
+
+@dataclass(frozen=True)
+class Args:
+    symbol: str
+    data: str
+    limit: int
 
 
 def run(symbol: str, data_path: str, limit: int) -> int:
@@ -33,7 +49,7 @@ def run(symbol: str, data_path: str, limit: int) -> int:
             session.process_bar(bar)
             fed += 1
 
-        snap = session.snapshot()
+        snap = cast(SessionSnapshot, session.snapshot())
         print('--- Smoke Backtest Summary ---')
         print(f'Symbol: {symbol}')
         print(f'Bars processed: {fed}')
@@ -46,14 +62,23 @@ def run(symbol: str, data_path: str, limit: int) -> int:
         session.stop()
 
 
-def main() -> int:
+def _parse_args() -> Args:
     parser = argparse.ArgumentParser(description='Run a quick FSD smoke backtest using the paper broker.')
     parser.add_argument('--symbol', default='AAPL', help='Symbol to backtest')
     parser.add_argument(
         '--data', default=str(Path('data/historical/stocks').as_posix()), help='Directory containing CSV files'
     )
     parser.add_argument('--limit', type=int, default=500, help='Max bars to process (0 = all)')
-    args = parser.parse_args()
+    parsed = parser.parse_args()
+    return Args(
+        symbol=cast(str, parsed.symbol),
+        data=cast(str, parsed.data),
+        limit=cast(int, parsed.limit),
+    )
+
+
+def main() -> int:
+    args = _parse_args()
     return run(args.symbol.upper(), args.data, args.limit)
 
 

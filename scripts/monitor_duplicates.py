@@ -20,17 +20,56 @@ import argparse
 import json
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TypeAlias, TypedDict, cast
+
+DuplicateRecord: TypeAlias = dict[str, str | float]
 
 
-def parse_log_line(line: str) -> dict[str, Any] | None:
+class DuplicateSummary(TypedDict):
+    same_session: list[DuplicateRecord]
+    cross_restart_under_5min: list[DuplicateRecord]
+    retries_over_5min: list[DuplicateRecord]
+
+
+class MetricsSummary(TypedDict):
+    same_session_rate: float
+    cross_restart_rate: float
+    retry_rate: float
+
+
+class AnalysisReport(TypedDict):
+    total_submissions: int
+    unique_clients: int
+    duplicates: DuplicateSummary
+    metrics: MetricsSummary
+
+
+@dataclass(frozen=True)
+class Args:
+    log_file: Path
+    output: Path | None
+    alert: bool
+
+
+def _load_json_dict(line: str) -> dict[str, object] | None:
+    try:
+        payload = cast(object, json.loads(line))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return cast(dict[str, object], payload)
+
+
+def parse_log_line(line: str) -> dict[str, object] | None:
     """Parse structured log line."""
     try:
         # Assume JSON structured logs
         if line.strip().startswith('{'):
-            return json.loads(line)
+            return _load_json_dict(line)
 
         # Fallback: regex for common log formats
         # Example: 2025-11-02 14:30:00 - INFO - Order submitted: AAPL T000123
@@ -48,16 +87,16 @@ def parse_log_line(line: str) -> dict[str, Any] | None:
         return None
 
 
-def analyze_duplicates(log_file: Path) -> dict[str, Any]:
+def analyze_duplicates(log_file: Path) -> AnalysisReport:
     """Analyze log file for duplicate patterns."""
-    submissions = defaultdict(list)  # client_order_id -> [(timestamp, order_id)]
-    duplicates = {
-        'same_session': [],
-        'cross_restart_under_5min': [],
-        'retries_over_5min': [],
+    submissions: defaultdict[str, list[tuple[datetime, str]]] = defaultdict(list)
+    duplicates: DuplicateSummary = {
+        'same_session': list[DuplicateRecord](),
+        'cross_restart_under_5min': list[DuplicateRecord](),
+        'retries_over_5min': list[DuplicateRecord](),
     }
 
-    with open(log_file) as f:
+    with log_file.open() as f:
         for line in f:
             entry = parse_log_line(line)
             if not entry:
@@ -65,9 +104,12 @@ def analyze_duplicates(log_file: Path) -> dict[str, Any]:
 
             # Look for order submissions
             if 'Order submitted' in line or entry.get('event') == 'order_submitted':
-                client_id = entry.get('client_order_id', 'UNKNOWN')
-                timestamp = datetime.fromisoformat(entry['timestamp'])
-                order_id = entry.get('order_id', 'UNKNOWN')
+                timestamp_value = entry.get('timestamp')
+                if not isinstance(timestamp_value, str):
+                    continue
+                timestamp = datetime.fromisoformat(timestamp_value)
+                client_id = str(entry.get('client_order_id', 'UNKNOWN'))
+                order_id = str(entry.get('order_id', 'UNKNOWN'))
 
                 # Check for duplicates
                 if client_id in submissions:
@@ -116,9 +158,9 @@ def analyze_duplicates(log_file: Path) -> dict[str, Any]:
     }
 
 
-def generate_alert(analysis: dict[str, Any]) -> str | None:
+def generate_alert(analysis: AnalysisReport) -> str | None:
     """Generate alert if thresholds exceeded."""
-    alerts = []
+    alerts: list[str] = []
 
     # CRITICAL: Same-session duplicates
     if analysis['duplicates']['same_session']:
@@ -144,13 +186,21 @@ def generate_alert(analysis: dict[str, Any]) -> str | None:
     return '\n'.join(alerts) if alerts else None
 
 
-def main():
+def _parse_args() -> Args:
     parser = argparse.ArgumentParser(description='Monitor duplicate order patterns')
     parser.add_argument('log_file', type=Path, help='Log file to analyze')
     parser.add_argument('--output', type=Path, help='Save analysis to JSON file')
     parser.add_argument('--alert', action='store_true', help='Print alerts to stdout')
+    parsed = parser.parse_args()
+    return Args(
+        log_file=cast(Path, parsed.log_file),
+        output=cast(Path | None, parsed.output),
+        alert=cast(bool, parsed.alert),
+    )
 
-    args = parser.parse_args()
+
+def main() -> int:
+    args = _parse_args()
 
     if not args.log_file.exists():
         print(f'Error: Log file not found: {args.log_file}')

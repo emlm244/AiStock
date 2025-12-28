@@ -20,6 +20,7 @@ locust==2.20.0             # MIT (load testing)
 ruff==0.1.14               # MIT (fast Python linter/formatter)
 mypy==1.8.0                # MIT (static type checking)
 basedpyright               # Fast Python type checker (Pyright-compatible)
+pandas-stubs               # Type stubs for pandas
 
 # =============================================================================
 # Security Scanning

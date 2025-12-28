@@ -125,3 +125,6 @@ state/**/*.pkl
 
 # Claude Code local settings
 .claude/
+
+# Local QA review plans
+.ai/
