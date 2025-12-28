@@ -235,6 +235,7 @@ class SimpleGUI:
         self.session: TradingCoordinator | None = None  # TradingCoordinator from new modular architecture
         self._stop_in_progress = False
         self._logged_trade_ids: set[str] = set()
+        self._session_stop_after_id: str | None = None
 
         self.trade_tempo_var = tk.StringVar(value='balanced')
 
@@ -1711,6 +1712,7 @@ class SimpleGUI:
 
             # Start IBKR connection and subscribe to multi-timeframe bars
             session.start()
+            self._schedule_session_timeout(session_time_limit)
 
             # IBKR modes: subscribe to real-time bars
             if trading_mode == 'ibkr_paper':
@@ -1829,6 +1831,7 @@ class SimpleGUI:
         if self.session is session:
             self.session = None
 
+        self._cancel_session_timeout()
         self._logged_trade_ids.clear()
 
         if error is not None:
@@ -1843,6 +1846,29 @@ class SimpleGUI:
         self.start_btn.pack(side=tk.LEFT, padx=10)
         self.emergency_stop_btn.config(state=tk.DISABLED)
         self._stop_in_progress = False
+
+    def _schedule_session_timeout(self, minutes: int) -> None:
+        self._cancel_session_timeout()
+        if minutes <= 0:
+            return
+        delay_ms = int(minutes * 60 * 1000)
+        self._session_stop_after_id = self.root.after(delay_ms, self._handle_session_timeout)
+
+    def _cancel_session_timeout(self) -> None:
+        if self._session_stop_after_id is None:
+            return
+        try:
+            self.root.after_cancel(self._session_stop_after_id)
+        except tk.TclError:
+            pass
+        self._session_stop_after_id = None
+
+    def _handle_session_timeout(self) -> None:
+        self._session_stop_after_id = None
+        if not self.session or self._stop_in_progress:
+            return
+        self._log_activity('⏱️ Session time limit reached - stopping robot.')
+        self._stop_robot()
 
     def _update_dashboard(self) -> None:
         session = self.session
