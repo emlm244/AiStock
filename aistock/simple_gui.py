@@ -270,8 +270,6 @@ class SimpleGUI:
         # Stop controls
         self.enable_eod_flatten_var = tk.BooleanVar(value=False)  # Disabled by default
         self.eod_flatten_time_var = tk.StringVar(value='15:45')  # 3:45 PM ET (15 min before close)
-        self.auto_liquidate_on_stop_var = tk.BooleanVar(value=False)  # Disabled by default
-
         # Withdrawal stats (updated during trading)
         self.total_withdrawn_var = tk.StringVar(value='$0.00')
         self.last_withdrawal_var = tk.StringVar(value='Never')
@@ -992,16 +990,16 @@ class SimpleGUI:
         stop_frame = ttk.LabelFrame(main, text='🛑 Stop Controls (Safety)', padding=20)
         stop_frame.pack(fill=tk.X, pady=(0, 20))
 
-        auto_liquidate_check = ttk.Checkbutton(
-            stop_frame,
-            text='🧯 Auto-liquidate positions when pressing STOP ROBOT',
-            variable=self.auto_liquidate_on_stop_var,
-        )
-        auto_liquidate_check.pack(anchor='w', pady=(0, 10))
-
         tk.Label(
             stop_frame,
-            text='If enabled, STOP ROBOT will request a graceful shutdown (cancel orders + close positions).',
+            text='⏹️ STOP ROBOT pauses trading only (no new orders; positions are not liquidated).',
+            font=self._font(9),
+            fg='#666666',
+            justify='left',
+        ).pack(anchor='w', pady=(0, 10))
+        tk.Label(
+            stop_frame,
+            text='🛑 EMERGENCY STOP cancels orders and liquidates positions immediately.',
             font=self._font(9),
             fg='#666666',
             justify='left',
@@ -1062,7 +1060,7 @@ class SimpleGUI:
         # Stop button is hidden initially
 
         self.emergency_stop_btn = ttk.Button(
-            button_frame, text='🛑 EMERGENCY STOP', style='Emergency.TButton', command=self._emergency_stop
+            button_frame, text='🛑 LIQUIDATE & STOP', style='Emergency.TButton', command=self._emergency_stop
         )
         self.emergency_stop_btn.pack(side=tk.LEFT, padx=10)
         self.emergency_stop_btn.config(state=tk.DISABLED)  # Disabled until session starts
@@ -1763,16 +1761,7 @@ class SimpleGUI:
         if not self.session or self._stop_in_progress:
             return
 
-        auto_liquidate = self.auto_liquidate_on_stop_var.get()
-        if auto_liquidate:
-            stop_controller = getattr(self.session, 'stop_controller', None)
-            if stop_controller is not None:
-                cast(StopControllerProtocol, stop_controller).request_stop('user_manual_stop')
-                self._log_activity('🛑 STOP requested - cancelling orders and liquidating (auto-liquidate enabled)')
-            else:
-                self._log_activity('⚠️ Stop controller not available - stopping session without liquidation')
-        else:
-            self._log_activity('⏹️ STOP requested - stopping session (no liquidation)')
+        self._log_activity('⏹️ STOP requested - pausing trading (no liquidation)')
 
         self.status_var.set('⏹️ Stopping...')
         self._stop_session_async()
@@ -1784,7 +1773,7 @@ class SimpleGUI:
 
         # Show confirmation dialog
         response = messagebox.askyesno(
-            'Emergency Stop',
+            'Liquidate & Stop',
             'This will immediately:\n'
             '• Cancel all pending orders\n'
             '• Close all open positions (market orders)\n'
@@ -1796,8 +1785,8 @@ class SimpleGUI:
         if not response:
             return
 
-        self._log_activity('🛑 EMERGENCY STOP initiated by user')
-        self.status_var.set('🛑 Emergency Stop - Cancelling orders and closing positions...')
+        self._log_activity('🛑 LIQUIDATE & STOP initiated by user')
+        self.status_var.set('🛑 Liquidate & Stop - Cancelling orders and closing positions...')
 
         stop_controller = getattr(self.session, 'stop_controller', None)
         if stop_controller is not None:
