@@ -28,6 +28,7 @@ class PaperBroker(BaseBroker):
         self._order_lock = threading.Lock()  # Protects _open_orders
         self._rng = random.Random(seed)  # P1: Deterministic partial fills
         self._positions: dict[str, Position] = {}
+        self._positions_lock = threading.Lock()  # Protects _positions
 
     def start(self) -> None:  # pragma: no cover - no-op for paper mode
         return
@@ -35,7 +36,8 @@ class PaperBroker(BaseBroker):
     def stop(self) -> None:  # pragma: no cover - no-op for paper mode
         with self._order_lock:
             self._open_orders.clear()
-        self._positions.clear()
+        with self._positions_lock:
+            self._positions.clear()
 
     def submit(self, order: Order) -> int:
         order_id = next(self._order_id_seq)
@@ -156,22 +158,24 @@ class PaperBroker(BaseBroker):
         """
         Simulated position snapshot for reconciliation with the in-memory portfolio.
         """
-        return {
-            symbol: (float(position.quantity), float(position.average_price))
-            for symbol, position in self._positions.items()
-            if position.quantity != 0
-        }
+        with self._positions_lock:
+            return {
+                symbol: (float(position.quantity), float(position.average_price))
+                for symbol, position in self._positions.items()
+                if position.quantity != 0
+            }
 
     def _update_position(self, report: ExecutionReport) -> None:
         """Track simulated broker positions for reconciliation."""
         signed_qty = report.quantity if report.side == OrderSide.BUY else -report.quantity
-        position = self._positions.get(report.symbol)
-        if position is None:
-            position = Position(symbol=report.symbol)
-            self._positions[report.symbol] = position
+        with self._positions_lock:
+            position = self._positions.get(report.symbol)
+            if position is None:
+                position = Position(symbol=report.symbol)
+                self._positions[report.symbol] = position
 
-        position.realise(signed_qty, report.price, report.timestamp)
+            position.realise(signed_qty, report.price, report.timestamp)
 
-        if position.quantity == 0:
-            # Drop flat positions to keep reconciliation output clean.
-            self._positions.pop(report.symbol, None)
+            if position.quantity == 0:
+                # Drop flat positions to keep reconciliation output clean.
+                self._positions.pop(report.symbol, None)
