@@ -331,7 +331,7 @@ class DataFeed:
         self.bar_interval = bar_interval or timedelta(minutes=1)
         self.warmup_bars = warmup_bars
         self.fill_missing = fill_missing
-        self.indices: dict[str, int] = {k: 0 for k in data_map}
+        self.indices: dict[str, int] = {symbol: 0 for symbol in data_map}
         self._last_bars: dict[str, Bar] = {}  # Track last bar for forward fill
 
     def next(self) -> dict[str, Bar] | None:
@@ -369,7 +369,7 @@ class DataFeed:
         sorted_timestamps = sorted(all_timestamps)
 
         # Create indices for each symbol
-        indices: dict[str, int] = {k: 0 for k in self.data_map}
+        indices: dict[str, int] = {symbol: 0 for symbol in self.data_map}
 
         # Iterate through timestamps
         for timestamp in sorted_timestamps:
@@ -399,5 +399,5 @@ class DataFeed:
 
     def reset(self) -> None:
         """Reset feed to beginning."""
-        self.indices = {k: 0 for k in self.data_map}
+        self.indices = {symbol: 0 for symbol in self.data_map}
         self._last_bars = {}
