@@ -331,7 +331,7 @@ class DataFeed:
         self.bar_interval = bar_interval or timedelta(minutes=1)
         self.warmup_bars = warmup_bars
         self.fill_missing = fill_missing
-        self.indices: dict[str, int] = dict.fromkeys(data_map, 0)
+        self.indices: dict[str, int] = {k: 0 for k in data_map}
         self._last_bars: dict[str, Bar] = {}  # Track last bar for forward fill
 
     def next(self) -> dict[str, Bar] | None:
