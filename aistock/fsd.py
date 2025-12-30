@@ -288,7 +288,7 @@ class RLAgent:
         elif num_states >= thresholds['high']:
             level = 'high'
             logger.warning(
-                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). ' 'Monitor memory usage.'
+                f'Q-table size HIGH: {num_states:,} states (~{estimated_memory_mb:.1f} MB). Monitor memory usage.'
             )
         elif num_states >= thresholds['medium']:
             level = 'medium'
@@ -1177,9 +1177,9 @@ class FSDEngine:
         if q_table_info['level'] != 'normal':
             level = q_table_info['level']
             message = (
-                f"Q-table diagnostics: states={q_table_info['num_states']:,}, "
-                f"estimated_mem={q_table_info['estimated_memory_mb']:.1f} MB, "
-                f"level={level}"
+                f'Q-table diagnostics: states={q_table_info["num_states"]:,}, '
+                f'estimated_mem={q_table_info["estimated_memory_mb"]:.1f} MB, '
+                f'level={level}'
             )
             if level == 'low':
                 logger.debug(message)
@@ -1193,18 +1193,18 @@ class FSDEngine:
         if decay_info.get('enabled') and not decay_info.get('first_run') and not decay_info.get('skipped'):
             if decay_info.get('clamped'):
                 logger.warning(
-                    f"Q-value decay applied (CLAMPED): {decay_info['states_decayed']} states, "
-                    f"factor={decay_info['decay_factor']:.6f}, "
-                    f"days={decay_info['days_elapsed']:.2f} "
-                    f"(original: {decay_info['original_days_elapsed']:.2f})"
+                    f'Q-value decay applied (CLAMPED): {decay_info["states_decayed"]} states, '
+                    f'factor={decay_info["decay_factor"]:.6f}, '
+                    f'days={decay_info["days_elapsed"]:.2f} '
+                    f'(original: {decay_info["original_days_elapsed"]:.2f})'
                 )
             else:
                 logger.info(
-                    f"Q-value decay applied: {decay_info['states_decayed']} states, "
-                    f"factor={decay_info['decay_factor']:.6f}, days={decay_info['days_elapsed']:.2f}"
+                    f'Q-value decay applied: {decay_info["states_decayed"]} states, '
+                    f'factor={decay_info["decay_factor"]:.6f}, days={decay_info["days_elapsed"]:.2f}'
                 )
         elif decay_info.get('skipped'):
-            logger.debug(f"Q-value decay skipped: {decay_info.get('reason', 'unknown')}")
+            logger.debug(f'Q-value decay skipped: {decay_info.get("reason", "unknown")}')
 
         state = {
             'q_values': self.rl_agent.q_values,

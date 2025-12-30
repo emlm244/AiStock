@@ -249,7 +249,7 @@ class StopController:
 
         for retry_count in range(max_retries):
             if retry_count > 0:
-                self.logger.info(f'Retry attempt {retry_count}/{max_retries-1}')
+                self.logger.info(f'Retry attempt {retry_count}/{max_retries - 1}')
 
             # Monitor fills
             closed_this_round = self._monitor_fills(
