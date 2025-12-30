@@ -17,7 +17,7 @@ try:
 except ImportError:
     from typing_extensions import Unpack  # Python 3.9-3.10
 
-from .logging import configure_logger
+from .log_config import configure_logger
 
 IBAPI_AVAILABLE = False
 if TYPE_CHECKING:

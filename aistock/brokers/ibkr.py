@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Callable, Protocol, TypeAlias
 from ..config import BrokerConfig, ContractSpec
 from ..data import Bar  # For optional historical bars
 from ..execution import ExecutionReport, Order, OrderSide, OrderType
-from ..logging import configure_logger
+from ..log_config import configure_logger
 from .base import BaseBroker
 
 RealTimeBarHandler: TypeAlias = Callable[[datetime, str, float, float, float, float, float], None]

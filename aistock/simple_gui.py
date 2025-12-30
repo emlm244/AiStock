@@ -32,7 +32,7 @@ from .config import (
 from .factories import SessionFactory
 from .fsd import FSDConfig
 from .interfaces.decision import SupportsGuiLogCallback
-from .logging import configure_logger
+from .log_config import configure_logger
 from .runtime_settings import load_runtime_settings
 
 if TYPE_CHECKING:
