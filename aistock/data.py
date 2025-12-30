@@ -16,60 +16,47 @@ if TYPE_CHECKING:
 
 
 class _BoolMask(Protocol):
-    def __invert__(self) -> _BoolMask:
-        ...
+    def __invert__(self) -> _BoolMask: ...
 
 
 class _Index(Protocol):
     tz: timezone | None
 
-    def tz_localize(self, tz: timezone) -> _Index:
-        ...
+    def tz_localize(self, tz: timezone) -> _Index: ...
 
-    def tz_convert(self, tz: timezone) -> _Index:
-        ...
+    def tz_convert(self, tz: timezone) -> _Index: ...
 
-    def duplicated(self, keep: str = 'last') -> _BoolMask:
-        ...
+    def duplicated(self, keep: str = 'last') -> _BoolMask: ...
 
 
 class _SeriesLike(Protocol):
-    def __ge__(self, other: float) -> _BoolMask:
-        ...
+    def __ge__(self, other: float) -> _BoolMask: ...
 
 
 class _DataFrame(Protocol):
     index: _Index
     columns: Sequence[str]
 
-    def sort_index(self) -> _DataFrame:
-        ...
+    def sort_index(self) -> _DataFrame: ...
 
-    def dropna(self, subset: Sequence[str]) -> _DataFrame:
-        ...
+    def dropna(self, subset: Sequence[str]) -> _DataFrame: ...
 
-    def iterrows(self) -> Iterable[tuple[datetime, Mapping[str, object]]]:
-        ...
+    def iterrows(self) -> Iterable[tuple[datetime, Mapping[str, object]]]: ...
 
     @overload
-    def __getitem__(self, key: str) -> _SeriesLike:
-        ...
+    def __getitem__(self, key: str) -> _SeriesLike: ...
 
     @overload
-    def __getitem__(self, key: _BoolMask) -> _DataFrame:
-        ...
+    def __getitem__(self, key: _BoolMask) -> _DataFrame: ...
 
     @overload
-    def __getitem__(self, key: list[bool]) -> _DataFrame:
-        ...
+    def __getitem__(self, key: list[bool]) -> _DataFrame: ...
 
 
 class _PandasModule(Protocol):
-    def read_csv(self, *args: object, **kwargs: object) -> _DataFrame:
-        ...
+    def read_csv(self, *args: object, **kwargs: object) -> _DataFrame: ...
 
-    def to_datetime(self, arg: object, *, utc: bool | None = None) -> _Index:
-        ...
+    def to_datetime(self, arg: object, *, utc: bool | None = None) -> _Index: ...
 
 
 def _to_decimal(value: object) -> Decimal | None:
@@ -344,7 +331,7 @@ class DataFeed:
         self.bar_interval = bar_interval or timedelta(minutes=1)
         self.warmup_bars = warmup_bars
         self.fill_missing = fill_missing
-        self.indices: dict[str, int] = {symbol: 0 for symbol in data_map}
+        self.indices: dict[str, int] = dict.fromkeys(data_map, 0)
         self._last_bars: dict[str, Bar] = {}  # Track last bar for forward fill
 
     def next(self) -> dict[str, Bar] | None:
@@ -382,7 +369,7 @@ class DataFeed:
         sorted_timestamps = sorted(all_timestamps)
 
         # Create indices for each symbol
-        indices: dict[str, int] = {symbol: 0 for symbol in self.data_map}
+        indices: dict[str, int] = dict.fromkeys(self.data_map, 0)
 
         # Iterate through timestamps
         for timestamp in sorted_timestamps:
@@ -410,7 +397,7 @@ class DataFeed:
                     )
                     yield (timestamp, symbol, filled_bar)
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset feed to beginning."""
-        self.indices = {symbol: 0 for symbol in self.data_map}
+        self.indices = dict.fromkeys(self.data_map, 0)
         self._last_bars = {}
