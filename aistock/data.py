@@ -369,7 +369,7 @@ class DataFeed:
         sorted_timestamps = sorted(all_timestamps)
 
         # Create indices for each symbol
-        indices: dict[str, int] = dict.fromkeys(self.data_map, 0)
+        indices: dict[str, int] = {k: 0 for k in self.data_map}
 
         # Iterate through timestamps
         for timestamp in sorted_timestamps:
@@ -399,5 +399,5 @@ class DataFeed:
 
     def reset(self) -> None:
         """Reset feed to beginning."""
-        self.indices = dict.fromkeys(self.data_map, 0)
+        self.indices = {k: 0 for k in self.data_map}
         self._last_bars = {}
