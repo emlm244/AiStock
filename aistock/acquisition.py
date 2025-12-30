@@ -19,7 +19,7 @@ from pathlib import Path
 from .config import DataQualityConfig
 from .data import Bar, load_csv_file
 from .ingestion import DataIngestionConfig, DataIngestionService, IngestionReport
-from .logging import configure_logger
+from .log_config import configure_logger
 
 
 @dataclass(frozen=True)

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Callable, TypeAlias, cast
 
 from ..audit import AuditLogger, JSONValue
 from ..config import ContractSpec, RiskLimits
-from ..logging import configure_logger
+from ..log_config import configure_logger
 
 if TYPE_CHECKING:
     from .base import BaseBroker
