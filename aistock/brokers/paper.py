@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import random
+import threading
 from datetime import datetime
 from decimal import Decimal
 
@@ -24,6 +25,7 @@ class PaperBroker(BaseBroker):
         self._config = execution_config
         self._order_id_seq = itertools.count(start=1)
         self._open_orders: dict[int, Order] = {}
+        self._order_lock = threading.Lock()  # Protects _open_orders
         self._rng = random.Random(seed)  # P1: Deterministic partial fills
         self._positions: dict[str, Position] = {}
 
@@ -31,17 +33,20 @@ class PaperBroker(BaseBroker):
         return
 
     def stop(self) -> None:  # pragma: no cover - no-op for paper mode
-        self._open_orders.clear()
+        with self._order_lock:
+            self._open_orders.clear()
         self._positions.clear()
 
     def submit(self, order: Order) -> int:
         order_id = next(self._order_id_seq)
         order.status = OrderStatus.SUBMITTED  # P1: Mark as submitted
-        self._open_orders[order_id] = order
+        with self._order_lock:
+            self._open_orders[order_id] = order
         return order_id
 
     def cancel(self, order_id: int) -> bool:
-        return self._open_orders.pop(order_id, None) is not None
+        with self._order_lock:
+            return self._open_orders.pop(order_id, None) is not None
 
     def cancel_all_orders(self) -> int:
         """Cancel all pending orders.
@@ -49,9 +54,10 @@ class PaperBroker(BaseBroker):
         Returns:
             Number of orders cancelled
         """
-        num_cancelled = len(self._open_orders)
-        self._open_orders.clear()
-        return num_cancelled
+        with self._order_lock:
+            num_cancelled = len(self._open_orders)
+            self._open_orders.clear()
+            return num_cancelled
 
     def process_bar(self, bar: Bar, timestamp: datetime) -> None:
         """
@@ -59,8 +65,12 @@ class PaperBroker(BaseBroker):
 
         If partial_fill_probability > 0, orders may fill incrementally.
         """
+        # Snapshot orders under lock to avoid concurrent modification
+        with self._order_lock:
+            orders_snapshot = list(self._open_orders.items())
+
         to_remove: list[int] = []
-        for order_id, order in list(self._open_orders.items()):
+        for order_id, order in orders_snapshot:
             fill_price = self._determine_fill_price(order, bar)
             if fill_price is None:
                 continue
@@ -90,8 +100,10 @@ class PaperBroker(BaseBroker):
             if order.is_complete():
                 to_remove.append(order_id)
 
-        for oid in to_remove:
-            self._open_orders.pop(oid, None)
+        # Remove completed orders under lock
+        with self._order_lock:
+            for oid in to_remove:
+                self._open_orders.pop(oid, None)
 
     def _determine_fill_quantity(self, order: Order) -> Decimal:
         """
