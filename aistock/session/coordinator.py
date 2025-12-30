@@ -562,10 +562,15 @@ class TradingCoordinator:
         self._aggregators.clear()
 
     def _trigger_stop_async(self) -> None:
-        """Run stop() on a dedicated thread to avoid joining the broker callback thread."""
-        if self._stop_thread_started:
-            return
-        self._stop_thread_started = True
+        """Start a single background thread that calls stop() to perform a graceful shutdown.
+
+        If a stop thread is already running, this is a no-op; otherwise it launches a daemon
+        thread named 'TradingCoordinatorStop' that invokes stop().
+        """
+        with self._stop_lock:
+            if self._stop_thread_started:
+                return
+            self._stop_thread_started = True
         threading.Thread(target=self.stop, daemon=True, name='TradingCoordinatorStop').start()
 
     def _on_realtime_bar(
@@ -578,6 +583,11 @@ class TradingCoordinator:
         close: float,
         volume: float,
     ) -> None:
+        """Handle a single realtime tick by updating latest price and aggregating into timeframe buckets.
+
+        If a completed bucket is produced for a timeframe, a Bar is constructed and routed to
+        process_bar when it matches the decision timeframe or to the timeframe manager otherwise.
+        """
         # Keep last prices fresh even between decision bars.
         with suppress(Exception):
             self.bar_processor.update_price(symbol, Decimal(str(close)))
