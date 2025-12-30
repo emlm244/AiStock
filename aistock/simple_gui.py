@@ -89,13 +89,11 @@ class _ConfigureEvent(Protocol):
 
 
 class StopControllerProtocol(Protocol):
-    def request_stop(self, reason: str) -> None:
-        ...
+    def request_stop(self, reason: str) -> None: ...
 
 
 class CapitalManagerProtocol(Protocol):
-    def get_stats(self) -> dict[str, object]:
-        ...
+    def get_stats(self) -> dict[str, object]: ...
 
 
 class RiskConfigProtocol(Protocol):
@@ -113,14 +111,11 @@ class SessionProtocol(Protocol):
     stop_controller: StopControllerProtocol | None
     capital_manager: CapitalManagerProtocol | None
 
-    def start(self) -> None:
-        ...
+    def start(self) -> None: ...
 
-    def stop(self) -> None:
-        ...
+    def stop(self) -> None: ...
 
-    def snapshot(self) -> dict[str, object]:
-        ...
+    def snapshot(self) -> dict[str, object]: ...
 
 
 class SimpleGUI:

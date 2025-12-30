@@ -106,8 +106,7 @@ class ProfitWithdrawalStrategy:
 
         if withdrawal_amount <= 0:
             self.logger.warning(
-                f'Cannot withdraw ${excess:.2f}: only ${available_cash:.2f} cash available '
-                f'(rest tied up in positions)'
+                f'Cannot withdraw ${excess:.2f}: only ${available_cash:.2f} cash available (rest tied up in positions)'
             )
             return Decimal('0')
 
@@ -118,8 +117,7 @@ class ProfitWithdrawalStrategy:
             self.total_withdrawn += withdrawal_amount
 
             self.logger.info(
-                f'Profit withdrawal executed: ${withdrawal_amount:.2f} '
-                f'(total withdrawn: ${self.total_withdrawn:.2f})'
+                f'Profit withdrawal executed: ${withdrawal_amount:.2f} (total withdrawn: ${self.total_withdrawn:.2f})'
             )
 
             return withdrawal_amount
