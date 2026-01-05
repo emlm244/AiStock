@@ -26,6 +26,7 @@ class Position:
     entry_time_utc: datetime | None = None
     last_update_utc: datetime | None = None
     total_volume: Decimal = Decimal('0')
+    multiplier: Decimal = Decimal('1')  # Contract multiplier (1 for equities, 50 for ES, etc.)
 
     def __post_init__(self):
         """Normalize timestamps without inventing synthetic entry times."""
@@ -232,7 +233,8 @@ class Portfolio:
 
             for symbol, pos in self.positions.items():
                 if symbol in last_prices:
-                    position_value += pos.quantity * last_prices[symbol]
+                    # Apply position's multiplier for futures (default 1 for equities)
+                    position_value += pos.quantity * last_prices[symbol] * pos.multiplier
 
             return self.cash + position_value
 
@@ -241,7 +243,13 @@ class Portfolio:
         return self.get_equity(last_prices)
 
     def apply_fill(
-        self, symbol: str, signed_quantity: Decimal, price: Decimal, commission: Decimal, timestamp: datetime
+        self,
+        symbol: str,
+        signed_quantity: Decimal,
+        price: Decimal,
+        commission: Decimal,
+        timestamp: datetime,
+        multiplier: Decimal = Decimal('1'),
     ) -> Decimal:
         """
         Apply a fill to the portfolio and return realized P&L (thread-safe).
@@ -252,12 +260,14 @@ class Portfolio:
             price: Fill price
             commission: Commission paid
             timestamp: Fill timestamp
+            multiplier: Contract multiplier (default 1 for equities, 50 for ES futures, etc.)
 
         Returns:
             Realized P&L from this fill
         """
         with self._lock:
             # Compute realized P&L using current position snapshot via shared helper
+            # P&L is also multiplied: (fill_price - avg_price) * qty * multiplier
             existing_position = self.positions.get(symbol)
             realized_pnl = (
                 calculate_realized_pnl(
@@ -266,19 +276,22 @@ class Portfolio:
                     fill_quantity=signed_quantity,
                     fill_price=price,
                 )
+                * multiplier
                 if existing_position
                 else Decimal('0')
             )
 
             # Update cash and position atomically
-            cash_delta = -(signed_quantity * price) - commission
+            # For futures: notional = qty * price * multiplier
+            cash_delta = -(signed_quantity * price * multiplier) - commission
             self.cash += cash_delta
             self.commissions_paid += commission
 
             if symbol not in self.positions:
-                self.positions[symbol] = Position(symbol=symbol)
+                self.positions[symbol] = Position(symbol=symbol, multiplier=multiplier)
 
             position = self.positions[symbol]
+            position.multiplier = multiplier  # Update multiplier in case it changed
             position.realise(signed_quantity, price, timestamp)
             if position.quantity == 0:
                 del self.positions[symbol]
@@ -325,6 +338,7 @@ class Portfolio:
                     entry_time_utc=pos.entry_time_utc,
                     last_update_utc=pos.last_update_utc,
                     total_volume=pos.total_volume,
+                    multiplier=pos.multiplier,
                 )
             return Position(symbol=symbol)
 

@@ -41,6 +41,10 @@ def _build_contract_spec(symbol: str, payload: dict[str, object]) -> ContractSpe
     currency_value = payload.get('currency')
     local_symbol_value = payload.get('local_symbol')
     multiplier = _parse_optional_int(payload.get('multiplier'))
+    # Futures-specific fields
+    expiration_date_value = payload.get('expiration_date')
+    con_id = _parse_optional_int(payload.get('con_id'))
+    underlying_value = payload.get('underlying')
     return ContractSpec(
         symbol=symbol_value if isinstance(symbol_value, str) else symbol,
         sec_type=sec_type_value if isinstance(sec_type_value, str) else 'STK',
@@ -48,6 +52,9 @@ def _build_contract_spec(symbol: str, payload: dict[str, object]) -> ContractSpe
         currency=currency_value if isinstance(currency_value, str) else 'USD',
         local_symbol=local_symbol_value if isinstance(local_symbol_value, str) else '',
         multiplier=multiplier,
+        expiration_date=expiration_date_value if isinstance(expiration_date_value, str) else None,
+        con_id=con_id,
+        underlying=underlying_value if isinstance(underlying_value, str) else None,
     )
 
 
@@ -59,6 +66,10 @@ def _serialize_contract_spec(spec: ContractSpec) -> dict[str, JSONValue]:
         'currency': spec.currency,
         'local_symbol': spec.local_symbol,
         'multiplier': spec.multiplier,
+        # Futures-specific fields
+        'expiration_date': spec.expiration_date,
+        'con_id': spec.con_id,
+        'underlying': spec.underlying,
     }
 
 

@@ -21,6 +21,7 @@ from ..stop_control import StopController
 if TYPE_CHECKING:
     from ..brokers.base import BaseBroker
     from ..config import BacktestConfig
+    from ..futures.rollover import RolloverManager
     from ..interfaces.decision import DecisionEngineProtocol
     from ..interfaces.portfolio import PortfolioProtocol
     from ..interfaces.risk import RiskEngineProtocol
@@ -120,6 +121,7 @@ class TradingCoordinator:
         stop_controller: StopController,
         symbols: list[str],
         checkpoint_dir: str = 'state',
+        rollover_manager: RolloverManager | None = None,
     ):
         self.config = config
         self.portfolio = portfolio
@@ -134,6 +136,7 @@ class TradingCoordinator:
         self.stop_controller = stop_controller
         self.symbols = symbols
         self.checkpoint_dir = checkpoint_dir
+        self.rollover_manager = rollover_manager
 
         # Idempotency tracker
         self.idempotency = OrderIdempotencyTracker(storage_path=f'{checkpoint_dir}/submitted_orders.json')
@@ -148,6 +151,7 @@ class TradingCoordinator:
         self._last_equity = Decimal(str(config.engine.initial_equity))
         self._last_withdrawal_check: datetime | None = None
         self._last_trading_date: date | None = None  # Track date for EOD reset
+        self._last_rollover_check: datetime | None = None  # Track rollover alert checks
 
         # Market-data subscriptions (IBKR) + aggregation from 5s real-time bars.
         self._market_subscriptions: dict[str, int] = {}
@@ -295,6 +299,9 @@ class TradingCoordinator:
         if self._should_check_withdrawal(timestamp):
             self._check_and_withdraw_profits(timestamp)
 
+        # Periodic rollover alert check (hourly)
+        self._check_rollover_alerts(timestamp)
+
         # Get market data
         history = self.bar_processor.get_history(symbol)
         last_prices = self.bar_processor.get_all_prices()
@@ -422,13 +429,21 @@ class TradingCoordinator:
         signed_qty = report.quantity if report.side == OrderSide.BUY else -report.quantity
         pos_before = float(self.portfolio.position(report.symbol).quantity)
 
-        # Apply to portfolio
+        # Look up contract multiplier (defaults to 1 for equities)
+        multiplier = Decimal('1')
+        if self.config.broker and self.config.broker.contracts:
+            spec = self.config.broker.contracts.get(report.symbol)
+            if spec and spec.multiplier:
+                multiplier = Decimal(str(spec.multiplier))
+
+        # Apply to portfolio with multiplier for correct futures P&L
         realized = self.portfolio.apply_fill(
             report.symbol,
             signed_qty,
             report.price,
             Decimal('0'),
             report.timestamp,
+            multiplier=multiplier,
         )
 
         pos_after = float(self.portfolio.position(report.symbol).quantity)
@@ -648,6 +663,66 @@ class TradingCoordinator:
 
         except Exception as exc:
             self.logger.error(f'Capital withdrawal check failed: {exc}')
+
+    def _check_rollover_alerts(self, timestamp: datetime) -> None:
+        """Check for futures contract rollover alerts (hourly)."""
+        if self.rollover_manager is None:
+            return
+
+        # Check once per hour
+        if self._last_rollover_check:
+            hours_since = (timestamp - self._last_rollover_check).total_seconds() / 3600
+            if hours_since < 1.0:
+                return
+
+        self._last_rollover_check = timestamp
+
+        # Get futures contracts from broker config
+        if not self.config.broker or not self.config.broker.contracts:
+            return
+
+        # Build FuturesContractSpec dict from config
+        try:
+            from ..futures.contracts import FuturesContractSpec
+
+            futures_contracts: dict[str, FuturesContractSpec] = {}
+            for symbol, spec in self.config.broker.contracts.items():
+                if spec.sec_type != 'FUT':
+                    continue
+
+                futures_spec = FuturesContractSpec(
+                    symbol=spec.symbol,
+                    sec_type=spec.sec_type,
+                    exchange=spec.exchange,
+                    currency=spec.currency,
+                    local_symbol=spec.local_symbol,
+                    multiplier=spec.multiplier,
+                    expiration_date=spec.expiration_date,
+                    con_id=spec.con_id,
+                    underlying=spec.underlying,
+                )
+                futures_contracts[symbol] = futures_spec
+
+            if not futures_contracts:
+                return
+
+            # Check for rollover alerts
+            alerts = self.rollover_manager.check_rollover_needed(futures_contracts)
+            for alert in alerts:
+                urgency = alert.get('urgency', 'warning')
+                days = alert.get('days_to_expiry', 0)
+                symbol = alert.get('symbol', '')
+                recommendation = alert.get('recommendation', '')
+
+                if urgency == 'critical':
+                    self.logger.warning(
+                        f'CRITICAL: Futures contract {symbol} expires in {days} days! {recommendation}'
+                    )
+                else:
+                    self.logger.info(f'Rollover alert: {symbol} expires in {days} days - {recommendation}')
+
+        except Exception as exc:
+            self.logger.error(f'Rollover alert check failed: {exc}')
 
     def snapshot(self) -> dict[str, Any]:
         """Get current session state."""

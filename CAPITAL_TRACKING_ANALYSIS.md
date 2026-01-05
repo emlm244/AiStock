@@ -1,7 +1,10 @@
 # Capital Tracking & IBKR API Analysis Report
 
 **Generated**: 2025-01-06
+**Updated**: 2026-01-05
 **Scope**: Capital management, IBKR API compliance, edge case coverage
+
+> **NOTE**: This document was originally generated in early 2025. The "Critical Gaps" listed below have since been addressed. See CLAUDE.md for current documentation.
 
 ---
 
@@ -10,14 +13,15 @@
 ### ✅ Strengths
 - **IBKR API**: Correctly implemented according to official documentation
 - **Thread Safety**: Portfolio and risk engine are thread-safe for IBKR callbacks
-- **Edge Cases**: 180+ tests covering position management, concurrency, PnL calculation
+- **Edge Cases**: 280+ tests covering position management, concurrency, PnL calculation
 - **Commission Tracking**: Fixed in latest PR to track all transaction costs
+- **Futures Support**: Contract multiplier handling for correct P&L (added 2026-01)
 
-### ⚠️ Critical Gaps Identified
-1. **No capital withdrawal/deposit mechanism** - System cannot handle external cash flows
-2. **No minimum balance protection tests** - Feature exists but untested
-3. **No profit-taking/compounding strategy** - All gains stay in trading capital
-4. **No account reconciliation with IBKR balances** - May drift over time
+### ~~⚠️ Critical Gaps Identified~~ ✅ All Addressed
+1. ~~**No capital withdrawal/deposit mechanism**~~ → `Portfolio.withdraw_cash()` and `deposit_cash()` implemented
+2. ~~**No minimum balance protection tests**~~ → Tests added in `test_capital_management.py`
+3. ~~**No profit-taking/compounding strategy**~~ → `CapitalManagementConfig` supports fixed capital with auto-withdrawal
+4. **Account reconciliation with IBKR** → Partial: `reconciliation.py` handles position sync
 
 ---
 
@@ -38,8 +42,11 @@ class Portfolio:
 
 ```python
 def get_equity(self, last_prices: dict[str, Decimal]) -> Decimal:
-    """Total equity = cash + position_value"""
-    position_value = sum(pos.quantity * last_prices[symbol] for symbol, pos in positions.items())
+    """Total equity = cash + position_value (with multiplier for futures)"""
+    position_value = sum(
+        pos.quantity * last_prices[symbol] * pos.multiplier  # multiplier=1 for equities
+        for symbol, pos in positions.items()
+    )
     return self.cash + position_value
 ```
 

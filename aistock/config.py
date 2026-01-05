@@ -124,14 +124,31 @@ class RiskLimits:
 class ContractSpec:
     """
     IBKR contract specification.
+
+    For futures contracts, use expiration_date to specify the contract month/date.
+    The con_id field stores the IBKR unique contract identifier for reliable matching.
+
+    Example for ES futures:
+        ContractSpec(
+            symbol='ES',
+            sec_type='FUT',
+            exchange='CME',
+            multiplier=50,
+            expiration_date='20260320',  # March 2026 expiry
+            underlying='ES',
+        )
     """
 
     symbol: str
     sec_type: str = 'STK'  # Security type: STK, FUT, OPT, CASH, etc.
-    exchange: str = 'SMART'  # Exchange: SMART, NASDAQ, NYSE, etc.
+    exchange: str = 'SMART'  # Exchange: SMART, NASDAQ, NYSE, CME, NYMEX, etc.
     currency: str = 'USD'  # Currency
     local_symbol: str = ''  # Local symbol (if different from symbol)
     multiplier: Optional[int] = None  # Contract multiplier (for futures/options)
+    # Futures-specific fields
+    expiration_date: Optional[str] = None  # YYYYMMDD format (lastTradeDateOrContractMonth)
+    con_id: Optional[int] = None  # IBKR unique contract identifier
+    underlying: Optional[str] = None  # Underlying symbol (e.g., 'ES' for ES futures)
 
 
 @dataclass

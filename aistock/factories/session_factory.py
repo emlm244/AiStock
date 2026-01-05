@@ -5,6 +5,9 @@ from __future__ import annotations
 from ..capital_management import CompoundingStrategy, ProfitWithdrawalStrategy
 from ..config import BacktestConfig
 from ..fsd import FSDConfig
+from ..futures.preflight import FuturesPreflightChecker, PreflightResult
+from ..futures.rollover import RolloverConfig, RolloverManager
+from ..log_config import configure_logger
 from ..portfolio import Portfolio
 from ..risk import RiskEngine
 from ..session.coordinator import TradingCoordinator
@@ -33,12 +36,15 @@ class SessionFactory:
         config: BacktestConfig,
         fsd_config: FSDConfig | None = None,
         enable_professional_features: bool = True,
+        rollover_config: RolloverConfig | None = None,
     ):
         self.config = config
         self.fsd_config = fsd_config
         self.enable_professional = enable_professional_features
+        self.rollover_config = rollover_config
 
         self.components_factory = TradingComponentsFactory(config, fsd_config)
+        self._logger = configure_logger('SessionFactory', structured=True)
 
     def _resolve_symbols(self, symbols: list[str] | None) -> list[str]:
         """Resolve symbols from config or universe selector.
@@ -64,6 +70,75 @@ class SessionFactory:
 
         return symbols
 
+    def _run_futures_preflight(
+        self,
+        broker: object,
+    ) -> PreflightResult:
+        """
+        Run pre-flight validation for futures contracts.
+
+        This method validates all configured futures contracts and:
+        - BLOCKS trading if any contract is expired
+        - Logs warnings for contracts approaching expiry
+
+        Args:
+            broker: Broker instance (may support request_contract_details)
+
+        Returns:
+            PreflightResult
+
+        Raises:
+            RuntimeError: If preflight fails with blocking errors
+        """
+        if not self.config.broker or not self.config.broker.contracts:
+            return PreflightResult(passed=True, errors=[], warnings=[], validated_contracts={})
+
+        # Filter to futures contracts only
+        futures_contracts = {
+            symbol: spec
+            for symbol, spec in self.config.broker.contracts.items()
+            if spec.sec_type == 'FUT'
+        }
+
+        if not futures_contracts:
+            return PreflightResult(passed=True, errors=[], warnings=[], validated_contracts={})
+
+        self._logger.info(
+            'running_futures_preflight',
+            extra={'contract_count': len(futures_contracts)},
+        )
+
+        warn_days = self.rollover_config.warn_days_before_expiry if self.rollover_config else 7
+
+        checker = FuturesPreflightChecker(
+            warn_threshold_days=warn_days,
+            block_on_expired=True,
+        )
+
+        # Check if broker supports contract details (cast to protocol if supported)
+        from ..futures.validator import IBKRBrokerProtocol
+
+        ibkr_broker: IBKRBrokerProtocol | None = None
+        if hasattr(broker, 'request_contract_details') and hasattr(broker, 'isConnected'):
+            # Type-ignore because we've manually verified the required methods exist
+            ibkr_broker = broker  # type: ignore[assignment]
+
+        result = checker.run_preflight(ibkr_broker, futures_contracts)
+
+        if not result.passed:
+            error_msg = '; '.join(result.errors)
+            self._logger.error(
+                'futures_preflight_failed',
+                extra={'errors': result.errors},
+            )
+            raise RuntimeError(f'Futures preflight failed: {error_msg}')
+
+        # Log warnings
+        for warning in result.warnings:
+            self._logger.warning(f'Futures preflight warning: {warning}')
+
+        return result
+
     def _wire_components(
         self,
         portfolio: Portfolio,
@@ -85,8 +160,26 @@ class SessionFactory:
 
         Returns:
             Fully wired TradingCoordinator
+
+        Raises:
+            RuntimeError: If futures preflight fails (expired contracts)
         """
         broker = self.components_factory.create_broker()
+
+        # Run futures preflight BEFORE starting (blocks if expired contracts)
+        self._run_futures_preflight(broker)
+
+        # Create rollover manager if configured
+        rollover_manager: RolloverManager | None = None
+        if self.rollover_config:
+            rollover_manager = RolloverManager(
+                config=self.rollover_config,
+                state_dir=checkpoint_dir,
+            )
+            self._logger.info(
+                'rollover_manager_created',
+                extra={'warn_days': self.rollover_config.warn_days_before_expiry},
+            )
 
         # Create professional features
         timeframe_manager = None
@@ -140,6 +233,7 @@ class SessionFactory:
             stop_controller=stop_controller,
             symbols=symbols,
             checkpoint_dir=checkpoint_dir,
+            rollover_manager=rollover_manager,
         )
 
         return coordinator

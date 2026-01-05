@@ -59,7 +59,7 @@ basedpyright                             # Type check (strict mode)
 
 ### Testing
 ```bash
-pytest tests                             # Run all 180+ tests
+pytest tests                             # Run all 280+ tests
 pytest -k test_name                      # Run specific test
 pytest tests/test_engine.py              # Run single test file
 pytest --cov=. --cov-report=xml          # Coverage report
@@ -119,29 +119,32 @@ python launch_gui.py                     # Alternative entry point
 - `aistock/engine.py`: Custom trading engine core
 - `aistock/factories/session_factory.py`: System-wide dependency injection and component wiring
 - `aistock/session/coordinator.py`: Session orchestration and event routing
-- `aistock/brokers/paper_broker.py` & `ibkr_broker.py`: Broker implementations
+- `aistock/brokers/paper.py` & `ibkr.py`: Broker implementations
 - `aistock/config.py`: Configuration dataclasses with validation
+- `aistock/portfolio.py`: Thread-safe position tracking with multiplier support
+- `aistock/futures/`: Futures contract management (rollover, validation, preflight)
 - `tests/conftest.py`: Shared test fixtures
 
 ## Directory Structure
 
 ```
-aistock/                   # Main package (~4000 LOC, 50 files)
+aistock/                   # Main package (~5000 LOC, 55+ files)
 ├── brokers/               # Paper trading + IBKR integration
 ├── factories/             # DI factories
+├── futures/               # Futures contract management (rollover, validation)
 ├── interfaces/            # Protocol definitions
 ├── session/               # Session orchestration
 ├── ml/                    # Machine learning (excluded from type checking)
 ├── _legacy/               # Deprecated code (excluded)
 ├── fsd.py                 # Q-Learning RL engine (CORE)
 ├── engine.py              # Trading engine
-├── portfolio.py           # Thread-safe portfolio
+├── portfolio.py           # Thread-safe portfolio with multiplier support
 ├── risk.py                # Thread-safe risk management
 ├── capital_management.py  # Profit withdrawal strategies
 ├── stop_control.py        # Manual stop controls
 └── simple_gui.py          # Tkinter GUI
 
-tests/                     # 27 test files, 180+ tests
+tests/                     # 31 test files, 280+ tests
 configs/                   # Runtime configuration templates
 docs/                      # Technical documentation
 state/                     # Runtime: Checkpoints (gitignored)
@@ -261,6 +264,68 @@ if coordinator.stop_controller.is_stop_requested():
     reason = coordinator.stop_controller.get_stop_reason()
 ```
 
+## Futures Trading Support
+
+The system supports futures contracts with proper P&L calculation using contract multipliers.
+
+### Contract Multiplier Handling
+
+Futures contracts have multipliers that affect notional value (e.g., ES = 50x, NQ = 20x). The portfolio tracks P&L correctly:
+
+```python
+# For ES futures at 5200 with multiplier=50:
+# Notional = 1 contract * 5200 points * $50/point = $260,000
+
+# Cash impact on fill:
+cash_delta = -(quantity * price * multiplier) - commission
+
+# P&L calculation:
+realized_pnl = (fill_price - avg_price) * quantity * multiplier
+```
+
+### Contract Configuration
+
+Define futures contracts in `ContractSpec`:
+```python
+from aistock.config import ContractSpec
+
+es_contract = ContractSpec(
+    symbol='ESH26',           # Front-month ES
+    sec_type='FUT',           # Security type
+    exchange='CME',
+    currency='USD',
+    multiplier=50,            # $50 per point
+    expiration_date='20260320',  # YYYYMMDD
+    underlying='ES',          # Underlying symbol
+)
+```
+
+### Futures Module (`aistock/futures/`)
+
+- **`contracts.py`**: `FuturesContractSpec` with expiration tracking
+- **`rollover.py`**: `RolloverManager` for contract rollover alerts and order generation
+- **`preflight.py`**: `FuturesPreflightChecker` blocks trading on expired contracts
+- **`validator.py`**: Validates contracts via IBKR or offline
+
+### Rollover Management
+
+```python
+from aistock.futures.rollover import RolloverConfig, RolloverManager
+
+rollover_config = RolloverConfig(
+    warn_days_before_expiry=7,  # Alert 7 days before
+    state_dir='state',          # Persist mappings
+)
+
+# SessionFactory wires RolloverManager automatically if config provided
+factory = SessionFactory(config, fsd_config, rollover_config=rollover_config)
+```
+
+**Behavior:**
+- Preflight validation blocks session start if contracts are expired
+- Coordinator checks rollover alerts hourly
+- Rollover orders generated but executed manually (safety by design)
+
 ## Edge Cases & Risk Management
 
 The system handles:
@@ -272,5 +337,6 @@ The system handles:
 - Daily loss limits and drawdown protection
 - Graceful shutdown with retry logic (SIGINT, SIGTERM)
 - Early market closes (1 PM ET holidays)
+- Futures contract expiration and rollover alerts
 
 When adding features, consider thread safety for IBKR callbacks, state persistence, and risk constraint impacts.
