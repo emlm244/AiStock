@@ -128,7 +128,7 @@ python launch_gui.py                     # Alternative entry point
 ## Directory Structure
 
 ```
-aistock/                   # Main package (~5000 LOC, 55+ files)
+aistock/                   # Main package (~16,500 LOC, 55 files)
 ├── brokers/               # Paper trading + IBKR integration
 ├── factories/             # DI factories
 ├── futures/               # Futures contract management (rollover, validation)
