@@ -29,7 +29,6 @@ from aistock.futures.rollover import (
     RolloverStatus,
 )
 
-
 # ==================== FuturesContractSpec Tests ====================
 
 
