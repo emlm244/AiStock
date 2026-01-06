@@ -19,7 +19,7 @@ from threading import Lock
 from typing import Any
 
 from .data import Bar
-from .logging import configure_logger
+from .log_config import configure_logger
 
 
 class Trend(str, Enum):

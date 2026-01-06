@@ -21,7 +21,7 @@ from decimal import Decimal
 from aistock.brokers.ibkr import IBKRBroker
 from aistock.config import BrokerConfig, ContractSpec
 from aistock.execution import Order, OrderSide, OrderType
-from aistock.logging import configure_logger
+from aistock.log_config import configure_logger
 
 # Configure logging
 logger = configure_logger('IBKRTest', structured=True)

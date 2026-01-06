@@ -13,7 +13,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import TypeAlias, cast
 
-from .logging import configure_logger
+from .log_config import configure_logger
 
 JSONScalar: TypeAlias = str | int | float | bool | None
 JSONValue: TypeAlias = JSONScalar | list['JSONValue'] | dict[str, 'JSONValue']

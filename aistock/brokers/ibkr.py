@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Callable, Protocol, TypeAlias
 from ..config import BrokerConfig, ContractSpec
 from ..data import Bar  # For optional historical bars
 from ..execution import ExecutionReport, Order, OrderSide, OrderType
-from ..logging import configure_logger
+from ..log_config import configure_logger
 from .base import BaseBroker
 
 RealTimeBarHandler: TypeAlias = Callable[[datetime, str, float, float, float, float, float], None]
@@ -98,6 +98,15 @@ if TYPE_CHECKING:
             chart_options: list[object],
         ) -> None: ...
 
+        def reqContractDetails(self, req_id: int, contract: Contract) -> None: ...
+
+    class ContractDetails:
+        contract: Contract
+        realExpirationDate: str  # noqa: N815 - IBAPI convention
+        lastTradeDate: str  # noqa: N815 - IBAPI convention
+        contractMonth: str  # noqa: N815 - IBAPI convention
+        longName: str  # noqa: N815 - IBAPI convention
+
     class Contract:
         symbol: str
         secType: str  # noqa: N815 - IBAPI convention
@@ -106,6 +115,8 @@ if TYPE_CHECKING:
         localSymbol: str  # noqa: N815 - IBAPI convention
         multiplier: str
         account: str
+        lastTradeDateOrContractMonth: str  # noqa: N815 - IBAPI convention
+        conId: int  # noqa: N815 - IBAPI convention
 
         def __init__(self) -> None: ...
 
@@ -145,6 +156,8 @@ else:  # pragma: no cover - ibapi not available in test environment
             localSymbol: str = ''  # noqa: N815 - IBAPI convention
             multiplier: str = ''
             account: str = ''
+            lastTradeDateOrContractMonth: str = ''  # noqa: N815 - IBAPI convention
+            conId: int = 0  # noqa: N815 - IBAPI convention
 
         class IBOrder:
             action: str = ''
@@ -206,6 +219,11 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._hist_buffers: dict[int, list[Bar]] = {}
         self._hist_ready: dict[int, threading.Event] = {}
         self._hist_symbol: dict[int, str] = {}
+
+        # Contract details tracking (for futures expiration validation)
+        self._contract_details_results: dict[int, list[object]] = {}
+        self._contract_details_ready: dict[int, threading.Event] = {}
+        self._contract_details_lock = threading.Lock()
 
     # --- Lifecycle -----------------------------------------------------
     def start(self) -> None:
@@ -584,6 +602,82 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._positions_ready.set()
         self._logger.info('positions_received', extra={'count': len(self._positions)})
 
+    # --- Contract Details Callbacks (for futures expiration validation) ---
+
+    def contractDetails(self, reqId: int, contractDetails: object) -> None:  # noqa: N802,N803 - IBKR API
+        """IBKR callback for contract details."""
+        with self._contract_details_lock:
+            if reqId not in self._contract_details_results:
+                self._contract_details_results[reqId] = []
+            self._contract_details_results[reqId].append(contractDetails)
+
+    def contractDetailsEnd(self, reqId: int) -> None:  # noqa: N802,N803 - IBKR API
+        """IBKR callback when contract details are complete."""
+        with self._contract_details_lock:
+            event = self._contract_details_ready.get(reqId)
+            if event:
+                event.set()
+        self._logger.info(
+            'contract_details_received',
+            extra={'req_id': reqId},
+        )
+
+    def request_contract_details(self, symbol: str, timeout: float = 10.0) -> list[object]:
+        """
+        Request contract details from IBKR (blocking).
+
+        Queries IBKR for full contract details including expiration dates
+        and conId. This is used for futures contract validation.
+
+        Args:
+            symbol: Symbol to query
+            timeout: Maximum wait time in seconds
+
+        Returns:
+            List of ContractDetails objects
+        """
+        self._ensure_connected()
+        contract = self._build_contract(symbol)
+        req_id = next(self._req_id_seq)
+
+        # Initialize tracking for this request
+        with self._contract_details_lock:
+            self._contract_details_results[req_id] = []
+            self._contract_details_ready[req_id] = threading.Event()
+
+        try:
+            self._logger.info(
+                'requesting_contract_details',
+                extra={'symbol': symbol, 'req_id': req_id},
+            )
+
+            # Request contract details from IBKR
+            self.reqContractDetails(req_id, contract)
+
+            # Wait for response (blocking with timeout)
+            event = self._contract_details_ready[req_id]
+            if not event.wait(timeout):
+                self._logger.warning(
+                    'contract_details_timeout',
+                    extra={'symbol': symbol, 'timeout_seconds': timeout},
+                )
+
+            # Retrieve results
+            with self._contract_details_lock:
+                results = self._contract_details_results.get(req_id, [])
+        finally:
+            # Always cleanup tracking state to prevent resource leak
+            with self._contract_details_lock:
+                self._contract_details_results.pop(req_id, None)
+                self._contract_details_ready.pop(req_id, None)
+
+        self._logger.info(
+            'contract_details_result',
+            extra={'symbol': symbol, 'count': len(results)},
+        )
+
+        return results
+
     def reconcile_positions(self, portfolio: PortfolioLike, timeout: float = 10.0) -> bool:
         """
         P0-5 Fix: Reconcile portfolio positions with IBKR broker (blocking).
@@ -668,6 +762,11 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
             contract.multiplier = str(spec.multiplier)
         if self._config.ib_account:
             contract.account = self._config.ib_account
+        # Futures-specific fields
+        if spec.expiration_date:
+            contract.lastTradeDateOrContractMonth = spec.expiration_date
+        if spec.con_id:
+            contract.conId = spec.con_id
         return contract
 
     @staticmethod

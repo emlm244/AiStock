@@ -19,7 +19,7 @@ from enum import Enum
 
 from .calendar import nyse_trading_hours
 from .data import Bar
-from .logging import configure_logger
+from .log_config import configure_logger
 
 
 class RiskLevel(str, Enum):

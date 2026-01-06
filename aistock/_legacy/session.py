@@ -19,7 +19,7 @@ from .edge_cases import EdgeCaseHandler
 from .execution import ExecutionReport, Order, OrderSide, OrderType
 from .fsd import FSDConfig, FSDEngine
 from .idempotency import OrderIdempotencyTracker
-from .logging import configure_logger
+from .log_config import configure_logger
 from .patterns import PatternDetector
 from .persistence import load_checkpoint, save_checkpoint
 from .portfolio import Portfolio

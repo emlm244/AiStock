@@ -43,6 +43,7 @@ class PortfolioProtocol(Protocol):
         price: Decimal,
         commission: Decimal,
         timestamp: datetime,
+        multiplier: Decimal = Decimal('1'),
     ) -> Decimal:
         """Apply a fill and return realized P&L."""
         ...
