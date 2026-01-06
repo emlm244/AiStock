@@ -95,9 +95,7 @@ class SessionFactory:
 
         # Filter to futures contracts only
         futures_contracts = {
-            symbol: spec
-            for symbol, spec in self.config.broker.contracts.items()
-            if spec.sec_type == 'FUT'
+            symbol: spec for symbol, spec in self.config.broker.contracts.items() if spec.sec_type == 'FUT'
         }
 
         if not futures_contracts:

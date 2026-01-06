@@ -98,9 +98,7 @@ class RolloverConfig:
             ValueError: If configuration is invalid
         """
         if self.warn_days_before_expiry < 1:
-            raise ValueError(
-                f'warn_days_before_expiry must be >= 1, got {self.warn_days_before_expiry}'
-            )
+            raise ValueError(f'warn_days_before_expiry must be >= 1, got {self.warn_days_before_expiry}')
 
 
 @dataclass
@@ -504,9 +502,7 @@ class RolloverManager:
         """Get rollovers that are pending or in progress."""
         with self._lock:
             return [
-                event
-                for event in self._events
-                if event.status in (RolloverStatus.PENDING, RolloverStatus.IN_PROGRESS)
+                event for event in self._events if event.status in (RolloverStatus.PENDING, RolloverStatus.IN_PROGRESS)
             ]
 
     def _load_mappings(self) -> None:

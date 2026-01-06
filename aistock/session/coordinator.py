@@ -715,9 +715,7 @@ class TradingCoordinator:
                 recommendation = alert.get('recommendation', '')
 
                 if urgency == 'critical':
-                    self.logger.warning(
-                        f'CRITICAL: Futures contract {symbol} expires in {days} days! {recommendation}'
-                    )
+                    self.logger.warning(f'CRITICAL: Futures contract {symbol} expires in {days} days! {recommendation}')
                 else:
                     self.logger.info(f'Rollover alert: {symbol} expires in {days} days - {recommendation}')
 

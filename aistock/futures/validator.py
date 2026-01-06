@@ -195,9 +195,7 @@ class FuturesContractValidator:
                     result['expired'] = True
                     result['error'] = f'Contract {spec.symbol} expired {abs(days)} days ago'
                 elif days is not None and days <= self._warn_days:
-                    result['warning'] = (
-                        f'Contract {spec.symbol} expires in {days} days - rollover recommended'
-                    )
+                    result['warning'] = f'Contract {spec.symbol} expires in {days} days - rollover recommended'
                     result['valid'] = True
                 elif days is not None:
                     result['valid'] = True
@@ -236,9 +234,7 @@ class FuturesContractValidator:
     ) -> ContractValidationResult:
         """Validate contract using only spec data (no IBKR query)."""
         if not spec.expiration_date:
-            result['warning'] = (
-                f'Contract {spec.symbol} has no expiration date - IBKR validation recommended'
-            )
+            result['warning'] = f'Contract {spec.symbol} has no expiration date - IBKR validation recommended'
             result['valid'] = True
             return result
 
@@ -252,9 +248,7 @@ class FuturesContractValidator:
                 result['expired'] = True
                 result['error'] = f'Contract {spec.symbol} expired {abs(days)} days ago'
             elif days <= self._warn_days:
-                result['warning'] = (
-                    f'Contract {spec.symbol} expires in {days} days - rollover recommended'
-                )
+                result['warning'] = f'Contract {spec.symbol} expires in {days} days - rollover recommended'
                 result['valid'] = True
             else:
                 result['valid'] = True

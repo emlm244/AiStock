@@ -116,11 +116,7 @@ class FuturesPreflightChecker:
         validated: dict[str, ContractValidationResult] = {}
 
         # Filter to futures contracts only
-        futures_contracts = {
-            symbol: spec
-            for symbol, spec in contracts.items()
-            if spec.sec_type == 'FUT'
-        }
+        futures_contracts = {symbol: spec for symbol, spec in contracts.items() if spec.sec_type == 'FUT'}
 
         if not futures_contracts:
             self._logger.info(

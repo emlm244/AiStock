@@ -499,9 +499,7 @@ class TestFuturesPreflightChecker:
         from unittest.mock import patch
 
         # Patch the validator's _calculate_days_to_expiry to return 5 days
-        with patch.object(
-            checker._validator, '_calculate_days_to_expiry', return_value=5
-        ):
+        with patch.object(checker._validator, '_calculate_days_to_expiry', return_value=5):
             result = checker.run_preflight(None, contracts)
 
         assert result.passed  # Still passes, just warnings
