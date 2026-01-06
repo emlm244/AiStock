@@ -8,6 +8,7 @@ generation for futures contract transitions. Execution is manual only.
 from __future__ import annotations
 
 import json
+import threading
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -187,6 +188,9 @@ class RolloverManager:
 
         self._logger = configure_logger('RolloverManager', structured=True)
 
+        # Thread-safe lock for _mappings and _events
+        self._lock = threading.Lock()
+
         # Symbol mappings: logical_symbol -> SymbolMapping
         self._mappings: dict[str, SymbolMapping] = {}
 
@@ -233,20 +237,21 @@ class RolloverManager:
             contract_spec=futures_spec,
             is_front_month=is_front_month,
         )
-        self._mappings[logical_symbol.upper()] = mapping
+        with self._lock:
+            self._mappings[logical_symbol.upper()] = mapping
 
-        self._logger.info(
-            'symbol_mapping_registered',
-            extra={
-                'logical_symbol': logical_symbol,
-                'actual_contract': futures_spec.symbol,
-                'expiration': futures_spec.expiration_date,
-                'is_front_month': is_front_month,
-            },
-        )
+            self._logger.info(
+                'symbol_mapping_registered',
+                extra={
+                    'logical_symbol': logical_symbol,
+                    'actual_contract': futures_spec.symbol,
+                    'expiration': futures_spec.expiration_date,
+                    'is_front_month': is_front_month,
+                },
+            )
 
-        if self.config.persist_mappings:
-            self._save_mappings()
+            if self.config.persist_mappings:
+                self._save_mappings()
 
     def get_contract(self, logical_symbol: str) -> FuturesContractSpec | None:
         """
@@ -258,8 +263,9 @@ class RolloverManager:
         Returns:
             FuturesContractSpec or None if not registered
         """
-        mapping = self._mappings.get(logical_symbol.upper())
-        return mapping.contract_spec if mapping else None
+        with self._lock:
+            mapping = self._mappings.get(logical_symbol.upper())
+            return mapping.contract_spec if mapping else None
 
     def get_mapping(self, logical_symbol: str) -> SymbolMapping | None:
         """
@@ -271,11 +277,13 @@ class RolloverManager:
         Returns:
             SymbolMapping or None if not registered
         """
-        return self._mappings.get(logical_symbol.upper())
+        with self._lock:
+            return self._mappings.get(logical_symbol.upper())
 
     def all_mappings(self) -> dict[str, SymbolMapping]:
         """Get all registered symbol mappings."""
-        return dict(self._mappings)
+        with self._lock:
+            return dict(self._mappings)
 
     def check_rollover_needed(
         self,
@@ -300,8 +308,6 @@ class RolloverManager:
             if isinstance(spec, FuturesContractSpec):
                 days = spec.days_to_expiry()
             elif spec.expiration_date:
-                from datetime import datetime, timezone
-
                 try:
                     exp = datetime.strptime(spec.expiration_date, '%Y%m%d').date()
                     today = datetime.now(timezone.utc).date()
@@ -428,7 +434,8 @@ class RolloverManager:
             position_quantity=position_quantity,
             status=RolloverStatus.PENDING,
         )
-        self._events.append(event)
+        with self._lock:
+            self._events.append(event)
 
         self._logger.info(
             'rollover_event_created',
@@ -463,41 +470,44 @@ class RolloverManager:
         Returns:
             True if event was found and updated
         """
-        for event in self._events:
-            if event.event_id == event_id:
-                event.status = status
-                if error_message:
-                    event.error_message = error_message
-                if close_fill_price is not None:
-                    event.close_fill_price = close_fill_price
-                if open_fill_price is not None:
-                    event.open_fill_price = open_fill_price
-                if status in (RolloverStatus.COMPLETED, RolloverStatus.FAILED):
-                    event.completed_at = datetime.now(timezone.utc)
+        with self._lock:
+            for event in self._events:
+                if event.event_id == event_id:
+                    event.status = status
+                    if error_message:
+                        event.error_message = error_message
+                    if close_fill_price is not None:
+                        event.close_fill_price = close_fill_price
+                    if open_fill_price is not None:
+                        event.open_fill_price = open_fill_price
+                    if status in (RolloverStatus.COMPLETED, RolloverStatus.FAILED):
+                        event.completed_at = datetime.now(timezone.utc)
 
-                self._logger.info(
-                    'rollover_status_updated',
-                    extra={
-                        'event_id': event_id,
-                        'status': status.value,
-                        'error': error_message,
-                    },
-                )
-                return True
+                    self._logger.info(
+                        'rollover_status_updated',
+                        extra={
+                            'event_id': event_id,
+                            'status': status.value,
+                            'error': error_message,
+                        },
+                    )
+                    return True
 
-        return False
+            return False
 
     def get_rollover_history(self) -> list[RolloverEvent]:
         """Get rollover event history."""
-        return list(self._events)
+        with self._lock:
+            return list(self._events)
 
     def get_pending_rollovers(self) -> list[RolloverEvent]:
         """Get rollovers that are pending or in progress."""
-        return [
-            event
-            for event in self._events
-            if event.status in (RolloverStatus.PENDING, RolloverStatus.IN_PROGRESS)
-        ]
+        with self._lock:
+            return [
+                event
+                for event in self._events
+                if event.status in (RolloverStatus.PENDING, RolloverStatus.IN_PROGRESS)
+            ]
 
     def _load_mappings(self) -> None:
         """Load symbol mappings from disk."""
@@ -528,6 +538,9 @@ class RolloverManager:
                 if updated_at_str:
                     try:
                         updated_at = datetime.fromisoformat(updated_at_str)
+                        # Ensure timezone-aware (UTC) per CLAUDE.md requirements
+                        if updated_at.tzinfo is None:
+                            updated_at = updated_at.replace(tzinfo=timezone.utc)
                     except ValueError:
                         updated_at = datetime.now(timezone.utc)
                 else:

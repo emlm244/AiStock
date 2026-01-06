@@ -645,26 +645,31 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
             self._contract_details_results[req_id] = []
             self._contract_details_ready[req_id] = threading.Event()
 
-        self._logger.info(
-            'requesting_contract_details',
-            extra={'symbol': symbol, 'req_id': req_id},
-        )
-
-        # Request contract details from IBKR
-        self.reqContractDetails(req_id, contract)
-
-        # Wait for response (blocking with timeout)
-        event = self._contract_details_ready[req_id]
-        if not event.wait(timeout):
-            self._logger.warning(
-                'contract_details_timeout',
-                extra={'symbol': symbol, 'timeout_seconds': timeout},
+        try:
+            self._logger.info(
+                'requesting_contract_details',
+                extra={'symbol': symbol, 'req_id': req_id},
             )
 
-        # Retrieve and cleanup results
-        with self._contract_details_lock:
-            results = self._contract_details_results.pop(req_id, [])
-            self._contract_details_ready.pop(req_id, None)
+            # Request contract details from IBKR
+            self.reqContractDetails(req_id, contract)
+
+            # Wait for response (blocking with timeout)
+            event = self._contract_details_ready[req_id]
+            if not event.wait(timeout):
+                self._logger.warning(
+                    'contract_details_timeout',
+                    extra={'symbol': symbol, 'timeout_seconds': timeout},
+                )
+
+            # Retrieve results
+            with self._contract_details_lock:
+                results = self._contract_details_results.get(req_id, [])
+        finally:
+            # Always cleanup tracking state to prevent resource leak
+            with self._contract_details_lock:
+                self._contract_details_results.pop(req_id, None)
+                self._contract_details_ready.pop(req_id, None)
 
         self._logger.info(
             'contract_details_result',

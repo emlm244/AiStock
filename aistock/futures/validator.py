@@ -7,7 +7,6 @@ for contract details including expiration dates and conId.
 
 from __future__ import annotations
 
-import threading
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Protocol
 
@@ -24,8 +23,6 @@ class IBKRBrokerProtocol(Protocol):
     def isConnected(self) -> bool: ...  # noqa: N802 - IBKR API convention
 
     def request_contract_details(self, symbol: str, timeout: float = 10.0) -> list[object]: ...
-
-    def _build_contract(self, symbol: str) -> object: ...
 
 
 class FuturesContractValidator:
@@ -62,7 +59,6 @@ class FuturesContractValidator:
         self._timeout = timeout
         self._warn_days = warn_days_threshold
         self._logger = configure_logger('FuturesContractValidator', structured=True)
-        self._lock = threading.Lock()
 
     def validate_contract(
         self,
@@ -195,16 +191,20 @@ class FuturesContractValidator:
                 days = self._calculate_days_to_expiry(exp_date)
                 result['days_to_expiry'] = days
 
-                if days < 0:
+                if days is not None and days < 0:
                     result['expired'] = True
                     result['error'] = f'Contract {spec.symbol} expired {abs(days)} days ago'
-                elif days <= self._warn_days:
+                elif days is not None and days <= self._warn_days:
                     result['warning'] = (
                         f'Contract {spec.symbol} expires in {days} days - rollover recommended'
                     )
                     result['valid'] = True
-                else:
+                elif days is not None:
                     result['valid'] = True
+                else:
+                    # Could not parse expiration date
+                    result['valid'] = True
+                    result['warning'] = f'Contract {spec.symbol}: could not parse expiration date'
             else:
                 # No expiration info, assume valid (e.g., cash-settled)
                 result['valid'] = True
