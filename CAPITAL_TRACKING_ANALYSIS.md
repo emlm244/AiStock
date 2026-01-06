@@ -427,7 +427,7 @@ class ProfitWithdrawalStrategy:
 **Strengths (Why 7/10):**
 - ✅ IBKR API correctly implemented
 - ✅ Thread-safe for live trading
-- ✅ 180+ tests, 99.4% pass rate
+- ✅ 280+ tests, 99.4% pass rate
 - ✅ Commission tracking fixed
 - ✅ Position management robust
 - ✅ Concurrency stress-tested
@@ -562,7 +562,7 @@ The system is **production-ready for basic trading** but has **critical gaps in 
 | Account Reconciliation | 0 | 0 | ❌ **MISSING** |
 | Minimum Balance | 0 | 0 | ❌ **MISSING** |
 
-**Total**: 239 tests across 25 files, **99.4% pass rate**
+**Total**: 280 tests across 31 files, **99.4% pass rate**
 
 ---
 

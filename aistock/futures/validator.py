@@ -179,9 +179,9 @@ class FuturesContractValidator:
             # Get conId (using getattr because details is dynamically typed from IBKR)
             con_id: int | None = None
             if hasattr(details, 'contract'):
-                contract_obj = getattr(details, 'contract')  # noqa: B009
-                if hasattr(contract_obj, 'conId'):
-                    con_id = getattr(contract_obj, 'conId', None)  # noqa: B009
+                contract_obj = getattr(details, 'contract')  # noqa: B009  # pyright: ignore[reportAny]
+                if hasattr(contract_obj, 'conId'):  # pyright: ignore[reportAny]
+                    con_id = getattr(contract_obj, 'conId', None)  # noqa: B009  # pyright: ignore[reportAny]
 
             result['expiration_date'] = exp_date
             result['con_id'] = con_id

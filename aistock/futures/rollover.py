@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -285,7 +286,7 @@ class RolloverManager:
 
     def check_rollover_needed(
         self,
-        contracts: dict[str, FuturesContractSpec | ContractSpec],
+        contracts: Mapping[str, FuturesContractSpec | ContractSpec],
     ) -> list[RolloverAlert]:
         """
         Check which contracts need rollover.
