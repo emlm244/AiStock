@@ -1,25 +1,37 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-The `aistock/` package holds trading logic: `fsd.py` (RL engine), `engine.py` (execution loop), `brokers/` (paper + IBKR adapters), and GUI helpers in `simple_gui.py`. Tests align under `tests/`. Reference docs live in `docs/`; runtime presets in `configs/`. Generated artifacts (`state/`, `models/`, `logs/`, `backtest_results/`, `data/`) should stay local. Utility scripts are in `scripts/`.
+- `aistock/` is the core runtime package, with key subpackages like `brokers/`, `session/`, `factories/`, `backtest/`, `engines/`, `ml/`, `providers/`, and `risk/` (legacy code in `aistock/_legacy/`).
+- `tests/` holds pytest suites with domain folders (`tests/backtest/`, `tests/engines/`, `tests/ml/`, `tests/providers/`, `tests/risk/`) plus top-level regression tests.
+- `scripts/` contains operational and backtest automation; follow the conventions in `scripts/README.md`.
+- `configs/`, `data/`, `state/`, `logs/`, and `backtest_results/` store configuration examples, datasets, checkpoints, logs, and result artifacts.
+- `docs/` captures architecture and audits; start with `docs/audit/2025-11-08/ARCHITECTURE_MAP.md`.
 
 ## Build, Test, and Development Commands
-- `pip install -r requirements.txt` – install runtime dependencies.
-- `pip install -r requirements-dev.txt` – add linting, typing, and test tooling.
-- `ruff check aistock tests` – run lint rules from `ruff.toml`.
-- `ruff format aistock tests` – apply formatter when updating style.
-- `pytest tests` – execute automation; append `-k pattern` for targeted runs.
-- `python -m aistock` – launch the FSD engine headless.
-- `python launch_gui.py` – open the Tkinter dashboard for manual checks.
+- `pip install -r requirements.txt` installs runtime dependencies (Python 3.10+).
+- `pip install -r requirements-dev.txt` adds pytest, ruff, basedpyright, and related tooling.
+- `python -m aistock` or `python launch_gui.py` starts the FSD GUI/runtime.
+- `python test_ibkr_connection.py` validates local IBKR connectivity.
+- `pytest tests/` runs the test suite; target individual files during development.
+- `ruff check .` and `ruff format .` enforce linting/formatting.
+- `basedpyright` runs strict type checks (see `pyrightconfig.json`).
 
 ## Coding Style & Naming Conventions
-Follow four-space indentation, snake_case modules, and PascalCase public classes. Prefer explicit imports and targeted functions to keep control flow readable. Type hints are expected; align with `pyrightconfig.json` and annotate broker interfaces, dataclasses, and async calls. Let `ruff` handle lint-autofix before review, and keep docstrings brief for any public entry point in `aistock/`.
+- 4-space indentation, 120-char lines, single quotes (Ruff formatter).
+- `snake_case` for modules/functions/variables, `CapWords` for classes, `UPPER_SNAKE` for constants.
+- Preserve broker API callback naming (IBKR uses mixed-case callbacks).
 
 ## Testing Guidelines
-Place new tests beside related modules (`tests/test_engine.py` covers `aistock/engine.py`). Name cases `test_<behavior>` and use parametrization for scenario coverage. Share fixtures instead of writing to `data/` or `state/`. Every trading rule or regression fix must include a corresponding pytest, and `pytest tests` should pass locally before requesting review.
+- Pytest with `test_*.py` naming; keep new tests alongside the feature’s domain folder.
+- Some tests require environment variables (e.g., `IBKR_ACCOUNT_ID`, `IBKR_CLIENT_ID`) and provider dependencies; configure via `.env` or `.env.example`.
+- CI runs ruff, basedpyright (non-blocking), and pytest across Python 3.10–3.12 with coverage on 3.10.
 
 ## Commit & Pull Request Guidelines
-Use the Conventional Commit format already in history (`type: summary`), with focused commits and descriptive bodies. PRs need a concise problem statement, solution summary, and any operational considerations (config changes, manual steps). Attach relevant metrics or screenshots for GUI updates, list lint/test commands executed, and note follow-ups when work is staged.
+- Commit messages use `type: summary` (common types: `feat`, `fix`, `docs`, `style`, `chore`; scope is optional).
+- Keep summaries short, imperative, and specific.
+- PRs should include a clear description, tests run, and screenshots for GUI changes; update `scripts/README.md` when adding scripts.
 
-## Configuration & Data Hygiene
-Keep credentials in environment variables or local `.env` files ignored by git. Treat `configs/` as versioned templates—copy and override locally for experiments. Clean generated outputs in `data/`, `logs/`, `models/`, and `backtest_results/` before shipping a PR unless the artifact is a committed fixture.
+## Configuration & Data
+- Copy `.env.example` to `.env` and set IBKR credentials, ports, and GUI defaults; never commit secrets.
+- `configs/fsd_mode_example.json` shows a baseline FSD configuration.
+- Use `data/README.md` and `scripts/generate_synthetic_dataset.py` to build historical CSV data for backtests.

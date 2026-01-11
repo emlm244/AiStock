@@ -24,6 +24,11 @@ class ActionType(str, Enum):
     DIVIDEND = 'dividend'
     SPIN_OFF = 'spin_off'
     MERGER = 'merger'
+    # Added for survivorship bias tracking
+    IPO = 'ipo'
+    DELISTED = 'delisted'
+    TICKER_CHANGE = 'ticker_change'
+    ACQUISITION = 'acquisition'
 
 
 @dataclass(frozen=True)

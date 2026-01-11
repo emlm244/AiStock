@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from .config import RiskLimits
-from .portfolio import Portfolio
+from ..config import AccountCapabilities, ContractSpec, RiskLimits
+from ..portfolio import Portfolio
 
 
 class RiskViolation(Exception):
@@ -51,13 +51,21 @@ class RiskEngine:
 
     P0 Fix (CRITICAL-2): Thread-safe to prevent race conditions in risk checks.
 
-    Enforces:
-    - Daily loss limits
-    - Maximum drawdown halts
-    - Position size limits
-    - Pre-trade risk checks
-    - Order rate limiting
-    - Minimum balance protection (NEW: prevents trading below user-defined threshold)
+    Enforces (all checked in check_pre_trade):
+    - Daily loss limits (max_daily_loss_pct)
+    - Maximum drawdown halts (max_drawdown_pct)
+    - Position size limits (max_position_fraction)
+    - Gross exposure limits (max_gross_exposure)
+    - Leverage limits (max_leverage)
+    - Per-symbol notional caps (per_symbol_notional_cap)
+    - Max position units (max_single_position_units)
+    - Per-trade risk caps (per_trade_risk_pct)
+    - Order rate limiting (max_orders_per_minute, max_orders_per_day)
+    - Minimum balance protection
+    - Account capability restrictions (futures/options/settlement)
+
+    Note: max_holding_period_bars is validated in config but requires
+    position age tracking in the coordinator/engine layer for enforcement.
     """
 
     def __init__(
@@ -68,11 +76,15 @@ class RiskEngine:
         state: RiskState | None = None,
         minimum_balance: Decimal | None = None,
         minimum_balance_enabled: bool = True,
+        account_capabilities: AccountCapabilities | None = None,
+        contract_specs: dict[str, ContractSpec] | None = None,
     ):
         self._lock = threading.RLock()  # P0 Fix: Thread safety (reentrant for halt calls)
         self.config: RiskLimits = risk_config
         self.portfolio: Portfolio = portfolio
         self.bar_interval = bar_interval
+        self._account_capabilities = account_capabilities
+        self._contract_specs = contract_specs or {}
 
         # NEW: Minimum balance protection
         self.minimum_balance = minimum_balance or Decimal('0')
@@ -135,6 +147,10 @@ class RiskEngine:
                 if not is_flattening:
                     raise RiskViolation(f'Trading halted: {self._halt_reason}')
 
+            # Account capability restrictions (instruments, settlement)
+            if self._account_capabilities:
+                self._check_account_capabilities(symbol, quantity_delta, price, timestamp)
+
             # NEW: Check minimum balance protection
             if self.minimum_balance_enabled and self.minimum_balance > Decimal('0'):
                 # Enforce a cash floor: prevent allocating the protected balance.
@@ -196,6 +212,115 @@ class RiskEngine:
 
             if position_pct > max_pos_pct:
                 raise RiskViolation(f'Position size {position_pct:.2%} exceeds limit {max_pos_pct:.2%}')
+
+            # Check gross exposure limit (sum of absolute position values / equity)
+            if hasattr(self.config, 'max_gross_exposure') and self.config.max_gross_exposure > 0:
+                current_gross = self.portfolio.get_gross_exposure(last_prices)
+                # Calculate projected gross exposure after this trade
+                trade_notional = abs(quantity_delta * price) * self._get_contract_multiplier(symbol)
+                # For new/adding positions, exposure increases; for closing, it decreases
+                if new_pos == 0:
+                    # Flattening position - gross exposure decreases
+                    projected_gross = current_gross - abs(current_pos * price) * self._get_contract_multiplier(symbol)
+                elif abs(new_pos) > abs(current_pos):
+                    # Adding to or opening position - gross exposure increases
+                    projected_gross = current_gross + trade_notional
+                else:
+                    # Reducing position - gross exposure decreases
+                    projected_gross = current_gross - trade_notional
+
+                gross_exposure_ratio = projected_gross / equity if equity > 0 else Decimal('0')
+                if gross_exposure_ratio > Decimal(str(self.config.max_gross_exposure)):
+                    raise RiskViolation(
+                        f'Gross exposure {gross_exposure_ratio:.2%} would exceed limit '
+                        f'{self.config.max_gross_exposure:.2%}'
+                    )
+
+            # Check leverage limit (net exposure / equity)
+            if hasattr(self.config, 'max_leverage') and self.config.max_leverage > 0:
+                current_net = self.portfolio.get_net_exposure(last_prices)
+                trade_signed_notional = quantity_delta * price * self._get_contract_multiplier(symbol)
+                projected_net = current_net + trade_signed_notional
+                leverage_ratio = abs(projected_net) / equity if equity > 0 else Decimal('0')
+                if leverage_ratio > Decimal(str(self.config.max_leverage)):
+                    raise RiskViolation(
+                        f'Leverage {leverage_ratio:.2f}x would exceed limit '
+                        f'{self.config.max_leverage:.2f}x'
+                    )
+
+            # Check per-symbol notional cap
+            if hasattr(self.config, 'per_symbol_notional_cap') and self.config.per_symbol_notional_cap > 0:
+                multiplier = self._get_contract_multiplier(symbol)
+                projected_notional = abs(new_pos * price) * multiplier
+                cap = Decimal(str(self.config.per_symbol_notional_cap))
+                if projected_notional > cap:
+                    raise RiskViolation(
+                        f'Per-symbol notional ${projected_notional:,.2f} would exceed cap '
+                        f'${cap:,.2f} for {symbol}'
+                    )
+
+            # Check max single position units
+            if hasattr(self.config, 'max_single_position_units') and self.config.max_single_position_units > 0:
+                max_units = Decimal(str(self.config.max_single_position_units))
+                if abs(new_pos) > max_units:
+                    raise RiskViolation(
+                        f'Position units {abs(new_pos):,.0f} would exceed limit '
+                        f'{max_units:,.0f} for {symbol}'
+                    )
+
+    def _resolve_contract_spec(self, symbol: str) -> ContractSpec | None:
+        if not self._contract_specs:
+            return None
+        return self._contract_specs.get(symbol) or self._contract_specs.get(symbol.upper())
+
+    def _get_contract_multiplier(self, symbol: str) -> Decimal:
+        spec = self._resolve_contract_spec(symbol)
+        if spec and spec.multiplier:
+            return Decimal(str(spec.multiplier))
+        return Decimal('1')
+
+    def _check_account_capabilities(
+        self,
+        symbol: str,
+        quantity_delta: Decimal,
+        price: Decimal,
+        timestamp: datetime | None,
+    ) -> None:
+        caps = self._account_capabilities
+        if not caps:
+            return
+
+        spec = self._resolve_contract_spec(symbol)
+        sec_type = spec.sec_type.upper() if spec and spec.sec_type else 'STK'
+
+        if sec_type == 'FUT':
+            if not caps.enable_futures:
+                raise RiskViolation('Futures trading is disabled by account capabilities.')
+            if caps.account_type != 'margin':
+                raise RiskViolation('Futures trading requires a margin account.')
+            if caps.account_balance < 2000:
+                raise RiskViolation('Futures trading requires at least $2,000 total account balance.')
+        elif sec_type == 'OPT':
+            if not caps.enable_options:
+                raise RiskViolation('Options trading is disabled by account capabilities.')
+            if caps.account_type != 'margin':
+                raise RiskViolation('Options trading requires a margin account.')
+            if caps.account_balance < 2000:
+                raise RiskViolation('Options trading requires at least $2,000 total account balance.')
+        elif sec_type == 'STK':
+            if not (caps.enable_stocks or caps.enable_etfs):
+                raise RiskViolation('Stocks/ETFs are disabled by account capabilities.')
+
+        if caps.account_type == 'cash' and caps.enforce_settlement and quantity_delta > 0:
+            as_of = timestamp or datetime.now(timezone.utc)
+            available_cash = self.portfolio.get_available_cash(as_of=as_of)
+            trade_cost = quantity_delta * price * self._get_contract_multiplier(symbol)
+            if trade_cost > available_cash:
+                shortfall = trade_cost - available_cash
+                raise RiskViolation(
+                    f'Settlement restriction: available cash ${available_cash:.2f} '
+                    f'cannot cover trade cost ${trade_cost:.2f} (short ${shortfall:.2f}).'
+                )
 
     def reset_daily(self, current_equity: Decimal):
         """

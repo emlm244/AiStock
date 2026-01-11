@@ -7,18 +7,13 @@ This directory contains historical market data for backtesting and live trading.
 ```
 data/
 ├── historical/
-│   ├── stocks/      # Stock data (FSD & Headless modes)
-│   ├── forex/       # Forex data (BOT mode only)
-│   └── crypto/      # Cryptocurrency data (BOT mode only)
+│   └── stocks/      # Stock data for FSD mode
 ├── staging/          # Temporary staging area for data ingestion
 ├── curated/          # Clean, validated data after ingestion
 └── live_data/        # Real-time data feeds (optional)
 ```
 
-### Asset Class Restrictions by Mode:
-- **FSD (Full Self-Driving)**: Stocks only (`data/historical/stocks/`)
-- **Headless (Semi-Autonomous)**: Stocks only (`data/historical/stocks/`)
-- **BOT (Manual Control)**: All asset classes (stocks, forex, crypto)
+**FSD Mode**: Stocks only (`data/historical/stocks/`)
 
 ## Generating Sample Data
 
@@ -77,10 +72,7 @@ To use real market data:
 
 1. **Download from a provider**: Use APIs from Alpha Vantage, Yahoo Finance, Polygon.io, etc.
 2. **Convert to the required format**: Ensure CSV follows the format above
-3. **Place files in**:
-   - Stocks: `data/historical/stocks/`
-   - Forex: `data/historical/forex/`
-   - Crypto: `data/historical/crypto/`
+3. **Place files in**: `data/historical/stocks/`
 4. **Validate**: Run a test backtest to verify data quality
 
 ## Data Quality

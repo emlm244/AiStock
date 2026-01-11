@@ -36,6 +36,48 @@ class IBKREnvSettings:
 
 
 @dataclass(frozen=True)
+class AccountCapabilitiesSettings:
+    """Account capabilities sourced from environment variables."""
+
+    account_type: str  # 'cash' or 'margin'
+    account_balance: float
+    enable_stocks: bool
+    enable_etfs: bool
+    enable_futures: bool
+    enable_options: bool
+    allow_extended_hours: bool
+    enforce_settlement: bool
+
+
+@dataclass(frozen=True)
+class GuiSettings:
+    """GUI settings sourced from environment variables."""
+
+    capital: str
+    risk_level: str
+    investment_goal: str
+    session_time_limit_minutes: str
+    max_loss_per_trade_pct: str
+    trade_tempo: str
+    minimum_balance: str
+    minimum_balance_enabled: bool
+    max_daily_loss_pct: str
+    max_drawdown_pct: str
+    max_trades_per_hour: str
+    max_trades_per_day: str
+    chase_threshold_pct: str
+    news_volume_multiplier: str
+    end_of_day_minutes: str
+    trading_mode: str
+    enable_withdrawal: bool
+    target_capital: str
+    withdrawal_threshold: str
+    withdrawal_frequency: str
+    enable_eod_flatten: bool
+    eod_flatten_time: str
+
+
+@dataclass(frozen=True)
 class RuntimeSettings:
     """Top-level runtime settings consumed by the GUI/headless launchers."""
 
@@ -43,6 +85,8 @@ class RuntimeSettings:
     timezone_name: str
     timezone: ZoneInfo
     ibkr: IBKREnvSettings
+    account_capabilities: AccountCapabilitiesSettings
+    gui_settings: GuiSettings
 
 
 def load_runtime_settings(env: Mapping[str, str] | None = None) -> RuntimeSettings:
@@ -77,11 +121,83 @@ def load_runtime_settings(env: Mapping[str, str] | None = None) -> RuntimeSettin
         client_id=client_id,
     )
 
+    # Account capabilities
+    account_type = (_clean_str(source.get('ACCOUNT_TYPE', 'cash')) or 'cash').lower()
+    if account_type not in ('cash', 'margin'):
+        account_type = 'cash'  # Default to cash if invalid
+    account_balance = _parse_float(source.get('ACCOUNT_BALANCE'), 'ACCOUNT_BALANCE', default=0.0)
+    if 'ALLOW_EXTENDED_HOURS' in source:
+        allow_extended_hours = _parse_bool(source.get('ALLOW_EXTENDED_HOURS'))
+    else:
+        allow_extended_hours = _parse_bool(source.get('ENABLE_PREMARKET')) or _parse_bool(
+            source.get('ENABLE_AFTERHOURS')
+        )
+
+    account_capabilities = AccountCapabilitiesSettings(
+        account_type=account_type,
+        account_balance=account_balance,
+        enable_stocks=_parse_bool(source.get('ENABLE_STOCKS', 'true')),
+        enable_etfs=_parse_bool(source.get('ENABLE_ETFS', 'true')),
+        enable_futures=_parse_bool(source.get('ENABLE_FUTURES', 'false')),
+        enable_options=_parse_bool(source.get('ENABLE_OPTIONS', 'false')),
+        allow_extended_hours=allow_extended_hours,
+        enforce_settlement=_parse_bool(source.get('ENFORCE_SETTLEMENT', 'true')),
+    )
+
+    risk_level = _parse_env_str(source, 'GUI_RISK_LEVEL', 'conservative')
+    if risk_level not in {'conservative', 'moderate', 'aggressive'}:
+        risk_level = 'conservative'
+
+    investment_goal = _parse_env_str(source, 'GUI_INVESTMENT_GOAL', 'steady_growth')
+    if investment_goal not in {'steady_growth', 'quick_gains'}:
+        investment_goal = 'steady_growth'
+
+    trade_tempo = _parse_env_str(source, 'GUI_TRADE_TEMPO', 'balanced')
+    if trade_tempo not in {'steady', 'balanced', 'fast'}:
+        trade_tempo = 'balanced'
+
+    trading_mode = _parse_env_str(source, 'GUI_TRADING_MODE', 'ibkr_paper').lower()
+    if trading_mode not in {'ibkr_paper', 'ibkr_live'}:
+        trading_mode = 'ibkr_paper'
+
+    withdrawal_frequency = _parse_env_str(source, 'GUI_WITHDRAWAL_FREQUENCY', 'Daily')
+    if withdrawal_frequency.lower() not in {'daily', 'weekly', 'monthly'}:
+        withdrawal_frequency = 'Daily'
+    else:
+        withdrawal_frequency = withdrawal_frequency.title()
+
+    gui_settings = GuiSettings(
+        capital=_parse_env_str(source, 'GUI_CAPITAL', '200'),
+        risk_level=risk_level,
+        investment_goal=investment_goal,
+        session_time_limit_minutes=_parse_env_str(source, 'GUI_SESSION_TIME_LIMIT_MINUTES', '240'),
+        max_loss_per_trade_pct=_parse_env_str(source, 'GUI_MAX_LOSS_PER_TRADE_PCT', '5'),
+        trade_tempo=trade_tempo,
+        minimum_balance=_parse_env_str(source, 'GUI_MINIMUM_BALANCE', '100'),
+        minimum_balance_enabled=_parse_bool(source.get('GUI_MINIMUM_BALANCE_ENABLED', 'true')),
+        max_daily_loss_pct=_parse_env_str(source, 'GUI_MAX_DAILY_LOSS_PCT', '5'),
+        max_drawdown_pct=_parse_env_str(source, 'GUI_MAX_DRAWDOWN_PCT', '15'),
+        max_trades_per_hour=_parse_env_str(source, 'GUI_MAX_TRADES_PER_HOUR', '20'),
+        max_trades_per_day=_parse_env_str(source, 'GUI_MAX_TRADES_PER_DAY', '100'),
+        chase_threshold_pct=_parse_env_str(source, 'GUI_CHASE_THRESHOLD_PCT', '5'),
+        news_volume_multiplier=_parse_env_str(source, 'GUI_NEWS_VOLUME_MULTIPLIER', '5'),
+        end_of_day_minutes=_parse_env_str(source, 'GUI_END_OF_DAY_MINUTES', '30'),
+        trading_mode=trading_mode,
+        enable_withdrawal=_parse_bool(source.get('GUI_ENABLE_WITHDRAWAL', 'false')),
+        target_capital=_parse_env_str(source, 'GUI_TARGET_CAPITAL', '200'),
+        withdrawal_threshold=_parse_env_str(source, 'GUI_WITHDRAWAL_THRESHOLD', '5000'),
+        withdrawal_frequency=withdrawal_frequency,
+        enable_eod_flatten=_parse_bool(source.get('GUI_ENABLE_EOD_FLATTEN', 'false')),
+        eod_flatten_time=_parse_env_str(source, 'GUI_EOD_FLATTEN_TIME', '15:45'),
+    )
+
     return RuntimeSettings(
         log_level=log_level,
         timezone_name=tz_name,
         timezone=timezone,
         ibkr=ibkr,
+        account_capabilities=account_capabilities,
+        gui_settings=gui_settings,
     )
 
 
@@ -161,6 +277,24 @@ def _parse_port(raw: str, key: str) -> int:
     return port
 
 
+def _parse_env_str(env: Mapping[str, str], key: str, default: str) -> str:
+    value = _clean_str(env.get(key))
+    return value if value is not None else default
+
+
+def _parse_float(raw: str | None, key: str, default: float = 0.0) -> float:
+    cleaned = _clean_str(raw)
+    if cleaned is None:
+        return default
+    try:
+        value = float(cleaned)
+    except (TypeError, ValueError):
+        raise ValueError(f'{key} must be a number, got {raw!r}') from None
+    if value < 0:
+        raise ValueError(f'{key} must be non-negative, got {value}')
+    return value
+
+
 def _parse_optional_int(raw: str | None, key: str) -> int | None:
     cleaned = _clean_str(raw)
     if cleaned is None:
@@ -172,6 +306,62 @@ def _parse_optional_int(raw: str | None, key: str) -> int | None:
     if value < 0:
         raise ValueError(f'{key} must be non-negative, got {value}')
     return value
+
+
+def _parse_bool(raw: str | None) -> bool:
+    """Parse a boolean value from environment variable."""
+    if raw is None:
+        return False
+    cleaned = raw.strip().lower()
+    return cleaned in ('true', '1', 'yes', 'on')
+
+
+def update_dotenv_file(updates: Mapping[str, str], path: Path = Path('.env')) -> None:
+    """Update or append .env values while preserving unrelated lines."""
+    if not updates:
+        return
+
+    lines: list[str]
+    if path.exists():
+        try:
+            lines = path.read_text(encoding='utf-8').splitlines()
+        except OSError:
+            lines = []
+    else:
+        lines = []
+
+    seen: set[str] = set()
+    updated_lines: list[str] = []
+    for line in lines:
+        key, prefix = _extract_env_key(line)
+        if key and key in updates:
+            updated_lines.append(f'{prefix}{key}={updates[key]}')
+            seen.add(key)
+        else:
+            updated_lines.append(line)
+
+    for key, value in updates.items():
+        if key not in seen:
+            updated_lines.append(f'{key}={value}')
+
+    content = '\n'.join(updated_lines).rstrip('\n') + '\n'
+    path.write_text(content, encoding='utf-8')
+
+
+def _extract_env_key(line: str) -> tuple[str | None, str]:
+    stripped = line.strip()
+    if not stripped or stripped.startswith('#'):
+        return None, ''
+    prefix = ''
+    if stripped.startswith('export '):
+        prefix = 'export '
+        stripped = stripped[len('export ') :].lstrip()
+    if '=' not in stripped:
+        return None, prefix
+    key = stripped.split('=', 1)[0].strip()
+    if not key:
+        return None, prefix
+    return key, prefix
 
 
 def _load_timezone(name: str) -> ZoneInfo:

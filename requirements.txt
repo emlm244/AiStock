@@ -12,4 +12,16 @@ ibapi>=9.81.1
 # Typing backports for Python 3.9-3.10
 typing-extensions>=4.0.0  # Provides Unpack for Python < 3.11
 
+# Massive.com (formerly Polygon.io) for historical market data
+# Used for backtesting data source (5 API calls/min on free tier)
+massive>=0.1.0
+
+# AWS S3 SDK for Massive.com flat files access (optional)
+boto3>=1.26.0
+
+# Deep learning stack for advanced RL algorithms
+# Required for Dueling DQN, LSTM, and Transformer models
+torch>=2.0.0
+einops>=0.6.0  # Tensor manipulation for attention mechanisms
+
 # For dev/test tools, see requirements-dev.txt

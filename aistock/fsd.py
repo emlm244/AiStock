@@ -35,6 +35,8 @@ if TYPE_CHECKING:
     from .timeframes import TimeframeManager
 
 
+VIX_SYMBOL_CANDIDATES = ('VIX', '^VIX', 'VIXY', 'VXX')
+
 @dataclass
 class FSDConfig:
     """Configuration for FSD RL agent."""
@@ -58,14 +60,33 @@ class FSDConfig:
     min_confidence_threshold: float = 0.6
     max_loss_per_trade_pct: float = 5.0
 
-    # Reward shaping
+    # Reward shaping (legacy)
     risk_penalty_factor: float = 0.1
     transaction_cost_factor: float = 0.001
+
+    # Enhanced reward shaping (v2.0) - Risk-focused defaults
+    enable_enhanced_rewards: bool = False  # Default off for backward compat
+    reward_window_size: int = 50  # Rolling window for Sharpe/Sortino
+    sharpe_weight: float = 0.35  # Weight for Sharpe ratio component
+    sortino_weight: float = 0.25  # Weight for Sortino ratio component
+    drawdown_penalty_weight: float = 0.25  # Weight for drawdown penalty
+    streak_bonus_weight: float = 0.05  # Weight for consistency bonus
+    base_pnl_weight: float = 0.1  # Weight for raw P&L (reduced from 1.0)
+    risk_free_rate: float = 0.0  # Annual risk-free rate
+    max_streak_scale: int = 5  # Streak saturation threshold
 
     # State discretization
     price_change_bins: int = 10
     volume_bins: int = 5
     position_bins: int = 5
+    rsi_bins: int = 8
+    macd_bins: int = 7
+    bollinger_bins: int = 8
+    momentum_bins: int = 7
+    breadth_bins: int = 7
+    vix_bins: int = 6
+    spread_bins: int = 6
+    depth_bins: int = 6
 
     # ===== ADVANCED FEATURES =====
     # Parallel trading
@@ -85,6 +106,52 @@ class FSDConfig:
     enable_session_adaptation: bool = True
     # Volatility targeting preference: 'balanced', 'high', or 'low'
     volatility_bias: str = 'balanced'
+
+    # ===== ALGORITHM UPGRADES =====
+    # Engine selection: 'tabular', 'dqn', 'dueling', 'lstm', 'transformer'
+    engine_type: str = 'tabular'
+
+    # Phase 1: Double Q-Learning (reduces overestimation bias)
+    enable_double_q: bool = False
+    target_update_freq: int = 100  # Sync target Q every N updates
+
+    # Phase 2: Prioritized Experience Replay (learn from important trades)
+    enable_per: bool = False
+    per_buffer_size: int = 100_000
+    per_alpha: float = 0.6  # Priority exponent (0=uniform, 1=full prioritization)
+    per_beta_start: float = 0.4  # Initial importance sampling correction
+    per_beta_end: float = 1.0  # Final importance sampling correction
+    per_annealing_steps: int = 100_000  # Steps to anneal beta
+    batch_size: int = 32
+    train_frequency: int = 4  # Train every N fills
+
+    # Phase 3: Dueling DQN (separate value and advantage streams)
+    enable_dueling: bool = False
+    dqn_hidden_sizes: tuple[int, ...] = (256, 128)  # Shared encoder layers
+    dqn_learning_rate: float = 1e-4
+    dqn_gradient_clip: float = 1.0
+
+    # Phase 4: Sequential models (LSTM/Transformer for temporal patterns)
+    enable_sequential: bool = False
+    sequence_model: str = 'lstm'  # 'lstm' or 'transformer'
+    sequence_length: int = 50
+    seq_hidden_size: int = 128
+    seq_num_layers: int = 2
+    seq_num_heads: int = 4  # Transformer only
+    seq_dropout: float = 0.1
+
+    # Hardware acceleration
+    device: str = 'auto'  # 'auto', 'cpu', 'cuda', 'mps'
+
+    # ===== ADVANCED RISK MANAGEMENT =====
+    # Kelly Criterion position sizing (uses trade history from symbol_performance)
+    enable_kelly_sizing: bool = False
+    # Portfolio correlation limits (blocks trades exceeding correlation threshold)
+    enable_correlation_limits: bool = False
+    # Market regime detection (5 regimes: strong_bull to strong_bear)
+    enable_regime_detection: bool = False
+    # Volatility scaling (VIX-based or realized vol position scaling)
+    enable_volatility_scaling: bool = False
 
     def validate(self) -> None:
         """
@@ -139,6 +206,28 @@ class FSDConfig:
         if self.transaction_cost_factor < 0:
             raise ValueError(f'transaction_cost_factor must be non-negative, got {self.transaction_cost_factor}')
 
+        # Enhanced reward shaping validation (only if enabled)
+        if self.enable_enhanced_rewards:
+            if self.reward_window_size < 10:
+                raise ValueError(f'reward_window_size must be >= 10, got {self.reward_window_size}')
+
+            weights = [
+                self.sharpe_weight,
+                self.sortino_weight,
+                self.drawdown_penalty_weight,
+                self.streak_bonus_weight,
+                self.base_pnl_weight,
+            ]
+            if any(w < 0 for w in weights):
+                raise ValueError('All reward weights must be non-negative')
+
+            weights_sum = sum(weights)
+            if not 0.99 <= weights_sum <= 1.01:
+                raise ValueError(f'Reward weights must sum to 1.0, got {weights_sum:.3f}')
+
+            if self.max_streak_scale < 1:
+                raise ValueError(f'max_streak_scale must be >= 1, got {self.max_streak_scale}')
+
         # State discretization
         if self.price_change_bins < 2:
             raise ValueError(f'price_change_bins must be >= 2, got {self.price_change_bins}')
@@ -148,6 +237,22 @@ class FSDConfig:
 
         if self.position_bins < 2:
             raise ValueError(f'position_bins must be >= 2, got {self.position_bins}')
+        if self.rsi_bins < 2:
+            raise ValueError(f'rsi_bins must be >= 2, got {self.rsi_bins}')
+        if self.macd_bins < 2:
+            raise ValueError(f'macd_bins must be >= 2, got {self.macd_bins}')
+        if self.bollinger_bins < 2:
+            raise ValueError(f'bollinger_bins must be >= 2, got {self.bollinger_bins}')
+        if self.momentum_bins < 2:
+            raise ValueError(f'momentum_bins must be >= 2, got {self.momentum_bins}')
+        if self.breadth_bins < 2:
+            raise ValueError(f'breadth_bins must be >= 2, got {self.breadth_bins}')
+        if self.vix_bins < 2:
+            raise ValueError(f'vix_bins must be >= 2, got {self.vix_bins}')
+        if self.spread_bins < 2:
+            raise ValueError(f'spread_bins must be >= 2, got {self.spread_bins}')
+        if self.depth_bins < 2:
+            raise ValueError(f'depth_bins must be >= 2, got {self.depth_bins}')
 
         # Parallel trading
         if self.max_concurrent_positions < 1:
@@ -169,6 +274,71 @@ class FSDConfig:
         valid_volatility_biases = {'balanced', 'high', 'low'}
         if self.volatility_bias not in valid_volatility_biases:
             raise ValueError(f'volatility_bias must be one of {valid_volatility_biases}, got {self.volatility_bias!r}')
+
+        # ===== ALGORITHM UPGRADES VALIDATION =====
+        # Engine type
+        valid_engine_types = {'tabular', 'dqn', 'dueling', 'lstm', 'transformer'}
+        if self.engine_type not in valid_engine_types:
+            raise ValueError(f'engine_type must be one of {valid_engine_types}, got {self.engine_type!r}')
+
+        # Double Q-Learning
+        if self.target_update_freq <= 0:
+            raise ValueError(f'target_update_freq must be positive, got {self.target_update_freq}')
+
+        # Prioritized Experience Replay
+        if self.per_buffer_size <= 0:
+            raise ValueError(f'per_buffer_size must be positive, got {self.per_buffer_size}')
+        if not 0.0 <= self.per_alpha <= 1.0:
+            raise ValueError(f'per_alpha must be in [0, 1], got {self.per_alpha}')
+        if not 0.0 <= self.per_beta_start <= 1.0:
+            raise ValueError(f'per_beta_start must be in [0, 1], got {self.per_beta_start}')
+        if not 0.0 <= self.per_beta_end <= 1.0:
+            raise ValueError(f'per_beta_end must be in [0, 1], got {self.per_beta_end}')
+        if self.per_beta_start > self.per_beta_end:
+            raise ValueError(f'per_beta_start ({self.per_beta_start}) must be <= per_beta_end ({self.per_beta_end})')
+        if self.batch_size <= 0:
+            raise ValueError(f'batch_size must be positive, got {self.batch_size}')
+        if self.train_frequency <= 0:
+            raise ValueError(f'train_frequency must be positive, got {self.train_frequency}')
+
+        # Dueling DQN
+        if not self.dqn_hidden_sizes:
+            raise ValueError('dqn_hidden_sizes cannot be empty')
+        if any(h <= 0 for h in self.dqn_hidden_sizes):
+            raise ValueError(f'All dqn_hidden_sizes must be positive: {self.dqn_hidden_sizes}')
+        if self.dqn_learning_rate <= 0:
+            raise ValueError(f'dqn_learning_rate must be positive, got {self.dqn_learning_rate}')
+        if self.dqn_gradient_clip <= 0:
+            raise ValueError(f'dqn_gradient_clip must be positive, got {self.dqn_gradient_clip}')
+
+        # Sequential models
+        valid_sequence_models = {'lstm', 'transformer'}
+        if self.sequence_model not in valid_sequence_models:
+            raise ValueError(f'sequence_model must be one of {valid_sequence_models}, got {self.sequence_model!r}')
+        if self.sequence_length <= 0:
+            raise ValueError(f'sequence_length must be positive, got {self.sequence_length}')
+        if self.seq_hidden_size <= 0:
+            raise ValueError(f'seq_hidden_size must be positive, got {self.seq_hidden_size}')
+        if self.seq_num_layers <= 0:
+            raise ValueError(f'seq_num_layers must be positive, got {self.seq_num_layers}')
+        if self.seq_num_heads <= 0:
+            raise ValueError(f'seq_num_heads must be positive, got {self.seq_num_heads}')
+        if self.sequence_model == 'transformer' and self.seq_hidden_size % self.seq_num_heads != 0:
+            raise ValueError(
+                f'seq_hidden_size ({self.seq_hidden_size}) must be divisible by '
+                f'seq_num_heads ({self.seq_num_heads}) for transformer'
+            )
+        if not 0.0 <= self.seq_dropout < 1.0:
+            raise ValueError(f'seq_dropout must be in [0, 1), got {self.seq_dropout}')
+
+        # Device
+        valid_devices = {'auto', 'cpu', 'cuda', 'mps'}
+        if self.device not in valid_devices:
+            raise ValueError(f'device must be one of {valid_devices}, got {self.device!r}')
+
+        # Neural engines require PER
+        if self.engine_type in {'dqn', 'dueling', 'lstm', 'transformer'} and not self.enable_per:
+            raise ValueError(f'{self.engine_type} engine requires enable_per=True')
 
 
 class QTableInfo(TypedDict):
@@ -423,6 +593,25 @@ class RLAgent:
         vs_raw: object = state.get('volatility_slow', vol_default)
         vol_slow_norm: str = vs_raw if isinstance(vs_raw, str) else vol_default
 
+        rsi_raw: object = state.get('rsi', 50.0)
+        rsi_val: float = float(rsi_raw) if isinstance(rsi_raw, (int, float)) else 50.0
+        macd_raw: object = state.get('macd_hist_pct', 0.0)
+        macd_val: float = float(macd_raw) if isinstance(macd_raw, (int, float)) else 0.0
+        bb_raw: object = state.get('bb_pos', 0.5)
+        bb_val: float = float(bb_raw) if isinstance(bb_raw, (int, float)) else 0.5
+        mfast_raw: object = state.get('momentum_fast', 0.0)
+        mfast_val: float = float(mfast_raw) if isinstance(mfast_raw, (int, float)) else 0.0
+        mslow_raw: object = state.get('momentum_slow', 0.0)
+        mslow_val: float = float(mslow_raw) if isinstance(mslow_raw, (int, float)) else 0.0
+        breadth_raw: object = state.get('market_breadth', 0.0)
+        breadth_val: float = float(breadth_raw) if isinstance(breadth_raw, (int, float)) else 0.0
+        vix_raw: object = state.get('vix_level', 0.0)
+        vix_val: float = float(vix_raw) if isinstance(vix_raw, (int, float)) else 0.0
+        spread_raw: object = state.get('spread_bps', 0.0)
+        spread_val: float = float(spread_raw) if isinstance(spread_raw, (int, float)) else 0.0
+        depth_raw: object = state.get('depth_proxy', 0.0)
+        depth_val: float = float(depth_raw) if isinstance(depth_raw, (int, float)) else 0.0
+
         discretized = {
             'price_change_bin': self._discretize(price_change, -0.05, 0.05, self.config.price_change_bins),
             'volume_bin': self._discretize(vol_ratio, 0.5, 2.0, self.config.volume_bins),
@@ -434,6 +623,15 @@ class RLAgent:
             'trend_slow': trend_slow_norm,
             'volatility_fast': vol_fast_norm,
             'volatility_slow': vol_slow_norm,
+            'rsi_bin': self._discretize(rsi_val, 0.0, 100.0, self.config.rsi_bins),
+            'macd_bin': self._discretize(macd_val, -0.05, 0.05, self.config.macd_bins),
+            'bb_pos_bin': self._discretize(bb_val, 0.0, 1.0, self.config.bollinger_bins),
+            'momentum_fast_bin': self._discretize(mfast_val, -1.0, 1.0, self.config.momentum_bins),
+            'momentum_slow_bin': self._discretize(mslow_val, -1.0, 1.0, self.config.momentum_bins),
+            'breadth_bin': self._discretize(breadth_val, -1.0, 1.0, self.config.breadth_bins),
+            'vix_bin': self._discretize(vix_val, 10.0, 50.0, self.config.vix_bins),
+            'spread_bin': self._discretize(spread_val, 0.0, 200.0, self.config.spread_bins),
+            'depth_bin': self._discretize(depth_val, 0.0, 5.0, self.config.depth_bins),
         }
 
         # Create hash
@@ -575,6 +773,155 @@ class SymbolStats(TypedDict):
     confidence_adj: float
 
 
+@dataclass
+class RewardMetricsState:
+    """Serializable state for reward metrics tracker."""
+
+    returns_window: list[float]
+    peak_equity: float
+    current_equity: float
+    consecutive_wins: int
+    consecutive_losses: int
+    last_trade_was_win: bool | None
+    version: str = '2.0'
+
+
+class RewardMetricsTracker:
+    """
+    Thread-safe tracker for rolling reward metrics.
+
+    Maintains:
+    - Rolling returns window for Sharpe/Sortino calculation
+    - Peak equity for drawdown tracking
+    - Win/loss streak counters
+    """
+
+    def __init__(self, window_size: int = 50, initial_equity: float = 10000.0):
+        self._lock = threading.Lock()
+        self._window_size = window_size
+        self._returns: deque[float] = deque(maxlen=window_size)
+        self._peak_equity = initial_equity
+        self._current_equity = initial_equity
+        self._consecutive_wins = 0
+        self._consecutive_losses = 0
+        self._last_trade_was_win: bool | None = None
+
+    def record_trade(self, pnl: float, new_equity: float) -> None:
+        """Record a trade outcome for metrics calculation."""
+        with self._lock:
+            # Calculate return
+            trade_return = pnl / self._current_equity if self._current_equity > 0 else 0.0
+
+            self._returns.append(trade_return)
+            self._current_equity = new_equity
+
+            # Update peak (for drawdown)
+            if new_equity > self._peak_equity:
+                self._peak_equity = new_equity
+
+            # Update streaks
+            is_win = pnl > 0
+            if is_win:
+                if self._last_trade_was_win:
+                    self._consecutive_wins += 1
+                else:
+                    self._consecutive_wins = 1
+                    self._consecutive_losses = 0
+            else:
+                if self._last_trade_was_win is False:
+                    self._consecutive_losses += 1
+                else:
+                    self._consecutive_losses = 1
+                    self._consecutive_wins = 0
+
+            self._last_trade_was_win = is_win
+
+    def get_rolling_sharpe(self, risk_free_rate: float = 0.0) -> float:
+        """Calculate Sharpe ratio from rolling window."""
+        import statistics
+
+        with self._lock:
+            if len(self._returns) < 2:
+                return 0.0
+
+            returns_list = list(self._returns)
+            mean_return = statistics.mean(returns_list)
+            std_return = statistics.stdev(returns_list)
+
+            if std_return == 0:
+                return 0.0
+
+            # Annualize (assume ~252 trading days, ~6 trades/day avg)
+            trades_per_year = 252 * 6
+            annual_mean = mean_return * trades_per_year
+            annual_std = std_return * math.sqrt(trades_per_year)
+
+            return (annual_mean - risk_free_rate) / annual_std
+
+    def get_rolling_sortino(self, risk_free_rate: float = 0.0) -> float:
+        """Calculate Sortino ratio from rolling window (penalizes downside only)."""
+        import statistics
+
+        with self._lock:
+            if len(self._returns) < 2:
+                return 0.0
+
+            returns_list = list(self._returns)
+            mean_return = statistics.mean(returns_list)
+
+            negative_returns = [r for r in returns_list if r < 0]
+            if len(negative_returns) < 2:
+                return float('inf') if mean_return > 0 else 0.0
+
+            downside_std = statistics.stdev(negative_returns)
+            if downside_std == 0:
+                return 0.0
+
+            trades_per_year = 252 * 6
+            annual_mean = mean_return * trades_per_year
+            annual_downside_std = downside_std * math.sqrt(trades_per_year)
+
+            return (annual_mean - risk_free_rate) / annual_downside_std
+
+    def get_current_drawdown(self) -> float:
+        """Get current drawdown as a fraction [0, 1]."""
+        with self._lock:
+            if self._peak_equity <= 0:
+                return 0.0
+            return max(0.0, (self._peak_equity - self._current_equity) / self._peak_equity)
+
+    def get_streak_bonus(self, max_scale: int = 5) -> float:
+        """Get streak bonus using tanh for smooth saturation."""
+        with self._lock:
+            if self._consecutive_wins > 0:
+                return math.tanh(self._consecutive_wins / max_scale)
+            elif self._consecutive_losses > 0:
+                return -math.tanh(self._consecutive_losses / max_scale)
+            return 0.0
+
+    def get_state(self) -> RewardMetricsState:
+        """Get serializable state for persistence."""
+        with self._lock:
+            return RewardMetricsState(
+                returns_window=list(self._returns),
+                peak_equity=self._peak_equity,
+                current_equity=self._current_equity,
+                consecutive_wins=self._consecutive_wins,
+                consecutive_losses=self._consecutive_losses,
+                last_trade_was_win=self._last_trade_was_win,
+            )
+
+    def restore_state(self, state: RewardMetricsState) -> None:
+        """Restore from serialized state."""
+        with self._lock:
+            self._returns = deque(state.returns_window, maxlen=self._window_size)
+            self._peak_equity = state.peak_equity
+            self._current_equity = state.current_equity
+            self._consecutive_wins = state.consecutive_wins
+            self._consecutive_losses = state.consecutive_losses
+            self._last_trade_was_win = state.last_trade_was_win
+
+
 class FSDEngine:
     """
     Full Self-Driving Trading Engine.
@@ -634,6 +981,131 @@ class FSDEngine:
         self.symbol_performance: dict[str, SymbolStats] = {}
         # Format: {symbol: {'trades': int, 'wins': int, 'total_pnl': float, 'confidence_adj': float}}
         self._last_prices: dict[str, Decimal] = {}
+        self._previous_prices: dict[str, Decimal] = {}
+
+        # Enhanced reward tracking (v2.0)
+        self._reward_tracker = RewardMetricsTracker(
+            window_size=config.reward_window_size,
+            initial_equity=float(portfolio.initial_cash),
+        )
+
+        # ===== ADVANCED RISK MANAGEMENT =====
+        # Set via set_advanced_risk_manager() from factory
+        self._advanced_risk_manager: Any = None
+        # Price history cache for correlation calculation
+        self._price_history_cache: dict[str, list[float]] = {}
+
+    @staticmethod
+    def _compute_rsi(closes: list[float], period: int = 14) -> float | None:
+        if len(closes) < period + 1:
+            return None
+        window = np.array(closes[-(period + 1) :], dtype=float)
+        deltas = np.diff(window)
+        gains = np.where(deltas > 0, deltas, 0.0)
+        losses = np.where(deltas < 0, -deltas, 0.0)
+        avg_gain = gains.mean()
+        avg_loss = losses.mean()
+        if avg_loss == 0:
+            return 100.0
+        rs = avg_gain / avg_loss
+        return 100.0 - (100.0 / (1.0 + rs))
+
+    @staticmethod
+    def _compute_ema_series(values: list[float], period: int) -> list[float]:
+        if not values:
+            return []
+        k = 2.0 / (period + 1.0)
+        ema = values[0]
+        series = [ema]
+        for val in values[1:]:
+            ema = (val - ema) * k + ema
+            series.append(ema)
+        return series
+
+    def _compute_macd(self, closes: list[float]) -> tuple[float, float, float] | None:
+        if len(closes) < 35:
+            return None
+        ema12 = self._compute_ema_series(closes, 12)
+        ema26 = self._compute_ema_series(closes, 26)
+        macd_series = [fast - slow for fast, slow in zip(ema12, ema26)]
+        signal_series = self._compute_ema_series(macd_series, 9)
+        macd_line = macd_series[-1]
+        signal_line = signal_series[-1] if signal_series else 0.0
+        return (macd_line, signal_line, macd_line - signal_line)
+
+    @staticmethod
+    def _compute_bollinger_pos(
+        closes: list[float],
+        period: int = 20,
+        num_std: float = 2.0,
+    ) -> tuple[float, float] | None:
+        if len(closes) < period:
+            return None
+        window = np.array(closes[-period:], dtype=float)
+        sma = float(window.mean())
+        std = float(window.std())
+        upper = sma + (num_std * std)
+        lower = sma - (num_std * std)
+        if upper == lower:
+            return (0.5, 0.0)
+        pos = (window[-1] - lower) / (upper - lower)
+        width = (upper - lower) / sma if sma > 0 else 0.0
+        return (pos, width)
+
+    @staticmethod
+    def _compute_momentum(closes: list[float], window: int) -> float:
+        if len(closes) <= window:
+            return 0.0
+        past = closes[-(window + 1)]
+        if past == 0:
+            return 0.0
+        raw = (closes[-1] - past) / past
+        scaled = raw * 10.0
+        return max(-1.0, min(1.0, scaled))
+
+    def _compute_market_breadth(self, last_prices: dict[str, Decimal]) -> float:
+        advancers = 0
+        decliners = 0
+        for symbol, price in last_prices.items():
+            prev = self._previous_prices.get(symbol)
+            if prev is None:
+                continue
+            if price > prev:
+                advancers += 1
+            elif price < prev:
+                decliners += 1
+        total = advancers + decliners
+        if total == 0:
+            return 0.0
+        return (advancers - decliners) / total
+
+    @staticmethod
+    def _extract_vix_level(last_prices: dict[str, Decimal]) -> float | None:
+        for symbol in VIX_SYMBOL_CANDIDATES:
+            price = last_prices.get(symbol)
+            if price is not None:
+                try:
+                    return float(price)
+                except (TypeError, ValueError):
+                    continue
+        return None
+
+    @staticmethod
+    def _estimate_spread_bps(bar: Bar) -> float:
+        if bar.close <= 0:
+            return 0.0
+        spread = float(bar.high - bar.low)
+        return (spread / float(bar.close)) * 10000.0
+
+    @staticmethod
+    def _compute_depth_proxy(recent_volumes: list[int]) -> float:
+        if not recent_volumes:
+            return 0.0
+        avg_volume = np.mean(recent_volumes[:-1]) if len(recent_volumes) > 1 else recent_volumes[-1]
+        if avg_volume <= 0:
+            return 0.0
+        ratio = recent_volumes[-1] / avg_volume
+        return max(0.0, min(5.0, float(ratio)))
 
     def extract_state(self, symbol: str, bars: list[Bar], last_prices: dict[str, Decimal]) -> dict[str, Any]:
         """
@@ -662,6 +1134,27 @@ class FSDEngine:
         avg_volume = np.mean(recent_volumes) if recent_volumes else 1
         current_volume = bars[-1].volume
         volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1.0
+
+        rsi_value = self._compute_rsi(recent_closes) or 50.0
+        macd_hist_pct = 0.0
+        macd_values = self._compute_macd(recent_closes)
+        if macd_values:
+            _, _, macd_hist = macd_values
+            macd_hist_pct = (macd_hist / current_price) if current_price > 0 else 0.0
+
+        bb_pos = 0.5
+        bb_width = 0.0
+        bb_values = self._compute_bollinger_pos(recent_closes)
+        if bb_values:
+            bb_pos, bb_width = bb_values
+
+        momentum_fast = self._compute_momentum(recent_closes, window=5)
+        momentum_slow = self._compute_momentum(recent_closes, window=20)
+
+        market_breadth = self._compute_market_breadth(last_prices)
+        vix_level = self._extract_vix_level(last_prices) or 0.0
+        spread_bps = self._estimate_spread_bps(bars[-1])
+        depth_proxy = self._compute_depth_proxy(recent_volumes)
 
         # Trend detection (multi-timeframe using different windows from same bars)
         # Fast trend ~ 1-3 minute view; Slow trend ~ 15-30 minute view
@@ -718,6 +1211,16 @@ class FSDEngine:
             'trend_slow': trend_slow,
             'volatility_fast': volatility_fast,
             'volatility_slow': volatility_slow,
+            'momentum_fast': momentum_fast,
+            'momentum_slow': momentum_slow,
+            'rsi': rsi_value,
+            'macd_hist_pct': macd_hist_pct,
+            'bb_pos': bb_pos,
+            'bb_width': bb_width,
+            'market_breadth': market_breadth,
+            'vix_level': vix_level,
+            'spread_bps': spread_bps,
+            'depth_proxy': depth_proxy,
             'position_pct': position_pct,
             'current_price': current_price,
         }
@@ -800,6 +1303,7 @@ class FSDEngine:
 
         # Extract current state
         state = self.extract_state(symbol, bars, last_prices)
+        self._previous_prices = dict(last_prices)
 
         if not state:
             return {
@@ -998,6 +1502,54 @@ class FSDEngine:
         size_fraction *= safeguard_position_multiplier
         size_fraction *= edge_case_position_multiplier
 
+        # ===== ADVANCED RISK MANAGEMENT =====
+        advanced_risk_info: dict[str, Any] = {}
+        if self._advanced_risk_manager is not None:
+            # Update price history cache
+            self._update_price_history_cache(symbol, bars)
+
+            # Build current positions dict
+            current_positions = {
+                s: Decimal(str(q)) for s, q in self.current_positions.items() if q != 0
+            }
+
+            advanced_result = self._advanced_risk_manager.evaluate(
+                symbol=symbol,
+                bars=bars,
+                last_prices=last_prices,
+                current_positions=current_positions,
+                price_history=self._price_history_cache,
+                performance_provider=self,
+                state=state,
+            )
+
+            # Block trade if advanced risk check fails (e.g., correlation)
+            if not advanced_result.allowed:
+                return {
+                    'should_trade': False,
+                    'action': {'trade': False},
+                    'confidence': adjusted_confidence,
+                    'state': state,
+                    'reason': f'advanced_risk_blocked: {advanced_result.reason}',
+                    'advanced_risk': {
+                        'allowed': False,
+                        'multiplier': advanced_result.position_size_multiplier,
+                        'reason': advanced_result.reason,
+                    },
+                }
+
+            # Apply advanced risk multiplier
+            size_fraction *= advanced_result.position_size_multiplier
+            advanced_risk_info = {
+                'allowed': True,
+                'multiplier': advanced_result.position_size_multiplier,
+                'reason': advanced_result.reason,
+                'kelly': advanced_result.kelly,
+                'correlation': advanced_result.correlation,
+                'regime': advanced_result.regime,
+                'volatility': advanced_result.volatility,
+            }
+
         return {
             'should_trade': True,
             'action': {
@@ -1019,6 +1571,7 @@ class FSDEngine:
                 'bias_adjustment': bias_adjustment,
             },
             'warnings': safeguard_warnings,
+            'advanced_risk': advanced_risk_info,
         }
 
     def register_trade_intent(
@@ -1034,6 +1587,30 @@ class FSDEngine:
                 'target_quantity': target_quantity,
             }
         )
+
+    def set_advanced_risk_manager(self, manager: Any) -> None:
+        """Set the advanced risk manager for Kelly/correlation/regime/volatility checks.
+
+        Args:
+            manager: AdvancedRiskManager instance from aistock.risk module
+        """
+        self._advanced_risk_manager = manager
+
+    def _update_price_history_cache(self, symbol: str, bars: list[Bar]) -> None:
+        """Update price history cache for correlation calculation.
+
+        Args:
+            symbol: Symbol to update
+            bars: List of Bar objects
+        """
+        if not bars:
+            return
+
+        # Extract closing prices
+        closes = [float(bar.close) for bar in bars]
+
+        # Update cache (keep last 100 bars for correlation)
+        self._price_history_cache[symbol] = closes[-100:]
 
     def handle_fill(
         self,
@@ -1074,6 +1651,9 @@ class FSDEngine:
             next_state['position_pct'] = position_notional / equity_value
         else:
             next_state['position_pct'] = 0.0
+
+        # Update reward metrics tracker with trade outcome (for enhanced rewards)
+        self._reward_tracker.record_trade(realised_pnl, equity_value)
 
         # CRITICAL-2 Fix: Update Q-values (LEARNING!) with error recovery
         done = abs(new_position) < 0.01  # Episode done if position closed
@@ -1144,20 +1724,66 @@ class FSDEngine:
         """
         Calculate reward for RL agent.
 
-        Reward = PnL - risk_penalty - transaction_costs
+        V1 (legacy): Reward = PnL - risk_penalty - transaction_costs
+        V2 (enhanced): Weighted combination of:
+            - Base P&L (normalized)
+            - Sharpe ratio component
+            - Sortino ratio component
+            - Drawdown penalty
+            - Streak bonus
+
+        Returns:
+            Scalar reward value
         """
-        # Base reward is the P&L
-        reward = pnl
-
-        # Penalize risk (larger positions = more risk)
         position_value = price * quantity
-        risk_penalty = self.config.risk_penalty_factor * position_value
-        reward -= risk_penalty
 
-        # Penalize transaction costs
-        transaction_cost = self.config.transaction_cost_factor * position_value
-        reward -= transaction_cost
+        # Legacy path for backward compatibility
+        if not self.config.enable_enhanced_rewards:
+            reward = pnl
+            risk_penalty = self.config.risk_penalty_factor * position_value
+            reward -= risk_penalty
+            transaction_cost = self.config.transaction_cost_factor * position_value
+            reward -= transaction_cost
+            return reward
 
+        # ===== ENHANCED REWARD CALCULATION (v2.0) =====
+
+        # 1. Base P&L component (normalized by position value for scale invariance)
+        normalized_pnl = pnl / position_value if position_value > 0 else 0.0
+
+        # Clip to reasonable range to prevent extreme values
+        # Scale up small returns (typical is <1%) and clip to [-1, 1]
+        normalized_pnl = max(-1.0, min(1.0, normalized_pnl * 10))
+
+        # 2. Sharpe ratio component (risk-adjusted returns)
+        sharpe = self._reward_tracker.get_rolling_sharpe(self.config.risk_free_rate)
+        # Normalize: typical Sharpe is [-2, 4], map to [-1, 1]
+        normalized_sharpe = max(-1.0, min(1.0, sharpe / 3.0))
+
+        # 3. Sortino ratio component (penalizes downside only)
+        sortino = self._reward_tracker.get_rolling_sortino(self.config.risk_free_rate)
+        normalized_sortino = 1.0 if sortino == float('inf') else max(-1.0, min(1.0, sortino / 3.0))
+
+        # 4. Drawdown penalty (already in [0, 1])
+        drawdown = self._reward_tracker.get_current_drawdown()
+        drawdown_penalty = -drawdown  # Negative because it's a penalty
+
+        # 5. Streak bonus (already in [-1, 1] via tanh)
+        streak_bonus = self._reward_tracker.get_streak_bonus(self.config.max_streak_scale)
+
+        # Weighted combination
+        reward = (
+            self.config.base_pnl_weight * normalized_pnl
+            + self.config.sharpe_weight * normalized_sharpe
+            + self.config.sortino_weight * normalized_sortino
+            + self.config.drawdown_penalty_weight * drawdown_penalty
+            + self.config.streak_bonus_weight * streak_bonus
+        )
+
+        # Still apply transaction cost (normalized separately)
+        if position_value > 0:
+            transaction_cost = self.config.transaction_cost_factor * position_value
+            reward -= transaction_cost / position_value  # Normalize
         return reward
 
     def save_state(self, filepath: str):
@@ -1217,6 +1843,16 @@ class FSDEngine:
             'last_decay_timestamp': self.rl_agent.last_decay_timestamp.isoformat()
             if self.rl_agent.last_decay_timestamp
             else None,
+            # Enhanced reward metrics (v2.0)
+            'reward_metrics': {
+                'returns_window': list(self._reward_tracker._returns),
+                'peak_equity': self._reward_tracker._peak_equity,
+                'current_equity': self._reward_tracker._current_equity,
+                'consecutive_wins': self._reward_tracker._consecutive_wins,
+                'consecutive_losses': self._reward_tracker._consecutive_losses,
+                'last_trade_was_win': self._reward_tracker._last_trade_was_win,
+                'version': '2.0',
+            },
         }
 
         # P0-NEW-2 Fix: Use atomic write instead of direct json.dump()
@@ -1299,6 +1935,22 @@ class FSDEngine:
             # NEW: Restore per-symbol performance
             sp_obj: object = payload.get('symbol_performance', {})
             self.symbol_performance = sp_obj if isinstance(sp_obj, dict) else {}
+
+            # Restore enhanced reward metrics (v2.0)
+            rm_obj: object = payload.get('reward_metrics')
+            if rm_obj and isinstance(rm_obj, dict):
+                try:
+                    tracker_state = RewardMetricsState(
+                        returns_window=list(rm_obj.get('returns_window', [])),
+                        peak_equity=float(rm_obj.get('peak_equity', 0)),
+                        current_equity=float(rm_obj.get('current_equity', 0)),
+                        consecutive_wins=int(rm_obj.get('consecutive_wins', 0)),
+                        consecutive_losses=int(rm_obj.get('consecutive_losses', 0)),
+                        last_trade_was_win=rm_obj.get('last_trade_was_win'),
+                    )
+                    self._reward_tracker.restore_state(tracker_state)
+                except (KeyError, TypeError, ValueError):
+                    pass  # Use fresh tracker if restoration fails
 
             return True
         except (FileNotFoundError, json.JSONDecodeError):

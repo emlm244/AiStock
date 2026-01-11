@@ -365,6 +365,131 @@ def on_5s_bar(bar):
 
 ---
 
+## 🧠 Advanced RL Algorithms (NEW!)
+
+The FSD system now supports advanced reinforcement learning algorithms via the `aistock/ml/` module:
+
+### Available Algorithms
+
+| Algorithm | Config Flag | Description |
+|-----------|-------------|-------------|
+| **Double Q-Learning** | `enable_double_q=True` | Uses two Q-tables to reduce overestimation bias |
+| **Prioritized Experience Replay** | `enable_per=True` | Samples important transitions more frequently |
+| **Dueling DQN** | `engine_type='dueling'` | Separates value V(s) and advantage A(s,a) estimation |
+| **LSTM** | `engine_type='lstm'` | Captures temporal patterns with recurrent networks |
+| **Transformer** | `engine_type='transformer'` | Long-range pattern recognition with attention |
+
+### Enabling Advanced Algorithms
+
+```python
+from aistock.fsd import FSDConfig
+
+# Tabular improvements (no neural network required)
+config = FSDConfig(
+    enable_double_q=True,      # Reduces overestimation
+    enable_per=True,           # Learn from important trades
+    per_buffer_size=100_000,
+    batch_size=32,
+)
+
+# Neural network (requires PyTorch)
+config = FSDConfig(
+    engine_type='dueling',     # Dueling DQN architecture
+    enable_per=True,           # Required for neural engines
+    dqn_hidden_sizes=(256, 128),
+    device='auto',             # Uses CUDA if available
+)
+
+# Sequential models (LSTM/Transformer)
+config = FSDConfig(
+    engine_type='transformer',
+    enable_per=True,
+    sequence_length=50,        # 50 bars of history
+    seq_num_heads=4,
+    device='cuda',
+)
+```
+
+### Algorithm Details
+
+#### Double Q-Learning
+- Maintains two Q-tables (Q1, Q2)
+- Q1 selects best action, Q2 evaluates it
+- Reduces the positive bias in max operator
+- No additional dependencies required
+
+#### Prioritized Experience Replay (PER)
+- Stores transitions in a priority buffer
+- Priority = |TD error| + epsilon
+- High-error transitions sampled more often
+- Uses importance sampling for unbiased updates
+
+#### Dueling DQN
+```
+Input -> Encoder -> [Value Stream]     -> V(s)
+                 -> [Advantage Stream] -> A(s,a)
+
+Q(s,a) = V(s) + (A(s,a) - mean(A))
+```
+- Learns which states are valuable regardless of action
+- Better generalization in states where actions don't matter
+
+#### LSTM / Transformer
+- Process sequences of states (default 50 bars)
+- LSTM: Good for medium-range patterns
+- Transformer: Better for long-range dependencies
+- Requires more compute but captures temporal structure
+
+### Training Enhancements
+
+#### Learning Rate Scheduling
+Adaptive learning rate decay for stable convergence:
+
+```python
+from aistock.ml.config import DuelingDQNConfig
+
+config = DuelingDQNConfig(
+    learning_rate=1e-4,
+    lr_scheduler='plateau',  # 'none', 'step', 'exponential', 'plateau', 'cosine'
+    lr_warmup_steps=100,     # Linear warmup from 0 to learning_rate
+    lr_gamma=0.95,           # Decay factor
+    lr_patience=100,         # Plateau patience
+    lr_min=1e-6,             # Minimum learning rate
+)
+```
+
+| Scheduler | Behavior |
+|-----------|----------|
+| `step` | Decay by gamma every `lr_step_size` updates |
+| `exponential` | Multiply by gamma after each update |
+| `plateau` | Reduce when loss stops improving |
+| `cosine` | Cosine annealing between lr and lr_min |
+
+#### Early Stopping
+Prevents overtraining by monitoring loss improvement:
+
+```python
+config = DuelingDQNConfig(
+    early_stopping_enable=True,
+    early_stopping_patience=50,     # Updates without improvement
+    early_stopping_min_delta=1e-4,  # Minimum improvement threshold
+    early_stopping_check_freq=10,   # Check every N updates
+)
+```
+
+When triggered:
+- Training stops automatically
+- Best model weights are restored
+- Agent continues with frozen optimal policy
+
+#### Gradient Clipping (Default Enabled)
+Prevents exploding gradients during training:
+- `dqn_gradient_clip=1.0` clips gradient norm
+- Applied before optimizer step
+- Critical for stable training with neural networks
+
+---
+
 ## 🔮 Roadmap: Future Enhancements
 
 ### 1. **Multi-Timeframe State Encoding**
@@ -378,11 +503,12 @@ state = {
 }
 ```
 
-### 2. **Deep Q-Network (DQN)**
-Replace Q-table with neural network:
-- **Benefit**: Handle continuous states (no discretization)
-- **Benefit**: Generalize to unseen states
-- **Trade-off**: More complex, slower training
+### 2. ~~**Deep Q-Network (DQN)**~~ ✅ IMPLEMENTED
+~~Replace Q-table with neural network:~~
+- ✅ Dueling DQN architecture available (`engine_type='dueling'`)
+- ✅ Handles continuous states (no discretization needed)
+- ✅ Generalizes to unseen states
+- ✅ GPU acceleration supported
 
 ### 3. **Portfolio-Level RL**
 Current: Trade each symbol independently

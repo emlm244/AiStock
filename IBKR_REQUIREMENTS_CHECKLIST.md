@@ -55,20 +55,23 @@ pip install -r requirements.txt
 ---
 
 ### 3. **Configuration** ✅
-**Status**: COMPLETE - Built into GUI
+**Status**: COMPLETE - Via environment variables
 
-**FSD Mode settings** (in simple_gui.py):
-```python
-# IBKR credentials (edit in simple_gui.py if needed)
-self.ibkr_account = "DUE072840"    # Your account number
-self.ibkr_port = 7497              # Paper trading port
-self.ibkr_client_id = 1001         # Unique client ID
+**Setup**:
+1. Copy `.env.example` to `.env`
+2. Edit `.env` with your credentials:
+```bash
+# Required
+IBKR_ACCOUNT_ID=DU1234567          # Your account number
+IBKR_CLIENT_ID=1001                # Unique client ID (1000-9999)
+
+# Optional (defaults shown)
+IBKR_PAPER_PORT=7497               # Paper trading port
+IBKR_LIVE_PORT=7496                # Live trading port
+IBKR_TWS_HOST=127.0.0.1            # TWS host
 ```
 
-**Change these** in `aistock/simple_gui.py` line 134-136:
-- `ibkr_account` → Your IBKR account number
-- `ibkr_port` → 7497 (paper) or 7496 (live)
-- `ibkr_client_id` → Any number (1001 is fine)
+**Note**: Never commit `.env` to version control!
 
 ---
 
@@ -181,8 +184,8 @@ python -m aistock
 ### Code-Side Checklist:
 - ✅ **IBKR broker implementation** - Complete
 - ✅ **Dependencies installed** - `pip install -r requirements.txt`
-- ✅ **Account number configured** - In `simple_gui.py`
-- ✅ **Port configured** - 7497 (paper) or 7496 (live)
+- ✅ **Account number configured** - Via `.env` file
+- ✅ **Port configured** - Via `.env` (7497 paper / 7496 live)
 - ✅ **Error handling** - Auto-reconnect implemented
 - ✅ **Position tracking** - Syncs with IBKR
 - ✅ **Order management** - Full lifecycle handling
@@ -257,7 +260,7 @@ pip install ibapi
 ### Code Side (All Done!):
 - ✅ IBKR broker class implemented
 - ✅ Dependencies in requirements.txt
-- ✅ Configuration in simple_gui.py
+- ✅ Configuration via .env file
 - ✅ Test script available
 - ✅ Error handling implemented
 - ✅ Auto-reconnect working
@@ -267,7 +270,7 @@ pip install ibapi
 ### Your Side (To Do):
 - ⚠️ Install dependencies: `pip install -r requirements.txt`
 - ⚠️ Configure TWS API settings (see Step 1 above)
-- ⚠️ Edit account number in `simple_gui.py` (line 134)
+- ⚠️ Copy `.env.example` to `.env` and set your credentials
 - ⚠️ Run test script: `python test_ibkr_connection.py`
 - ⚠️ Test with paper trading for 1+ week
 - ⚠️ Review results before going live
@@ -286,7 +289,7 @@ pip install ibapi
 ### You Need To:
 1. ⚠️ `pip install -r requirements.txt` (install dependencies)
 2. ⚠️ Enable API in TWS settings
-3. ⚠️ Update account number in code
+3. ⚠️ Copy `.env.example` to `.env` and configure credentials
 4. ⚠️ Run test script to verify
 5. ⚠️ Test with paper trading first
 

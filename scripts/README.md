@@ -152,11 +152,7 @@ Most scripts require the aistock package:
 pip install -r requirements.txt
 ```
 
-For production monitoring scripts, also install:
-
-```bash
-pip install -r requirements-monitoring.txt  # If it exists
-```
+Scripts use standard project dependencies from `requirements.txt`.
 
 ---
 
@@ -170,22 +166,12 @@ pip install -r requirements-monitoring.txt  # If it exists
   /path/to/logs/aistock.log --alert >> /path/to/logs/duplicate_monitor.log 2>&1
 ```
 
-### Backtest Health Check (Weekly)
+### Backtest Smoke Test (Weekly)
 
 ```cron
 # Run weekly on Sundays at 3 AM
-0 3 * * 0 /path/to/venv/bin/python /path/to/scripts/check_backtest_health.py \
-  --results-dir /path/to/backtest_results >> /path/to/logs/backtest_health.log 2>&1
-```
-
----
-
-## Testing Scripts
-
-Scripts should have unit tests in `tests/test_scripts/`:
-
-```bash
-pytest tests/test_scripts/test_rerun_backtests.py
+0 3 * * 0 /path/to/venv/bin/python /path/to/scripts/run_smoke_backtest.py \
+  >> /path/to/logs/backtest_smoke.log 2>&1
 ```
 
 ---

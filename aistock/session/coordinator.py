@@ -7,11 +7,11 @@ import threading
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
-from ..calendar import is_trading_time
+from ..calendar import is_trading_time, is_within_open_close_buffer
 from ..capital_management import CompoundingStrategy, ProfitWithdrawalStrategy
 from ..data import Bar
 from ..execution import ExecutionReport, Order, OrderSide, OrderType
@@ -21,10 +21,12 @@ from ..stop_control import StopController
 if TYPE_CHECKING:
     from ..brokers.base import BaseBroker
     from ..config import BacktestConfig
+    from ..edge_cases import EdgeCaseHandler
     from ..futures.rollover import RolloverManager
     from ..interfaces.decision import DecisionEngineProtocol
     from ..interfaces.portfolio import PortfolioProtocol
     from ..interfaces.risk import RiskEngineProtocol
+    from ..professional import ProfessionalSafeguards
     from .analytics_reporter import AnalyticsReporter
     from .bar_processor import BarProcessor
     from .checkpointer import CheckpointManager
@@ -38,7 +40,19 @@ class _AggregatedOHLCV:
     high: float
     low: float
     close: float
-    volume: float
+
+
+@dataclass
+class _ScheduledOrder:
+    symbol: str
+    quantity: Decimal
+    side: OrderSide
+    execute_at: datetime
+    order_type: OrderType
+    base_client_order_id: str
+    slice_index: int
+    total_slices: int
+    volume: float = 0.0
 
 
 class DecisionAction(TypedDict, total=False):
@@ -122,6 +136,8 @@ class TradingCoordinator:
         symbols: list[str],
         checkpoint_dir: str = 'state',
         rollover_manager: RolloverManager | None = None,
+        safeguards: ProfessionalSafeguards | None = None,
+        edge_case_handler: EdgeCaseHandler | None = None,
     ):
         self.config = config
         self.portfolio = portfolio
@@ -144,6 +160,8 @@ class TradingCoordinator:
         # Track order submissions (protected by lock for thread safety)
         self._order_submission_times: dict[int, datetime] = {}
         self._submission_lock = threading.Lock()  # Protects _order_submission_times
+        self._scheduled_orders: list[_ScheduledOrder] = []
+        self._scheduled_lock = threading.Lock()
 
         # State
         self._running = False
@@ -153,12 +171,19 @@ class TradingCoordinator:
         self._last_trading_date: date | None = None  # Track date for EOD reset
         self._last_rollover_check: datetime | None = None  # Track rollover alert checks
 
+        self._safeguards = safeguards
+        self._edge_case_handler = edge_case_handler
+
         # Market-data subscriptions (IBKR) + aggregation from 5s real-time bars.
         self._market_subscriptions: dict[str, int] = {}
         self._aggregators: dict[str, dict[str, _BarAggregator]] = {}
         self._stop_thread_started = False
         self._decision_timeframe = self._infer_decision_timeframe()
         self._timeframes = self._infer_timeframes()
+
+        # Forced-exit tracking (max holding period enforcement)
+        self._forced_exit_symbols: set[str] = set()
+        self._forced_exit_lock = threading.Lock()
 
         # Setup analytics
         analytics.set_symbols(symbols)
@@ -276,6 +301,8 @@ class TradingCoordinator:
                 bar.volume,
                 timeframe=timeframe,
             )
+            self._process_scheduled_orders(bar)
+            self._enforce_max_holding_period(bar.timestamp, bar.symbol)
             self._evaluate_signal(bar.timestamp, bar.symbol)
             self._maybe_process_paper_fills(processed)
         else:
@@ -284,11 +311,16 @@ class TradingCoordinator:
     def _evaluate_signal(self, timestamp: datetime, symbol: str) -> None:
         """Evaluate trading signal."""
         # Check trading hours
+        allow_extended_hours = self.config.data.allow_extended_hours
+        if self.config.account_capabilities:
+            allow_extended_hours = allow_extended_hours and self.config.account_capabilities.allow_extended_hours
         if self.config.data.enforce_trading_hours and not is_trading_time(
             timestamp,
             exchange=self.config.data.exchange,
-            allow_extended_hours=self.config.data.allow_extended_hours,
+            allow_extended_hours=allow_extended_hours,
         ):
+            return
+        if self._should_avoid_open_close(timestamp):
             return
 
         # Periodic reconciliation
@@ -314,6 +346,8 @@ class TradingCoordinator:
 
         if not decision.get('should_trade'):
             return
+        if not self._apply_external_filters(symbol, history, timestamp, decision):
+            return
 
         # Execute trade
         self._execute_trade(symbol, decision, history, last_prices, timestamp)
@@ -335,6 +369,437 @@ class TradingCoordinator:
         except Exception as exc:
             self.logger.error(f'Paper broker bar processing failed: {exc}')
 
+    def _should_avoid_open_close(self, timestamp: datetime) -> bool:
+        execution = self.config.execution
+        return is_within_open_close_buffer(
+            timestamp,
+            execution.avoid_open_minutes,
+            execution.avoid_close_minutes,
+            exchange=self.config.data.exchange,
+        )
+
+    def _apply_external_filters(
+        self,
+        symbol: str,
+        history: list[Bar],
+        timestamp: datetime,
+        decision: DecisionPayload,
+    ) -> bool:
+        apply_edge_cases = self._edge_case_handler and getattr(self.decision_engine, 'edge_case_handler', None) is None
+        apply_safeguards = self._safeguards and getattr(self.decision_engine, 'safeguards', None) is None
+        if not (apply_edge_cases or apply_safeguards):
+            return True
+
+        confidence_adjustment = 0.0
+        size_multiplier = 1.0
+        warnings: list[str] = []
+
+        timeframe_manager = getattr(self.bar_processor, 'timeframe_manager', None)
+        timeframe_divergence = False
+        timeframe_data: dict[str, list[Bar]] | None = None
+        if timeframe_manager is not None:
+            if apply_safeguards:
+                analysis = timeframe_manager.analyze_cross_timeframe(symbol)
+                confidence_adjustment += analysis.confidence_adjustment
+                timeframe_divergence = analysis.divergence_detected
+            if apply_edge_cases:
+                timeframes = getattr(timeframe_manager, 'timeframes', [])
+                timeframe_data = {
+                    tf: timeframe_manager.get_bars(symbol, tf, lookback=50) for tf in timeframes
+                }
+
+        if apply_edge_cases and self._edge_case_handler is not None:
+            edge_result = self._edge_case_handler.check_edge_cases(
+                symbol,
+                history,
+                timeframe_data=timeframe_data,
+                current_time=timestamp,
+            )
+            if edge_result.action == 'block':
+                self.logger.info(f'Edge case blocked trade: {edge_result.reason}')
+                return False
+            confidence_adjustment += edge_result.confidence_adjustment
+            size_multiplier *= edge_result.position_size_multiplier
+            if edge_result.is_edge_case:
+                warnings.append(f'Edge case: {edge_result.reason}')
+
+        if apply_safeguards and self._safeguards is not None:
+            safeguard_result = self._safeguards.check_trading_allowed(
+                symbol,
+                history,
+                current_time=timestamp,
+                timeframe_divergence=timeframe_divergence,
+            )
+            if not safeguard_result.allowed:
+                self.logger.info(f'Safeguards blocked trade: {safeguard_result.reason}')
+                return False
+            confidence_adjustment += safeguard_result.confidence_adjustment
+            size_multiplier *= safeguard_result.position_size_multiplier
+            warnings.extend(safeguard_result.warnings)
+
+        if warnings:
+            decision['warnings'] = warnings
+
+        if confidence_adjustment:
+            base_confidence = float(decision.get('confidence', 0.0))
+            adjusted = max(0.0, min(1.0, base_confidence + confidence_adjustment))
+            decision['confidence'] = adjusted
+            min_conf = getattr(self.decision_engine, 'min_confidence_threshold', None)
+            if isinstance(min_conf, (int, float)) and adjusted < float(min_conf):
+                decision['should_trade'] = False
+                decision['reason'] = (
+                    f'external_confidence_too_low ({adjusted:.2f} < {float(min_conf):.2f})'
+                )
+                return False
+
+        action = decision.get('action')
+        if isinstance(action, dict) and size_multiplier != 1.0:
+            size_fraction = float(action.get('size_fraction', 0.0))
+            size_fraction = max(0.0, min(1.0, size_fraction * size_multiplier))
+            action['size_fraction'] = size_fraction
+            if size_fraction <= 0:
+                decision['should_trade'] = False
+                decision['reason'] = 'external_size_reduced_to_zero'
+                return False
+
+        return True
+
+    def _get_max_capital_limit(self) -> Decimal | None:
+        max_capital = getattr(self.decision_engine, 'max_capital', None)
+        if max_capital is None:
+            config = getattr(self.decision_engine, 'config', None)
+            max_capital = getattr(config, 'max_capital', None) if config is not None else None
+        if max_capital is None:
+            return None
+        try:
+            value = Decimal(str(max_capital))
+        except Exception:
+            return None
+        return value if value > 0 else None
+
+    def _enforce_max_holding_period(self, timestamp: datetime, symbol: str) -> None:
+        max_bars = int(getattr(self.risk.config, 'max_holding_period_bars', 0))
+        if max_bars <= 0:
+            return
+
+        position = self.portfolio.position(symbol)
+        if position.quantity == 0:
+            with self._forced_exit_lock:
+                self._forced_exit_symbols.discard(symbol)
+            return
+
+        entry_time = position.entry_time_utc
+        if entry_time is None:
+            return
+        if entry_time.tzinfo is None:
+            entry_time = entry_time.replace(tzinfo=timezone.utc)
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+
+        bar_interval_seconds = int(getattr(self.config.data.bar_interval, 'total_seconds', lambda: 60)())
+        if bar_interval_seconds <= 0:
+            return
+
+        bars_held = int((timestamp - entry_time).total_seconds() // bar_interval_seconds)
+        if bars_held < max_bars:
+            return
+
+        with self._forced_exit_lock:
+            if symbol in self._forced_exit_symbols:
+                return
+
+        last_prices = self.bar_processor.get_all_prices()
+        current_price = last_prices.get(symbol)
+        if current_price is None or current_price <= 0:
+            return
+
+        if self._submit_forced_exit(symbol, position.quantity, current_price, timestamp, last_prices):
+            with self._forced_exit_lock:
+                self._forced_exit_symbols.add(symbol)
+
+    def _submit_forced_exit(
+        self,
+        symbol: str,
+        quantity: Decimal,
+        current_price: Decimal,
+        timestamp: datetime,
+        last_prices: dict[str, Decimal],
+    ) -> bool:
+        if quantity == 0:
+            return False
+        delta = -quantity
+        side = OrderSide.BUY if delta > 0 else OrderSide.SELL
+        client_order_id = self.idempotency.generate_client_order_id(symbol, timestamp, delta)
+        if self.idempotency.is_duplicate(client_order_id):
+            self.logger.warning(f'Duplicate forced-exit order: {client_order_id}')
+            return False
+
+        try:
+            equity = self.portfolio.total_equity(last_prices)
+            self.risk.check_pre_trade(symbol, delta, current_price, Decimal(str(equity)), last_prices, timestamp)
+        except Exception as exc:
+            self.logger.warning(f'Forced exit blocked by risk: {exc}')
+            return False
+
+        order = Order(
+            symbol=symbol,
+            quantity=abs(delta),
+            side=side,
+            order_type=OrderType.MARKET,
+            submit_time=timestamp,
+            client_order_id=client_order_id,
+        )
+
+        try:
+            order_id = self.broker.submit(order)
+        except Exception as exc:
+            self.logger.error(f'Forced exit order failed: {exc}')
+            return False
+
+        submission_time = datetime.now(timezone.utc)
+        self.risk.record_order_submission(submission_time)
+        self.idempotency.mark_submitted(client_order_id)
+        with self._submission_lock:
+            self._order_submission_times[order_id] = submission_time
+
+        self.logger.warning(f'Forced exit submitted for {symbol} (max holding period)')
+        return True
+
+    @staticmethod
+    def _estimate_spread_bps(bar: Bar) -> Decimal:
+        if bar.close <= 0:
+            return Decimal('0')
+        spread = bar.high - bar.low
+        return (spread / bar.close) * Decimal('10000')
+
+    def _compute_limit_price(self, side: OrderSide, price: Decimal, bar: Bar) -> Decimal:
+        execution = self.config.execution
+        spread_bps = self._estimate_spread_bps(bar)
+        offset_bps = max(Decimal(str(execution.limit_offset_bps)), spread_bps / Decimal('2'))
+        offset = price * (offset_bps / Decimal('10000'))
+        return price + offset if side == OrderSide.BUY else price - offset
+
+    @staticmethod
+    def _build_vwap_weights(history: list[Bar], slices: int) -> list[float]:
+        if slices <= 1:
+            return [1.0]
+        if len(history) < slices:
+            return [1.0 / slices] * slices
+        volumes = [bar.volume for bar in history[-slices:]]
+        total = sum(volumes)
+        if total <= 0:
+            return [1.0 / slices] * slices
+        return [vol / total for vol in volumes]
+
+    def _plan_execution_orders(
+        self,
+        symbol: str,
+        delta: Decimal,
+        timestamp: datetime,
+        history: list[Bar],
+        base_client_order_id: str,
+    ) -> list[_ScheduledOrder]:
+        execution = self.config.execution
+        style = execution.execution_style.lower().strip()
+        total_qty = abs(delta)
+        side = OrderSide.BUY if delta > 0 else OrderSide.SELL
+
+        if style == 'adaptive':
+            style = self._choose_execution_style(total_qty, history)
+
+        if style == 'market':
+            return [
+                _ScheduledOrder(
+                    symbol=symbol,
+                    quantity=total_qty,
+                    side=side,
+                    execute_at=timestamp,
+                    order_type=OrderType.MARKET,
+                    base_client_order_id=base_client_order_id,
+                    slice_index=1,
+                    total_slices=1,
+                )
+            ]
+
+        if style == 'twap':
+            slices = max(1, execution.twap_slices)
+            window_minutes = max(0, execution.twap_window_minutes)
+            weights = [1.0 / slices] * slices
+            return self._build_sliced_orders(
+                symbol,
+                total_qty,
+                side,
+                timestamp,
+                window_minutes,
+                weights,
+                base_client_order_id,
+            )
+
+        if style == 'vwap':
+            slices = max(1, execution.vwap_slices)
+            window_minutes = max(0, execution.vwap_window_minutes)
+            weights = self._build_vwap_weights(history, slices)
+            return self._build_sliced_orders(
+                symbol,
+                total_qty,
+                side,
+                timestamp,
+                window_minutes,
+                weights,
+                base_client_order_id,
+            )
+
+        return [
+            _ScheduledOrder(
+                symbol=symbol,
+                quantity=total_qty,
+                side=side,
+                execute_at=timestamp,
+                order_type=OrderType.LIMIT,
+                base_client_order_id=base_client_order_id,
+                slice_index=1,
+                total_slices=1,
+            )
+        ]
+
+    def _choose_execution_style(self, total_qty: Decimal, history: list[Bar]) -> str:
+        if not history:
+            return 'limit'
+        sample = history[-20:]
+        avg_volume = sum(bar.volume for bar in sample) / len(sample) if sample else 0
+        if avg_volume <= 0:
+            return 'limit'
+        volume_ratio = float(total_qty) / avg_volume
+        spread_bps = float(self._estimate_spread_bps(sample[-1]))
+        if volume_ratio >= 0.05 or spread_bps >= 80.0:
+            return 'twap'
+        if volume_ratio >= 0.02 or spread_bps >= 30.0:
+            return 'vwap'
+        return 'limit'
+
+    def _build_sliced_orders(
+        self,
+        symbol: str,
+        total_qty: Decimal,
+        side: OrderSide,
+        start_time: datetime,
+        window_minutes: int,
+        weights: list[float],
+        base_client_order_id: str,
+    ) -> list[_ScheduledOrder]:
+        slices = max(1, len(weights))
+        if slices == 1:
+            weights = [1.0]
+        total_weight = sum(weights) or 1.0
+        normalized = [w / total_weight for w in weights]
+        total_seconds = max(0, window_minutes) * 60
+        step = total_seconds / max(slices - 1, 1)
+
+        scheduled: list[_ScheduledOrder] = []
+        allocated = Decimal('0')
+        for idx, weight in enumerate(normalized, start=1):
+            if idx == slices:
+                slice_qty = total_qty - allocated
+            else:
+                slice_qty = (total_qty * Decimal(str(weight))).quantize(Decimal('0.00001'))
+            if slice_qty <= 0:
+                continue
+            allocated += slice_qty
+            execute_at = start_time + timedelta(seconds=step * (idx - 1))
+            scheduled.append(
+                _ScheduledOrder(
+                    symbol=symbol,
+                    quantity=slice_qty,
+                    side=side,
+                    execute_at=execute_at,
+                    order_type=OrderType.LIMIT,
+                    base_client_order_id=base_client_order_id,
+                    slice_index=idx,
+                    total_slices=slices,
+                )
+            )
+        return scheduled
+
+    def _enqueue_scheduled_orders(self, orders: list[_ScheduledOrder]) -> None:
+        if not orders:
+            return
+        with self._scheduled_lock:
+            self._scheduled_orders.extend(orders)
+
+    def _process_scheduled_orders(self, bar: Bar) -> None:
+        due: list[_ScheduledOrder] = []
+        with self._scheduled_lock:
+            remaining: list[_ScheduledOrder] = []
+            for scheduled in self._scheduled_orders:
+                if scheduled.symbol == bar.symbol and scheduled.execute_at <= bar.timestamp:
+                    due.append(scheduled)
+                else:
+                    remaining.append(scheduled)
+            self._scheduled_orders = remaining
+
+        if not due:
+            return
+
+        for scheduled in due:
+            if self._should_avoid_open_close(bar.timestamp):
+                self._enqueue_scheduled_orders([scheduled])
+                continue
+            self._submit_order_slice(scheduled, bar)
+
+    def _submit_order_slice(self, scheduled: _ScheduledOrder, bar: Bar) -> None:
+        last_prices = self.bar_processor.get_all_prices()
+        equity = self.portfolio.total_equity(last_prices)
+        current_price = bar.close
+        delta = scheduled.quantity if scheduled.side == OrderSide.BUY else -scheduled.quantity
+
+        slice_client_id = (
+            f'{scheduled.base_client_order_id}-s{scheduled.slice_index}of{scheduled.total_slices}'
+        )
+        if self.idempotency.is_duplicate(slice_client_id):
+            self.logger.warning(f'Duplicate order: {slice_client_id}')
+            return
+
+        try:
+            self.risk.check_pre_trade(
+                scheduled.symbol,
+                delta,
+                current_price,
+                Decimal(str(equity)),
+                last_prices,
+                bar.timestamp,
+            )
+        except Exception as exc:
+            self.logger.warning(f'Risk violation: {exc}')
+            return
+
+        order_type = scheduled.order_type
+        limit_price = None
+        if order_type == OrderType.LIMIT:
+            limit_price = self._compute_limit_price(scheduled.side, current_price, bar)
+
+        order = Order(
+            symbol=scheduled.symbol,
+            quantity=scheduled.quantity,
+            side=scheduled.side,
+            order_type=order_type,
+            limit_price=limit_price,
+            submit_time=bar.timestamp,
+            client_order_id=slice_client_id,
+        )
+
+        order_id = self.broker.submit(order)
+        submission_time = datetime.now(timezone.utc)
+        self.risk.record_order_submission(submission_time)
+        self.idempotency.mark_submitted(slice_client_id)
+
+        with self._submission_lock:
+            self._order_submission_times[order_id] = submission_time
+
+        self.logger.info(
+            f'Order submitted: {scheduled.symbol} {order_id} '
+            f'({scheduled.slice_index}/{scheduled.total_slices})'
+        )
+
     def _execute_trade(
         self,
         symbol: str,
@@ -349,21 +814,76 @@ class TradingCoordinator:
             return
 
         # Calculate quantity
-        size_fraction = Decimal(str(action.get('size_fraction', 0.0)))
+        size_fraction = abs(Decimal(str(action.get('size_fraction', 0.0))))
         if size_fraction <= 0:
             return
 
         equity = self.portfolio.total_equity(last_prices)
         current_price = history[-1].close
-        target_notional = Decimal(str(equity)) * size_fraction
+        if current_price <= 0:
+            return
 
         signal = int(action.get('signal', 0))
         if signal == 0:
             return
 
-        desired_qty = target_notional / current_price
+        equity_decimal = Decimal(str(equity))
+        target_notional_base = equity_decimal * size_fraction
+        max_capital = self._get_max_capital_limit()
         current_pos = self.portfolio.position(symbol)
-        delta = desired_qty if signal > 0 else -desired_qty
+
+        if max_capital is not None:
+            target_notional_base = min(target_notional_base, max_capital)
+
+            current_symbol_exposure = abs(current_pos.quantity) * current_price
+            current_exposure = Decimal('0')
+            snapshot_fn = getattr(self.portfolio, 'snapshot_positions', None)
+            if callable(snapshot_fn):
+                positions_snapshot = snapshot_fn()
+                for sym, pos in positions_snapshot.items():
+                    price_value: Decimal | float | None = last_prices.get(sym)
+                    if price_value is None:
+                        price_value = pos.average_price
+                    if price_value is None:
+                        continue
+                    price_dec = Decimal(str(price_value))
+                    current_exposure += abs(pos.quantity) * price_dec
+            else:
+                current_exposure = current_symbol_exposure
+
+            exposure_without_symbol = current_exposure - current_symbol_exposure
+            remaining_capital = max_capital - exposure_without_symbol
+            if remaining_capital < Decimal('0'):
+                remaining_capital = Decimal('0')
+
+            exposure_headroom = remaining_capital
+            if (signal < 0 and current_pos.quantity > 0) or (signal > 0 and current_pos.quantity < 0):
+                exposure_headroom += current_symbol_exposure
+
+            exposure_headroom = max(Decimal('0'), exposure_headroom)
+            if exposure_headroom <= Decimal('0') and target_notional_base > Decimal('0'):
+                self.logger.info(
+                    'fsd_capital_limit_reached',
+                    extra={
+                        'symbol': symbol,
+                        'max_capital': float(max_capital),
+                        'current_exposure': float(current_exposure),
+                        'headroom': float(exposure_headroom),
+                    },
+                )
+                return
+
+            allowed_notional = (
+                min(target_notional_base, exposure_headroom) if target_notional_base > Decimal('0') else Decimal('0')
+            )
+            direction = Decimal('1') if signal > 0 else Decimal('-1')
+            target_notional = allowed_notional * direction
+        else:
+            direction = Decimal('1') if signal > 0 else Decimal('-1')
+            target_notional = target_notional_base * direction
+
+        desired_qty = target_notional / current_price if current_price != 0 else Decimal('0')
+        delta = desired_qty
         delta -= current_pos.quantity
 
         if abs(delta) < Decimal('0.00001'):
@@ -383,17 +903,7 @@ class TradingCoordinator:
             self.logger.warning(f'Risk violation: {exc}')
             return
 
-        # Submit order
         try:
-            order = Order(
-                symbol=symbol,
-                quantity=abs(delta),
-                side=OrderSide.BUY if delta > 0 else OrderSide.SELL,
-                order_type=OrderType.MARKET,
-                submit_time=timestamp,
-                client_order_id=client_order_id,
-            )
-
             self.decision_engine.register_trade_intent(
                 symbol,
                 timestamp,
@@ -401,21 +911,18 @@ class TradingCoordinator:
                 float(target_notional),
                 float(desired_qty),
             )
-
-            # Submit to broker first (source of truth)
-            order_id = self.broker.submit(order)
-
-            # Record submission with wall-clock time (not bar time)
-            submission_time = datetime.now(timezone.utc)
-            self.risk.record_order_submission(submission_time)
-            self.idempotency.mark_submitted(client_order_id)
-
-            # Thread-safe tracking of order submission times
-            with self._submission_lock:
-                self._order_submission_times[order_id] = submission_time
-
-            self.logger.info(f'Order submitted: {symbol} {order_id}')
-            self.logger.debug(f'Bar time: {timestamp}, submission time: {submission_time}')
+            scheduled_orders = self._plan_execution_orders(
+                symbol=symbol,
+                delta=delta,
+                timestamp=timestamp,
+                history=history,
+                base_client_order_id=client_order_id,
+            )
+            self._enqueue_scheduled_orders(scheduled_orders)
+            if scheduled_orders:
+                self.idempotency.mark_submitted(client_order_id)
+                self.logger.info(f'Planned {len(scheduled_orders)} order slice(s) for {symbol}')
+                self._process_scheduled_orders(history[-1])
 
         except Exception as exc:
             self.logger.error(f'Order submission failed: {exc}')
@@ -447,6 +954,10 @@ class TradingCoordinator:
         )
 
         pos_after = float(self.portfolio.position(report.symbol).quantity)
+
+        if pos_after == 0:
+            with self._forced_exit_lock:
+                self._forced_exit_symbols.discard(report.symbol)
 
         # Update prices - use bar_processor's thread-safe method
         self.bar_processor.update_price(report.symbol, report.price)
