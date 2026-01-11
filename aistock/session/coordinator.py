@@ -40,6 +40,7 @@ class _AggregatedOHLCV:
     high: float
     low: float
     close: float
+    volume: float
 
 
 @dataclass
@@ -63,6 +64,9 @@ class DecisionAction(TypedDict, total=False):
 class DecisionPayload(TypedDict, total=False):
     should_trade: bool
     action: DecisionAction
+    confidence: float
+    warnings: list[str]
+    reason: str
 
 
 class _BarAggregator:
@@ -839,7 +843,7 @@ class TradingCoordinator:
             current_exposure = Decimal('0')
             snapshot_fn = getattr(self.portfolio, 'snapshot_positions', None)
             if callable(snapshot_fn):
-                positions_snapshot = snapshot_fn()
+                positions_snapshot = cast(dict[str, Any], snapshot_fn())
                 for sym, pos in positions_snapshot.items():
                     price_value: Decimal | float | None = last_prices.get(sym)
                     if price_value is None:

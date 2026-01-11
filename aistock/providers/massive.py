@@ -503,13 +503,19 @@ class MassiveDataProvider:
                     filtered = [
                         a
                         for a in filtered
-                        if date.fromisoformat(a.get('ex_date', a.get('listing_date', '2000-01-01'))) >= start_date
+                        if date.fromisoformat(
+                            str(a.get('ex_date') or a.get('listing_date') or '2000-01-01')
+                        )
+                        >= start_date
                     ]
                 if end_date:
                     filtered = [
                         a
                         for a in filtered
-                        if date.fromisoformat(a.get('ex_date', a.get('listing_date', '2099-12-31'))) <= end_date
+                        if date.fromisoformat(
+                            str(a.get('ex_date') or a.get('listing_date') or '2099-12-31')
+                        )
+                        <= end_date
                     ]
                 return FetchResult(
                     success=True,
@@ -549,7 +555,7 @@ class MassiveDataProvider:
                 params['ticker'] = symbol
 
             # Fetch with pagination
-            all_actions: list[dict] = []
+            all_actions: list[dict[str, object]] = []
             has_more = True
 
             while has_more:
@@ -580,13 +586,19 @@ class MassiveDataProvider:
                     filtered = [
                         a
                         for a in filtered
-                        if date.fromisoformat(a.get('ex_date', a.get('listing_date', '2000-01-01'))) >= start_date
+                        if date.fromisoformat(
+                            str(a.get('ex_date') or a.get('listing_date') or '2000-01-01')
+                        )
+                        >= start_date
                     ]
                 if end_date:
                     filtered = [
                         a
                         for a in filtered
-                        if date.fromisoformat(a.get('ex_date', a.get('listing_date', '2099-12-31'))) <= end_date
+                        if date.fromisoformat(
+                            str(a.get('ex_date') or a.get('listing_date') or '2099-12-31')
+                        )
+                        <= end_date
                     ]
                 all_actions = filtered
 
@@ -630,7 +642,7 @@ class MassiveDataProvider:
 
             logger.info(f'Listing {market} tickers (active={active})')
 
-            tickers: list[dict] = []
+            tickers: list[dict[str, object]] = []
 
             for ticker in client.list_tickers(
                 market=market,

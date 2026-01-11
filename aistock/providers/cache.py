@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from ..data import Bar
@@ -148,10 +148,11 @@ class MassiveCache:
                 return False
 
             # Move to next month
-            if current.month == 12:
-                current = date(current.year + 1, 1, 1)
-            else:
-                current = date(current.year, current.month + 1, 1)
+            current = (
+                date(current.year + 1, 1, 1)
+                if current.month == 12
+                else date(current.year, current.month + 1, 1)
+            )
 
         return True
 
@@ -196,10 +197,11 @@ class MassiveCache:
                 current_missing_start = None
 
             # Move to next month
-            if current.month == 12:
-                current = date(current.year + 1, 1, 1)
-            else:
-                current = date(current.year, current.month + 1, 1)
+            current = (
+                date(current.year + 1, 1, 1)
+                if current.month == 12
+                else date(current.year, current.month + 1, 1)
+            )
 
         # Handle trailing missing range
         if current_missing_start is not None:
@@ -227,7 +229,7 @@ class MassiveCache:
             return
 
         # Group bars by year-month
-        bars_by_month: dict[str, list[dict]] = {}
+        bars_by_month: dict[str, list[dict[str, object]]] = {}
         for bar in bars:
             year_month = bar.timestamp.strftime('%Y-%m')
             if year_month not in bars_by_month:
@@ -331,10 +333,11 @@ class MassiveCache:
                     logger.warning(f'Failed to load cache {cache_path}: {e}')
 
             # Move to next month
-            if current.month == 12:
-                current = date(current.year + 1, 1, 1)
-            else:
-                current = date(current.year, current.month + 1, 1)
+            current = (
+                date(current.year + 1, 1, 1)
+                if current.month == 12
+                else date(current.year, current.month + 1, 1)
+            )
 
         # Sort by timestamp
         all_bars.sort(key=lambda b: b.timestamp)
@@ -343,7 +346,7 @@ class MassiveCache:
     def store_corporate_actions(
         self,
         action_type: str,
-        actions: list[dict],
+        actions: list[dict[str, object]],
     ) -> None:
         """
         Store corporate actions to cache.
@@ -357,7 +360,7 @@ class MassiveCache:
             json.dump(actions, f, indent=2)
         logger.debug(f'Cached {len(actions)} {action_type} corporate actions')
 
-    def load_corporate_actions(self, action_type: str) -> list[dict]:
+    def load_corporate_actions(self, action_type: str) -> list[dict[str, object]]:
         """
         Load corporate actions from cache.
 
@@ -373,7 +376,8 @@ class MassiveCache:
 
         try:
             with open(cache_path) as f:
-                return json.load(f)
+                data = json.load(f)
+                return cast(list[dict[str, object]], data)
         except (OSError, json.JSONDecodeError) as e:
             logger.warning(f'Failed to load corporate actions cache: {e}')
             return []

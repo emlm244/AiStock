@@ -355,14 +355,14 @@ class HistoricalUniverseManager:
 
     def reconstruct_universe_at_time(
         self,
-        timestamp: datetime,
+        timestamp: datetime | date,
         candidate_symbols: list[str] | None = None,
     ) -> frozenset[str]:
         """
         Reconstruct the universe of tradeable symbols at a specific point in time.
 
         Args:
-            timestamp: Historical timestamp.
+            timestamp: Historical timestamp or date.
             candidate_symbols: Optional list of symbols to filter from.
                              If None, uses all known symbols.
 

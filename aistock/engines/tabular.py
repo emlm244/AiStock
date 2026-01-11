@@ -207,7 +207,7 @@ class TabularEngine(BaseDecisionEngine):
         vol_level = 'high' if volatility > 0.02 else 'low' if volatility < 0.005 else 'normal'
 
         # Position
-        position = float(self.portfolio.position(symbol))
+        position = float(self.portfolio.position(symbol).quantity)
         equity = float(self.portfolio.get_equity(last_prices) or 10000)
         current_price = float(last_prices.get(symbol, Decimal('1')))
         position_pct = (position * current_price) / equity if equity > 0 else 0
@@ -311,8 +311,8 @@ class TabularEngine(BaseDecisionEngine):
             return self._agent.load_state(filepath)
 
         # Try to load and infer state dimension
-        from pathlib import Path
         import json
+        from pathlib import Path
 
         path = Path(filepath)
         if not path.exists():

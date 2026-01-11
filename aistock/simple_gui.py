@@ -365,12 +365,12 @@ class SimpleGUI:
         update_dotenv_file(updates)
 
     def _bind_account_capabilities_controls(self) -> None:
-        self.account_type_var.trace_add('write', lambda *_: self._on_account_capability_change())
-        self.account_balance_var.trace_add('write', lambda *_: self._on_account_capability_change())
-        self.enable_futures_var.trace_add('write', lambda *_: self._on_account_capability_change())
-        self.enable_options_var.trace_add('write', lambda *_: self._on_account_capability_change())
+        self.account_type_var.trace_add('write', self._on_account_capability_trace)
+        self.account_balance_var.trace_add('write', self._on_account_capability_trace)
+        self.enable_futures_var.trace_add('write', self._on_account_capability_trace)
+        self.enable_options_var.trace_add('write', self._on_account_capability_trace)
         for var in (self.enable_stocks_var, self.enable_etfs_var, self.allow_extended_hours_var, self.enforce_settlement_var):
-            var.trace_add('write', lambda *_: self._schedule_env_save())
+            var.trace_add('write', self._on_env_save_trace)
 
         self._refresh_instrument_eligibility(show_warning=False)
         self._suppress_capability_warnings = False
@@ -399,8 +399,17 @@ class SimpleGUI:
             self.enable_eod_flatten_var,
             self.eod_flatten_time_var,
         ):
-            var.trace_add('write', lambda *_: self._schedule_env_save())
-        self.trading_mode_var.trace_add('write', lambda *_: self._on_trading_mode_change())
+            var.trace_add('write', self._on_env_save_trace)
+        self.trading_mode_var.trace_add('write', self._on_trading_mode_trace)
+
+    def _on_account_capability_trace(self, *_: str) -> None:
+        self._on_account_capability_change()
+
+    def _on_env_save_trace(self, *_: str) -> None:
+        self._schedule_env_save()
+
+    def _on_trading_mode_trace(self, *_: str) -> None:
+        self._on_trading_mode_change()
 
     def _on_account_capability_change(self) -> None:
         self._refresh_instrument_eligibility(show_warning=True)
@@ -1392,7 +1401,7 @@ class SimpleGUI:
         # Account type row
         acct_type_row = tk.Frame(acct_frame)
         acct_type_row.pack(fill=tk.X, pady=(0, 10))
-        tk.Label(acct_type_row, text='Account Type:', font=self._font(11, 'bold')).pack(side=tk.LEFT)
+        tk.Label(acct_type_row, text='Account Type:', font=self._font(11, weight='bold')).pack(side=tk.LEFT)
         ttk.Radiobutton(
             acct_type_row, text='Cash Account', variable=self.account_type_var, value='cash'
         ).pack(side=tk.LEFT, padx=(15, 5))
@@ -1413,7 +1422,7 @@ class SimpleGUI:
         # Account balance row
         balance_row = tk.Frame(acct_frame)
         balance_row.pack(fill=tk.X, pady=(0, 10))
-        tk.Label(balance_row, text='Account Balance:', font=self._font(11, 'bold')).pack(side=tk.LEFT)
+        tk.Label(balance_row, text='Account Balance:', font=self._font(11, weight='bold')).pack(side=tk.LEFT)
         tk.Label(balance_row, text='$', font=self._font(11)).pack(side=tk.LEFT, padx=(10, 0))
         tk.Entry(
             balance_row,
@@ -1433,7 +1442,7 @@ class SimpleGUI:
         ).pack(side=tk.LEFT)
 
         # Instruments row
-        tk.Label(acct_frame, text='Tradeable Instruments:', font=self._font(11, 'bold')).pack(anchor='w')
+        tk.Label(acct_frame, text='Tradeable Instruments:', font=self._font(11, weight='bold')).pack(anchor='w')
         instr_row = tk.Frame(acct_frame)
         instr_row.pack(fill=tk.X, pady=5)
         ttk.Checkbutton(instr_row, text='Stocks', variable=self.enable_stocks_var).pack(side=tk.LEFT, padx=(0, 15))
@@ -1805,11 +1814,13 @@ class SimpleGUI:
                 timeframes = ['1m', '5m', '15m']
 
             try:
-                from .timeframes import TIMEFRAME_TO_SECONDS
+                from . import timeframes as timeframes_module
             except Exception:
-                TIMEFRAME_TO_SECONDS = {}
+                timeframe_to_seconds = {}
+            else:
+                timeframe_to_seconds = timeframes_module.TIMEFRAME_TO_SECONDS
 
-            timeframe_seconds = [TIMEFRAME_TO_SECONDS.get(tf.lower().strip()) for tf in timeframes]
+            timeframe_seconds = [timeframe_to_seconds.get(tf.lower().strip()) for tf in timeframes]
             max_timeframe_seconds = max((sec for sec in timeframe_seconds if sec), default=60)
 
             max_stocks = int(risk_config.get('max_stocks', 10))

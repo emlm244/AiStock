@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
+from aistock.ml.buffers.prioritized import PrioritizedReplayBuffer
 from aistock.ml.buffers.sum_tree import SumTree
 from aistock.ml.buffers.uniform import UniformReplayBuffer
-from aistock.ml.buffers.prioritized import PrioritizedReplayBuffer
-from aistock.ml.config import Transition, PERConfig
+from aistock.ml.config import PERConfig, Transition
 
 
 class TestSumTree:
@@ -142,7 +142,7 @@ class TestUniformReplayBuffer:
 
         assert not buffer.is_ready(10)
 
-        for i in range(10):
+        for _ in range(10):
             buffer.add(
                 Transition(
                     state=np.zeros(2),
@@ -257,8 +257,6 @@ class TestPrioritizedReplayBuffer:
 
     def test_beta_annealing(self, per_config):
         """Test beta annealing schedule."""
-        buffer = PrioritizedReplayBuffer(per_config)
-
         # At step 0
         assert per_config.get_beta(0) == 0.4
 
@@ -274,7 +272,7 @@ class TestPrioritizedReplayBuffer:
 
         assert not buffer.is_ready()  # Default uses batch_size=8
 
-        for i in range(10):
+        for _ in range(10):
             buffer.add(
                 Transition(
                     state=np.zeros(2),

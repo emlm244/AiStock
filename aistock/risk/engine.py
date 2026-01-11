@@ -13,7 +13,7 @@ from ..config import AccountCapabilities, ContractSpec, RiskLimits
 from ..portfolio import Portfolio
 
 
-class RiskViolation(Exception):
+class RiskViolation(Exception):  # noqa: N818
     """Exception raised when a risk limit is violated."""
 
     pass

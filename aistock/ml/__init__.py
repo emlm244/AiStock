@@ -15,7 +15,7 @@ from .config import (
     SequentialConfig,
     Transition,
 )
-from .device import get_device, DeviceType
+from .device import DeviceType, get_device
 
 __all__ = [
     'DoubleQLearningConfig',

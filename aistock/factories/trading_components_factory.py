@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Literal, cast
 
 from ..brokers.base import BaseBroker
 from ..brokers.ibkr import IBKRBroker
@@ -210,7 +211,7 @@ class TradingComponentsFactory:
             )
 
         if engine_type in {'lstm', 'transformer'}:
-            seq_model = engine_type if engine_type in {'lstm', 'transformer'} else self.fsd_config.sequence_model
+            seq_model = cast(Literal['lstm', 'transformer'], engine_type)
             seq_config = SequentialConfig(
                 enable=True,
                 model_type=seq_model,

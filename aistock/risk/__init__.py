@@ -34,9 +34,6 @@ from .correlation import CorrelationCheckResult, CorrelationMonitor
 from .engine import RiskEngine, RiskState, RiskViolation
 from .kelly import KellyCriterionSizer, KellyResult
 from .regime import MarketRegime, RegimeDetector, RegimeResult
-from .volatility_scaling import VolatilityScaler, VolatilityScaleResult
-
-# Tail risk metrics
 from .tail_risk import (
     TailRiskCalculator,
     TailRiskConfig,
@@ -44,6 +41,7 @@ from .tail_risk import (
     calculate_cvar,
     calculate_var,
 )
+from .volatility_scaling import VolatilityScaler, VolatilityScaleResult
 
 __all__ = [
     # Core risk management

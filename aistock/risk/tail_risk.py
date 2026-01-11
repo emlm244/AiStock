@@ -10,13 +10,23 @@ References:
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def _load_scipy_stats() -> Any:
+    try:
+        import importlib
+
+        return importlib.import_module('scipy.stats')
+    except ModuleNotFoundError as exc:
+        raise RuntimeError('scipy is required for parametric/cornish_fisher VaR calculations') from exc
 
 
 @dataclass
@@ -172,10 +182,7 @@ class TailRiskCalculator:
 
         # CVaR is the average of returns worse than VaR
         tail_returns = returns[returns <= var_percentile]
-        if len(tail_returns) > 0:
-            cvar = -np.mean(tail_returns)
-        else:
-            cvar = var
+        cvar = -np.mean(tail_returns) if len(tail_returns) > 0 else var
 
         return float(var), float(cvar)
 
@@ -197,7 +204,7 @@ class TailRiskCalculator:
             return 0.0, 0.0
 
         # Z-score for confidence level
-        from scipy import stats
+        stats = _load_scipy_stats()
 
         z = stats.norm.ppf(1 - self.config.confidence_level)
 
@@ -233,7 +240,7 @@ class TailRiskCalculator:
             return 0.0, 0.0
 
         # Calculate skewness and excess kurtosis
-        from scipy import stats
+        stats = _load_scipy_stats()
 
         skew = stats.skew(returns)
         kurt = stats.kurtosis(returns)  # Excess kurtosis
@@ -256,10 +263,7 @@ class TailRiskCalculator:
         # Approximate CVaR (use historical for tail average)
         var_percentile = mean + z_cf * std
         tail_returns = returns[returns <= var_percentile]
-        if len(tail_returns) > 0:
-            cvar = -np.mean(tail_returns)
-        else:
-            cvar = var
+        cvar = -np.mean(tail_returns) if len(tail_returns) > 0 else var
 
         return float(var), float(cvar)
 

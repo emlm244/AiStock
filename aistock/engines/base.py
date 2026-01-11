@@ -177,7 +177,7 @@ class BaseDecisionEngine(ABC):
     def handle_fill(
         self,
         symbol: str,
-        fill_timestamp: datetime,
+        timestamp: datetime,
         fill_price: float,
         realised_pnl: float,
         signed_quantity: float,
@@ -188,7 +188,7 @@ class BaseDecisionEngine(ABC):
 
         Args:
             symbol: Trading symbol
-            fill_timestamp: Fill timestamp
+            timestamp: Fill timestamp
             fill_price: Fill price
             realised_pnl: Realized P&L
             signed_quantity: Signed fill quantity
@@ -199,7 +199,7 @@ class BaseDecisionEngine(ABC):
             # Record trade
             self.trade_history.append(
                 TradeRecord(
-                    timestamp=fill_timestamp,
+                    timestamp=timestamp,
                     symbol=symbol,
                     quantity=float(signed_quantity),
                     price=fill_price,

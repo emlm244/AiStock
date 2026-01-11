@@ -371,9 +371,9 @@ class WalkForwardValidator:
         }
 
         # Add fold-by-fold summary
-        fold_summaries = []
+        fold_summaries: list[dict[str, float | int]] = []
         for fold in result.folds:
-            fold_summary = {
+            fold_summary: dict[str, float | int] = {
                 'fold': fold.fold_number,
                 'train_days': fold.train_days,
                 'test_days': fold.test_days,

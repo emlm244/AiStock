@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    pass
+    from ..fsd import FSDEngine
 
 from ..calendar import is_within_open_close_buffer
 from ..data import Bar
@@ -31,6 +31,8 @@ from .universe import HistoricalUniverseManager, UniverseValidationResult
 from .walkforward import WalkForwardResult, WalkForwardValidator
 
 logger = logging.getLogger(__name__)
+
+TradeRecord = dict[str, object]
 
 
 @dataclass
@@ -423,14 +425,14 @@ class BacktestOrchestrator:
         This is a simplified simulation. For full FSD integration,
         use SessionFactory to create a complete trading session.
         """
-        from ..config import FSDConfig
-        from ..fsd import FSD
+        from ..fsd import FSDConfig, FSDEngine
         from ..portfolio import Portfolio
 
         # Initialize components
         fsd_config = self._config.fsd_config or FSDConfig()
-        fsd = FSD(fsd_config)
         portfolio = Portfolio(initial_cash=self._config.initial_capital)
+        fsd_engine = FSDEngine(fsd_config, portfolio)
+        fsd_engine.start_session()
 
         # Group bars by symbol and timestamp
         bars_by_timestamp: dict[datetime, dict[str, Bar]] = {}
@@ -441,32 +443,37 @@ class BacktestOrchestrator:
 
         # Simulate trading
         equity_curve: list[tuple[date, Decimal]] = []
-        trades: list[dict] = []
+        trades: list[TradeRecord] = []
         history_by_symbol: dict[str, list[Bar]] = defaultdict(list)
+
+        def _trade_pnl(trade: TradeRecord) -> float:
+            pnl_value = trade.get('pnl')
+            if isinstance(pnl_value, (int, float, Decimal)):
+                return float(pnl_value)
+            return 0.0
 
         sorted_timestamps = sorted(bars_by_timestamp.keys())
 
         for i, timestamp in enumerate(sorted_timestamps):
             symbol_bars = bars_by_timestamp[timestamp]
+            last_prices = {sym: bar.close for sym, bar in symbol_bars.items()}
 
             for symbol, bar in symbol_bars.items():
                 history = history_by_symbol[symbol]
                 history.append(bar)
-                scheduled_trades = self._process_scheduled_orders(symbol, bar, portfolio)
+                scheduled_trades = self._process_scheduled_orders(symbol, bar, portfolio, fsd_engine)
                 if scheduled_trades:
                     trades.extend(scheduled_trades)
                     result.total_trades += len(scheduled_trades)
 
                 # Get FSD decision
-                # Build a simple state from the bar
-                state = self._build_state_from_bar(bar, portfolio, symbol)
-
-                # Get action from FSD
-                action = fsd.decide(symbol, state)
+                decision = fsd_engine.evaluate_opportunity(symbol, history, last_prices)
+                action_payload = decision.get('action')
+                action_type = action_payload.get('type') if isinstance(action_payload, dict) else None
 
                 # Execute action
-                if action != 'HOLD':
-                    trade_results = self._execute_action(action, symbol, bar, portfolio, history)
+                if decision.get('should_trade') and isinstance(action_type, str):
+                    trade_results = self._execute_action(action_type, symbol, bar, portfolio, history, fsd_engine)
                     if trade_results:
                         trades.extend(trade_results)
                         result.total_trades += len(trade_results)
@@ -478,7 +485,7 @@ class BacktestOrchestrator:
             ):
                 equity = portfolio.total_equity(
                     {
-                        s: float(bars_by_timestamp[timestamp].get(s, bars[-1]).close)
+                        s: bars_by_timestamp[timestamp][s].close
                         for s in self._config.symbols
                         if s in bars_by_timestamp[timestamp]
                     }
@@ -539,9 +546,11 @@ class BacktestOrchestrator:
 
         # Calculate win rate
         if trades:
-            winning_trades = sum(1 for t in trades if t.get('pnl', 0) > 0)
+            winning_trades = sum(1 for t in trades if _trade_pnl(t) > 0)
             result.win_rate = winning_trades / len(trades)
             result.trades = trades
+
+        fsd_engine.end_session()
 
         return result
 
@@ -552,8 +561,7 @@ class BacktestOrchestrator:
         symbol: str,
     ) -> dict[str, Any]:
         """Build a state dictionary from bar data."""
-        position = portfolio.get_position(symbol)
-        position_qty = float(position.quantity) if position else 0
+        position_qty = float(portfolio.get_position(symbol))
 
         return {
             'price': float(bar.close),
@@ -712,7 +720,8 @@ class BacktestOrchestrator:
         symbol: str,
         bar: Bar,
         portfolio: Any,
-    ) -> list[dict]:
+        decision_engine: FSDEngine | None = None,
+    ) -> list[TradeRecord]:
         due: list[_ScheduledBacktestOrder] = []
         remaining: list[_ScheduledBacktestOrder] = []
         for scheduled in self._scheduled_orders:
@@ -722,12 +731,12 @@ class BacktestOrchestrator:
                 remaining.append(scheduled)
         self._scheduled_orders = remaining
 
-        trades: list[dict] = []
+        trades: list[TradeRecord] = []
         for scheduled in due:
             if self._should_avoid_open_close(bar.timestamp):
                 self._scheduled_orders.append(scheduled)
                 continue
-            trade = self._submit_scheduled_order(scheduled, bar, portfolio)
+            trade = self._submit_scheduled_order(scheduled, bar, portfolio, decision_engine)
             if trade:
                 trades.append(trade)
         return trades
@@ -737,8 +746,9 @@ class BacktestOrchestrator:
         scheduled: _ScheduledBacktestOrder,
         bar: Bar,
         portfolio: Any,
-    ) -> dict | None:
-        from ..execution import OrderSide
+        decision_engine: FSDEngine | None = None,
+    ) -> TradeRecord | None:
+        from ..execution import Order, OrderSide, OrderType
 
         side = OrderSide.BUY if scheduled.side == 'buy' else OrderSide.SELL
         order_type = OrderType.MARKET if scheduled.order_type == 'market' else OrderType.LIMIT
@@ -759,12 +769,26 @@ class BacktestOrchestrator:
             return None
 
         signed_qty = fill_result.fill_quantity if side == OrderSide.BUY else -fill_result.fill_quantity
-        portfolio.update_position(
-            symbol=scheduled.symbol,
-            quantity_delta=signed_qty,
-            price=fill_result.fill_price,
-            commission=fill_result.costs.commission,
+        pos_before = float(portfolio.get_position(scheduled.symbol))
+        realised = portfolio.apply_fill(
+            scheduled.symbol,
+            signed_qty,
+            fill_result.fill_price,
+            fill_result.costs.commission,
+            bar.timestamp,
         )
+        pos_after = float(portfolio.get_position(scheduled.symbol))
+
+        if decision_engine is not None:
+            decision_engine.handle_fill(
+                scheduled.symbol,
+                bar.timestamp,
+                float(fill_result.fill_price),
+                float(realised),
+                float(signed_qty),
+                pos_before,
+                pos_after,
+            )
 
         return {
             'timestamp': bar.timestamp.isoformat(),
@@ -774,7 +798,7 @@ class BacktestOrchestrator:
             'quantity': float(fill_result.fill_quantity),
             'price': float(fill_result.fill_price),
             'costs': float(fill_result.costs.total),
-            'pnl': 0,
+            'pnl': float(realised),
         }
 
     def _execute_action(
@@ -784,16 +808,16 @@ class BacktestOrchestrator:
         bar: Bar,
         portfolio: Any,
         history: list[Bar],
-    ) -> list[dict]:
+        decision_engine: FSDEngine | None = None,
+    ) -> list[TradeRecord]:
         """Execute a trading action."""
-        from ..execution import Order, OrderSide, OrderType
+        from ..execution import OrderSide
 
         if action == 'HOLD':
             return []
 
         # Determine order side and quantity
-        position = portfolio.get_position(symbol)
-        position_qty = float(position.quantity) if position else 0
+        position_qty = float(portfolio.get_position(symbol))
 
         if action == 'BUY':
             # Buy if no position
@@ -801,19 +825,19 @@ class BacktestOrchestrator:
                 order_qty = max(1, int(float(portfolio.cash) * 0.1 / float(bar.close)))
                 side = OrderSide.BUY
             else:
-                return None
+                return []
         elif action == 'SELL':
             # Sell if long position
             if position_qty > 0:
                 order_qty = int(position_qty)
                 side = OrderSide.SELL
             else:
-                return None
-        elif action == 'INCREASE':
+                return []
+        elif action in {'INCREASE', 'INCREASE_SIZE'}:
             # Increase position
             order_qty = max(1, int(float(portfolio.cash) * 0.05 / float(bar.close)))
             side = OrderSide.BUY
-        elif action == 'DECREASE':
+        elif action in {'DECREASE', 'DECREASE_SIZE'}:
             # Decrease position
             if position_qty > 1:
                 order_qty = int(position_qty * 0.5)
@@ -833,7 +857,7 @@ class BacktestOrchestrator:
         )
         if scheduled_orders:
             self._scheduled_orders.extend(scheduled_orders)
-        return self._process_scheduled_orders(symbol, bar, portfolio)
+        return self._process_scheduled_orders(symbol, bar, portfolio, decision_engine)
 
     def get_status(self) -> dict[str, Any]:
         """Get current orchestrator status."""

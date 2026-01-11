@@ -1,9 +1,10 @@
 """Tests for RL agents."""
 
-import numpy as np
-import pytest
 import tempfile
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 from aistock.ml.agents.double_q import DoubleQAgent
 from aistock.ml.config import Transition

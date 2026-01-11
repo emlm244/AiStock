@@ -214,15 +214,15 @@ class NeuralEngine(BaseDecisionEngine):
                 rsi = 100 - (100 / (1 + rs))
             else:
                 rsi = 100 if gains > 0 else 50
-            features['rsi'] = (rsi - 50) / 50  # Normalize to [-1, 1]
+            features['rsi'] = float((rsi - 50) / 50)  # Normalize to [-1, 1]
         else:
             features['rsi'] = 0.0
 
         # Position features
-        position = float(self.portfolio.position(symbol))
+        position = float(self.portfolio.position(symbol).quantity)
         equity = float(self.portfolio.get_equity(last_prices) or 10000)
         current_price = float(last_prices.get(symbol, Decimal('1')))
-        features['position_pct'] = np.clip((position * current_price) / equity, -1, 1)
+        features['position_pct'] = float(np.clip((position * current_price) / equity, -1, 1))
 
         return features
 

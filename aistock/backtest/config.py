@@ -10,7 +10,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from ..config import FSDConfig, RiskLimits
+    from ..config import RiskLimits
+    from ..fsd import FSDConfig
 
 
 @dataclass
@@ -259,4 +260,4 @@ class PeriodResult:
     equity_curve: list[tuple[date, Decimal]] = field(default_factory=list)
 
     # Trade log
-    trades: list[dict] = field(default_factory=list)
+    trades: list[dict[str, object]] = field(default_factory=list)
