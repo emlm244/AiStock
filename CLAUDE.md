@@ -61,7 +61,7 @@ basedpyright                             # Type check (strict mode)
 ```bash
 pytest tests                             # Run all 280+ tests
 pytest -k test_name                      # Run specific test
-pytest tests/test_engine.py              # Run single test file
+pytest tests/test_portfolio.py           # Run single test file
 pytest --cov=. --cov-report=xml          # Coverage report
 ```
 
@@ -98,10 +98,9 @@ python launch_gui.py                     # Alternative entry point
 
 ## Testing Conventions
 
-- Tests mirror source structure: `tests/test_engine.py` covers `aistock/engine.py`
+- Tests mirror source structure: `tests/test_portfolio.py` covers `aistock/portfolio.py`
 - Name tests as `test_<behavior>` (e.g., `test_buy_order_updates_portfolio`)
 - Use parametrization for scenario coverage
-- Shared fixtures in `conftest.py`
 - Property-based testing with Hypothesis for invariants
 - All tests must pass before submitting PR
 
@@ -123,18 +122,16 @@ python launch_gui.py                     # Alternative entry point
 - `aistock/config.py`: Configuration dataclasses with validation
 - `aistock/portfolio.py`: Thread-safe position tracking with multiplier support
 - `aistock/futures/`: Futures contract management (rollover, validation, preflight)
-- `tests/conftest.py`: Shared test fixtures
 
 ## Directory Structure
 
 ```
-aistock/                   # Main package (~16,500 LOC, 55 files)
+aistock/                   # Main package (~16,500 LOC, 56 files)
 ├── brokers/               # Paper trading + IBKR integration
 ├── factories/             # DI factories
 ├── futures/               # Futures contract management (rollover, validation)
 ├── interfaces/            # Protocol definitions
 ├── session/               # Session orchestration
-├── ml/                    # Machine learning (excluded from type checking)
 ├── _legacy/               # Deprecated code (excluded)
 ├── fsd.py                 # Q-Learning RL engine (CORE)
 ├── engine.py              # Trading engine
