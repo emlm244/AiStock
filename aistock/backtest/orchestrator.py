@@ -23,8 +23,11 @@ if TYPE_CHECKING:
     from ..fsd import FSDEngine
 
 from ..calendar import is_within_open_close_buffer
+from ..config import RiskLimits
 from ..data import Bar
 from ..providers.massive import MassiveConfig, MassiveDataProvider
+from ..risk import RiskEngine, RiskViolation
+from ..timeframes import TIMEFRAME_TO_SECONDS
 from .config import BacktestPlanConfig, DataFetchStatus, PeriodResult
 from .execution import RealisticExecutionModel
 from .universe import HistoricalUniverseManager, UniverseValidationResult
@@ -125,6 +128,7 @@ class BacktestOrchestrator:
         self._universe_mgr = HistoricalUniverseManager()
         self._exec_model = RealisticExecutionModel(config.execution)
         self._scheduled_orders: list[_ScheduledBacktestOrder] = []
+        self._bar_interval = self._resolve_bar_interval()
 
         # Ensure output directory exists
         Path(config.output_dir).mkdir(parents=True, exist_ok=True)
@@ -341,6 +345,11 @@ class BacktestOrchestrator:
             raise ValueError('Walk-forward config and dates are required')
 
         validator = WalkForwardValidator(self._config.walkforward)
+        if self._config.parallel_folds > 1:
+            logger.warning(
+                'parallel_folds=%s requested; backtests execute sequentially to keep provider/cache access safe.',
+                self._config.parallel_folds,
+            )
 
         # Generate folds
         folds = validator.generate_folds(
@@ -424,6 +433,7 @@ class BacktestOrchestrator:
 
         This is a simplified simulation. For full FSD integration,
         use SessionFactory to create a complete trading session.
+        Risk limits and max holding periods from the backtest plan are enforced.
         """
         from ..fsd import FSDConfig, FSDEngine
         from ..portfolio import Portfolio
@@ -431,6 +441,8 @@ class BacktestOrchestrator:
         # Initialize components
         fsd_config = self._config.fsd_config or FSDConfig()
         portfolio = Portfolio(initial_cash=self._config.initial_capital)
+        risk_limits = self._config.risk_limits or RiskLimits()
+        risk_engine = RiskEngine(risk_limits, portfolio, self._bar_interval)
         fsd_engine = FSDEngine(fsd_config, portfolio)
         fsd_engine.start_session()
 
@@ -454,26 +466,73 @@ class BacktestOrchestrator:
 
         sorted_timestamps = sorted(bars_by_timestamp.keys())
 
+        last_prices: dict[str, Decimal] = {}
         for i, timestamp in enumerate(sorted_timestamps):
             symbol_bars = bars_by_timestamp[timestamp]
-            last_prices = {sym: bar.close for sym, bar in symbol_bars.items()}
+            for sym, bar in symbol_bars.items():
+                last_prices[sym] = bar.close
 
             for symbol, bar in symbol_bars.items():
                 history = history_by_symbol[symbol]
                 history.append(bar)
-                scheduled_trades = self._process_scheduled_orders(symbol, bar, portfolio, fsd_engine)
+                scheduled_trades = self._process_scheduled_orders(
+                    symbol,
+                    bar,
+                    portfolio,
+                    fsd_engine,
+                    risk_engine=risk_engine,
+                    last_prices=last_prices,
+                )
                 if scheduled_trades:
                     trades.extend(scheduled_trades)
                     result.total_trades += len(scheduled_trades)
 
+                forced_trades = self._maybe_force_exit(
+                    symbol,
+                    bar,
+                    portfolio,
+                    history,
+                    fsd_engine,
+                    risk_engine,
+                    last_prices,
+                )
+                if forced_trades:
+                    trades.extend(forced_trades)
+                    result.total_trades += len(forced_trades)
+                    continue
+
                 # Get FSD decision
                 decision = fsd_engine.evaluate_opportunity(symbol, history, last_prices)
                 action_payload = decision.get('action')
-                action_type = action_payload.get('type') if isinstance(action_payload, dict) else None
+                action_type = None
+                size_fraction = None
+                signal = None
+                if isinstance(action_payload, dict):
+                    action_type = action_payload.get('type')
+                    size_fraction = action_payload.get('size_fraction')
+                    signal = action_payload.get('signal')
+                elif isinstance(action_payload, str):
+                    action_type = action_payload
+                if not action_type and isinstance(signal, (int, float)):
+                    if signal > 0:
+                        action_type = 'BUY'
+                    elif signal < 0:
+                        action_type = 'SELL'
 
                 # Execute action
                 if decision.get('should_trade') and isinstance(action_type, str):
-                    trade_results = self._execute_action(action_type, symbol, bar, portfolio, history, fsd_engine)
+                    trade_results = self._execute_action(
+                        action_type,
+                        symbol,
+                        bar,
+                        portfolio,
+                        history,
+                        fsd_engine,
+                        size_fraction=size_fraction,
+                        signal=signal,
+                        last_prices=last_prices,
+                        risk_engine=risk_engine,
+                    )
                     if trade_results:
                         trades.extend(trade_results)
                         result.total_trades += len(trade_results)
@@ -483,13 +542,7 @@ class BacktestOrchestrator:
                 i == len(sorted_timestamps) - 1
                 or timestamp.date() != sorted_timestamps[min(i + 1, len(sorted_timestamps) - 1)].date()
             ):
-                equity = portfolio.total_equity(
-                    {
-                        s: bars_by_timestamp[timestamp][s].close
-                        for s in self._config.symbols
-                        if s in bars_by_timestamp[timestamp]
-                    }
-                )
+                equity = portfolio.total_equity(last_prices)
                 equity_curve.append((timestamp.date(), Decimal(str(equity))))
 
         # Calculate metrics
@@ -546,8 +599,24 @@ class BacktestOrchestrator:
 
         # Calculate win rate
         if trades:
-            winning_trades = sum(1 for t in trades if _trade_pnl(t) > 0)
+            pnl_values = [Decimal(str(_trade_pnl(trade))) for trade in trades]
+            winning_trades = sum(1 for pnl in pnl_values if pnl > 0)
             result.win_rate = winning_trades / len(trades)
+            result.average_trade_pnl = sum(pnl_values, Decimal('0')) / Decimal(str(len(trades)))
+
+            total_wins = sum((pnl for pnl in pnl_values if pnl > 0), Decimal('0'))
+            total_losses = sum((pnl for pnl in pnl_values if pnl < 0), Decimal('0'))
+            if total_losses < 0:
+                result.profit_factor = float(total_wins / abs(total_losses))
+            elif total_wins > 0:
+                result.profit_factor = float('inf')
+
+            result.total_slippage = sum(
+                (Decimal(str(trade.get('slippage', 0))) for trade in trades), Decimal('0')
+            )
+            result.total_commission = sum(
+                (Decimal(str(trade.get('commission', 0))) for trade in trades), Decimal('0')
+            )
             result.trades = trades
 
         fsd_engine.end_session()
@@ -607,6 +676,75 @@ class BacktestOrchestrator:
         if total <= 0:
             return [1.0 / slices] * slices
         return [vol / total for vol in volumes]
+
+    def _resolve_bar_interval(self) -> timedelta:
+        """Resolve bar interval for risk limits and holding-period checks."""
+        timeframe = str(self._config.timeframe).lower().strip()
+        seconds = TIMEFRAME_TO_SECONDS.get(timeframe)
+        if seconds:
+            return timedelta(seconds=seconds)
+        return timedelta(minutes=1)
+
+    def _maybe_force_exit(
+        self,
+        symbol: str,
+        bar: Bar,
+        portfolio: Any,
+        history: list[Bar],
+        decision_engine: FSDEngine | None,
+        risk_engine: RiskEngine | None,
+        last_prices: dict[str, Decimal],
+    ) -> list[TradeRecord]:
+        """Force a position exit when max holding period is exceeded."""
+        if risk_engine is None:
+            return []
+        max_bars = int(getattr(risk_engine.config, 'max_holding_period_bars', 0))
+        if max_bars <= 0:
+            return []
+
+        position = portfolio.position(symbol)
+        if position.quantity == 0 or position.entry_time_utc is None:
+            return []
+
+        bar_interval_seconds = int(self._bar_interval.total_seconds())
+        if bar_interval_seconds <= 0:
+            return []
+
+        entry_time = position.entry_time_utc
+        if entry_time.tzinfo is None:
+            entry_time = entry_time.replace(tzinfo=timezone.utc)
+        current_time = bar.timestamp
+        if current_time.tzinfo is None:
+            current_time = current_time.replace(tzinfo=timezone.utc)
+
+        bars_held = int((current_time - entry_time).total_seconds() // bar_interval_seconds)
+        if bars_held < max_bars:
+            return []
+
+        side = 'sell' if position.quantity > 0 else 'buy'
+        scheduled_orders = self._plan_execution_orders(
+            symbol=symbol,
+            side=side,
+            quantity=abs(position.quantity),
+            timestamp=bar.timestamp,
+            history=history,
+        )
+        if scheduled_orders:
+            self._scheduled_orders.extend(scheduled_orders)
+        logger.info(
+            'Force exit triggered for %s after %s bars (limit=%s)',
+            symbol,
+            bars_held,
+            max_bars,
+        )
+        return self._process_scheduled_orders(
+            symbol,
+            bar,
+            portfolio,
+            decision_engine,
+            risk_engine=risk_engine,
+            last_prices=last_prices,
+        )
 
     def _build_sliced_orders(
         self,
@@ -721,6 +859,8 @@ class BacktestOrchestrator:
         bar: Bar,
         portfolio: Any,
         decision_engine: FSDEngine | None = None,
+        risk_engine: RiskEngine | None = None,
+        last_prices: dict[str, Decimal] | None = None,
     ) -> list[TradeRecord]:
         due: list[_ScheduledBacktestOrder] = []
         remaining: list[_ScheduledBacktestOrder] = []
@@ -736,7 +876,14 @@ class BacktestOrchestrator:
             if self._should_avoid_open_close(bar.timestamp):
                 self._scheduled_orders.append(scheduled)
                 continue
-            trade = self._submit_scheduled_order(scheduled, bar, portfolio, decision_engine)
+            trade = self._submit_scheduled_order(
+                scheduled,
+                bar,
+                portfolio,
+                decision_engine,
+                risk_engine=risk_engine,
+                last_prices=last_prices,
+            )
             if trade:
                 trades.append(trade)
         return trades
@@ -747,6 +894,8 @@ class BacktestOrchestrator:
         bar: Bar,
         portfolio: Any,
         decision_engine: FSDEngine | None = None,
+        risk_engine: RiskEngine | None = None,
+        last_prices: dict[str, Decimal] | None = None,
     ) -> TradeRecord | None:
         from ..execution import Order, OrderSide, OrderType
 
@@ -755,6 +904,23 @@ class BacktestOrchestrator:
         limit_price = None
         if order_type == OrderType.LIMIT:
             limit_price = self._compute_limit_price(scheduled.side, bar.close, bar)
+
+        signed_qty = scheduled.quantity if side == OrderSide.BUY else -scheduled.quantity
+        if risk_engine is not None:
+            prices = last_prices or {scheduled.symbol: bar.close}
+            try:
+                equity = portfolio.total_equity(prices)
+                risk_engine.check_pre_trade(
+                    scheduled.symbol,
+                    signed_qty,
+                    bar.close,
+                    Decimal(str(equity)),
+                    prices,
+                    bar.timestamp,
+                )
+            except RiskViolation as exc:
+                logger.warning('Risk block on %s: %s', scheduled.symbol, exc)
+                return None
 
         order = Order(
             symbol=scheduled.symbol,
@@ -767,6 +933,8 @@ class BacktestOrchestrator:
         fill_result = self._exec_model.calculate_fill(order, bar)
         if not fill_result:
             return None
+        if risk_engine is not None:
+            risk_engine.record_order_submission(bar.timestamp)
 
         signed_qty = fill_result.fill_quantity if side == OrderSide.BUY else -fill_result.fill_quantity
         pos_before = float(portfolio.get_position(scheduled.symbol))
@@ -797,8 +965,15 @@ class BacktestOrchestrator:
             'side': side.value,
             'quantity': float(fill_result.fill_quantity),
             'price': float(fill_result.fill_price),
+            'slippage': float(fill_result.costs.slippage),
+            'spread_cost': float(fill_result.costs.spread_cost),
+            'temporary_impact': float(fill_result.costs.temporary_impact),
+            'permanent_impact': float(fill_result.costs.permanent_impact),
+            'commission': float(fill_result.costs.commission),
             'costs': float(fill_result.costs.total),
             'pnl': float(realised),
+            'is_partial': fill_result.is_partial,
+            'fill_reason': fill_result.reason,
         }
 
     def _execute_action(
@@ -809,6 +984,10 @@ class BacktestOrchestrator:
         portfolio: Any,
         history: list[Bar],
         decision_engine: FSDEngine | None = None,
+        size_fraction: float | int | None = None,
+        signal: float | int | None = None,
+        last_prices: dict[str, Decimal] | None = None,
+        risk_engine: RiskEngine | None = None,
     ) -> list[TradeRecord]:
         """Execute a trading action."""
         from ..execution import OrderSide
@@ -818,6 +997,45 @@ class BacktestOrchestrator:
 
         # Determine order side and quantity
         position_qty = float(portfolio.get_position(symbol))
+
+        if size_fraction is not None and signal is not None and signal != 0:
+            try:
+                size_fraction_value = abs(Decimal(str(size_fraction)))
+            except Exception:
+                size_fraction_value = Decimal('0')
+
+            if size_fraction_value > 0:
+                current_price = bar.close
+                if current_price <= 0:
+                    return []
+                equity = portfolio.total_equity(last_prices or {symbol: current_price})
+                target_notional = Decimal(str(equity)) * size_fraction_value * Decimal(str(signal))
+                target_qty = target_notional / current_price
+                current_qty = Decimal(str(portfolio.get_position(symbol)))
+                delta = target_qty - current_qty
+                if abs(delta) < Decimal('0.00001'):
+                    return []
+
+                side = OrderSide.BUY if delta > 0 else OrderSide.SELL
+                order_qty = abs(delta)
+                side_label = 'buy' if side == OrderSide.BUY else 'sell'
+                scheduled_orders = self._plan_execution_orders(
+                    symbol=symbol,
+                    side=side_label,
+                    quantity=Decimal(str(order_qty)),
+                    timestamp=bar.timestamp,
+                    history=history,
+                )
+                if scheduled_orders:
+                    self._scheduled_orders.extend(scheduled_orders)
+                return self._process_scheduled_orders(
+                    symbol,
+                    bar,
+                    portfolio,
+                    decision_engine,
+                    risk_engine=risk_engine,
+                    last_prices=last_prices,
+                )
 
         if action == 'BUY':
             # Buy if no position
@@ -857,7 +1075,14 @@ class BacktestOrchestrator:
         )
         if scheduled_orders:
             self._scheduled_orders.extend(scheduled_orders)
-        return self._process_scheduled_orders(symbol, bar, portfolio, decision_engine)
+        return self._process_scheduled_orders(
+            symbol,
+            bar,
+            portfolio,
+            decision_engine,
+            risk_engine=risk_engine,
+            last_prices=last_prices,
+        )
 
     def get_status(self) -> dict[str, Any]:
         """Get current orchestrator status."""

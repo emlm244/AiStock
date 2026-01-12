@@ -64,8 +64,8 @@ class RiskEngine:
     - Minimum balance protection
     - Account capability restrictions (futures/options/settlement)
 
-    Note: max_holding_period_bars is validated in config but requires
-    position age tracking in the coordinator/engine layer for enforcement.
+    Note: max_holding_period_bars is validated in config and enforced by
+    TradingCoordinator and the backtest orchestrator when bar timestamps are available.
     """
 
     def __init__(

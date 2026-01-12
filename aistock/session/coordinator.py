@@ -839,7 +839,8 @@ class TradingCoordinator:
         if max_capital is not None:
             target_notional_base = min(target_notional_base, max_capital)
 
-            current_symbol_exposure = abs(current_pos.quantity) * current_price
+            current_symbol_multiplier = getattr(current_pos, 'multiplier', Decimal('1'))
+            current_symbol_exposure = abs(current_pos.quantity) * current_price * Decimal(str(current_symbol_multiplier))
             current_exposure = Decimal('0')
             snapshot_fn = getattr(self.portfolio, 'snapshot_positions', None)
             if callable(snapshot_fn):
@@ -851,7 +852,8 @@ class TradingCoordinator:
                     if price_value is None:
                         continue
                     price_dec = Decimal(str(price_value))
-                    current_exposure += abs(pos.quantity) * price_dec
+                    pos_multiplier = getattr(pos, 'multiplier', Decimal('1'))
+                    current_exposure += abs(pos.quantity) * price_dec * Decimal(str(pos_multiplier))
             else:
                 current_exposure = current_symbol_exposure
 

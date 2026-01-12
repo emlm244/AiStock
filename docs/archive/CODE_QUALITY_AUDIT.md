@@ -43,7 +43,7 @@ All shared state is properly protected with locks.
 - **Line 288-289:** `replace_positions()` correctly replaces under lock ✓
 
 #### aistock/engine.py
-- **No locks:** TradingEngine is single-threaded by design (confirmed in CLAUDE.md)
+- **No locks:** TradingEngine is single-threaded by design (confirmed in AGENTS.md)
 - Trade execution and position tracking are not protected
 - This is acceptable per architecture, but document clearly ✓
 
@@ -69,7 +69,7 @@ All datetime creation uses timezone-aware UTC.
 #### aistock/engine.py
 - **Line 11:** Does NOT import timezone (potential risk)
 - **Accepts timestamps as parameters** from callers (external dependency)
-- Trade timestamps may be naive-UTC per CLAUDE.md convention, but not explicitly validated
+- Trade timestamps may be naive-UTC per AGENTS.md convention, but not explicitly validated
 
 **FINDINGS:** 
 - MINOR: engine.py doesn't validate timezone-aware requirement for timestamps
@@ -525,7 +525,7 @@ if existing_position and existing_position.quantity != 0:
 ```
 
 **Why this is dangerous:**
-1. Per CLAUDE.md: "TradingEngine is the authoritative source for P&L"
+1. Per AGENTS.md: "TradingEngine is the authoritative source for P&L"
 2. Two independent implementations **will eventually diverge**
 3. Different coordinate systems could cause bugs
 4. If one fixes a bug, the other isn't updated
@@ -672,7 +672,7 @@ class Trade:
 
 **Issue:** No validation that `timestamp` is timezone-aware
 
-**Per CLAUDE.md:** "All datetime objects MUST be timezone-aware (UTC)"
+**Per AGENTS.md:** "All datetime objects MUST be timezone-aware (UTC)"
 
 **Recommendation:**
 ```python

@@ -177,7 +177,7 @@ class BacktestPlanConfig:
 
     # Performance options
     use_cache: bool = True  # Use Massive.com data cache
-    parallel_folds: int = 1  # Number of folds to run in parallel (experimental)
+    parallel_folds: int = 1  # Reserved for future parallel fold execution (currently sequential)
 
     def __post_init__(self) -> None:
         """Validate configuration."""

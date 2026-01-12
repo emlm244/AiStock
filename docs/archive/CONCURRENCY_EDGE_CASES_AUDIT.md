@@ -265,7 +265,7 @@ def shutdown(self):
 ## FILES THAT ARE THREAD-SAFE (verified)
 
 - aistock/portfolio.py (Lock correctly used)
-- aistock/risk.py (RLock correctly used)
+- aistock/risk/engine.py (RLock correctly used)
 - aistock/timeframes.py (Lock correctly used)
 - aistock/session/bar_processor.py (Lock correctly used)
 - aistock/session/reconciliation.py (No locks needed, validated inputs)

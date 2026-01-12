@@ -79,6 +79,7 @@ class FSDConfig:
 
 ```
 aistock/
+├── backtest/           # Backtest orchestrator + execution model
 ├── fsd.py              # FSD RL Agent (CORE)
 ├── engine.py           # Custom trading engine
 ├── simple_gui.py       # FSD GUI interface
@@ -95,11 +96,12 @@ aistock/
 │   └── agents/         # RL agents (Double Q, DQN, Sequential)
 ├── engines/            # Decision engine implementations (NEW)
 ├── portfolio.py        # Position tracking
-├── risk.py             # Risk management
+├── risk/               # Risk management (core + advanced)
 ├── stop_control.py     # Manual/EOD stop handling
-└── brokers/            # Broker integrations
+├── brokers/            # Broker integrations
     ├── paper.py        # Paper trading
     └── ibkr.py         # Interactive Brokers
+└── providers/          # Massive.com data + caching
 ```
 
 ---
@@ -112,6 +114,15 @@ pip install -r requirements-dev.txt
 
 # Run tests
 pytest tests/
+
+# Smoke backtest (paper broker + SessionFactory)
+python scripts/run_smoke_backtest.py
+
+# Sample P&L backtest (TradingEngine)
+python scripts/run_sample_backtest.py
+
+# Massive-backed backtest (requires MASSIVE_API_KEY)
+MASSIVE_API_KEY=... python -m aistock.backtest --symbols AAPL --start-date 2024-01-01 --end-date 2024-12-31
 
 # Test FSD import
 python -c "from aistock.fsd import FSDEngine; print('✅ OK')"
@@ -126,7 +137,10 @@ python -m aistock
 
 - **IBKR_REQUIREMENTS_CHECKLIST.md** - IBKR connection setup
 - **docs/FSD_COMPLETE_GUIDE.md** - FSD technical deep dive
-- **CLAUDE.md** - Developer guide for working with the codebase
+- **docs/audit/2025-11-08/ARCHITECTURE_MAP.md** - Architecture map
+- **docs/BACKTEST_RERUN_GUIDE.md** - Backtest rerun workflow
+- **scripts/README.md** - Operational and backtest automation
+- **AGENTS.md** - Developer guide & repo conventions
 
 ---
 
@@ -206,7 +220,7 @@ config = FSDConfig(
 )
 ```
 
-See `CLAUDE.md` for detailed configuration options.
+See `AGENTS.md` for detailed configuration options.
 
 ---
 
@@ -215,7 +229,7 @@ See `CLAUDE.md` for detailed configuration options.
 - **Errors?** Check logs (if logging is enabled)
 - **IBKR Setup?** See `IBKR_REQUIREMENTS_CHECKLIST.md`
 - **FSD Questions?** Read `docs/FSD_COMPLETE_GUIDE.md`
-- **Code Development?** See `CLAUDE.md` for developer guidelines
+- **Code Development?** See `AGENTS.md` for developer guidelines
 
 ---
 
@@ -226,7 +240,10 @@ See `CLAUDE.md` for detailed configuration options.
 | `README.md` | Project overview and quick start | Everyone |
 | `IBKR_REQUIREMENTS_CHECKLIST.md` | IBKR connection setup | Live trading users |
 | `docs/FSD_COMPLETE_GUIDE.md` | FSD deep dive & implementation | Advanced users |
-| `CLAUDE.md` | Developer guide & codebase instructions | Developers |
+| `docs/audit/2025-11-08/ARCHITECTURE_MAP.md` | System architecture map | Developers |
+| `docs/BACKTEST_RERUN_GUIDE.md` | Backtest rerun workflow | Developers |
+| `scripts/README.md` | Automation tooling overview | Developers |
+| `AGENTS.md` | Developer guide & codebase instructions | Developers |
 
 ---
 

@@ -4,6 +4,8 @@
 
 The FSD Trading Bot is an autonomous AI-powered trading system that uses **Reinforcement Learning (Q-Learning)** to make ALL trading decisions. It learns from every trade, adapts its strategy dynamically, and continuously improves its performance.
 
+**Note**: This guide is conceptual. For current defaults and exact behavior, consult `aistock/fsd.py` and `AGENTS.md`.
+
 ## ✅ Requirements
 
 Install runtime dependencies before running the bot (NumPy + pandas are required):

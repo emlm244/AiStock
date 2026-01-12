@@ -23,6 +23,109 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_DECIMAL = Decimal('0')
+
+
+def _safe_decimal(value: object) -> Decimal:
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return _DEFAULT_DECIMAL
+
+
+def _extract_returns(equity_curve: list[tuple[datetime, Decimal]] | list[tuple[object, Decimal]]) -> list[float]:
+    returns: list[float] = []
+    for i in range(1, len(equity_curve)):
+        prev_equity = float(equity_curve[i - 1][1])
+        current_equity = float(equity_curve[i][1])
+        if prev_equity:
+            returns.append((current_equity - prev_equity) / prev_equity)
+    return returns
+
+
+def _calculate_var_cvar(returns: list[float], confidence: float = 0.95) -> tuple[Decimal, Decimal]:
+    if not returns:
+        return (_DEFAULT_DECIMAL, _DEFAULT_DECIMAL)
+
+    sorted_returns = sorted(returns)
+    index = max(0, min(len(sorted_returns) - 1, int((1 - confidence) * len(sorted_returns))))
+    var_return = sorted_returns[index]
+    if var_return >= 0:
+        return (_DEFAULT_DECIMAL, _DEFAULT_DECIMAL)
+
+    tail = [r for r in sorted_returns if r <= var_return]
+    cvar_return = sum(tail) / len(tail) if tail else var_return
+    return (_safe_decimal(abs(var_return)), _safe_decimal(abs(cvar_return)))
+
+
+def _calculate_max_drawdown(equity_curve: list[tuple[object, Decimal]]) -> Decimal:
+    peak = _DEFAULT_DECIMAL
+    max_drawdown = _DEFAULT_DECIMAL
+    for _, equity_value in equity_curve:
+        equity = _safe_decimal(equity_value)
+        if equity > peak:
+            peak = equity
+        drawdown = peak - equity
+        if drawdown > max_drawdown:
+            max_drawdown = drawdown
+    return max_drawdown
+
+
+def _trade_pnls(trades: list[dict[str, object]]) -> list[Decimal]:
+    pnls: list[Decimal] = []
+    for trade in trades:
+        pnl = trade.get('pnl')
+        if pnl is None:
+            continue
+        pnls.append(_safe_decimal(pnl))
+    return pnls
+
+
+def _calculate_trade_stats(trades: list[dict[str, object]]) -> TradeStats:
+    pnls = _trade_pnls(trades)
+    if not pnls:
+        return TradeStats(
+            profit_factor=0.0,
+            average_trade_pnl=_DEFAULT_DECIMAL,
+            average_win=_DEFAULT_DECIMAL,
+            average_loss=_DEFAULT_DECIMAL,
+            largest_win=_DEFAULT_DECIMAL,
+            largest_loss=_DEFAULT_DECIMAL,
+        )
+
+    wins = [pnl for pnl in pnls if pnl > 0]
+    losses = [pnl for pnl in pnls if pnl < 0]
+    total_wins = sum(wins, _DEFAULT_DECIMAL)
+    total_losses = sum(losses, _DEFAULT_DECIMAL)
+
+    if total_losses < 0:
+        profit_factor = float(total_wins / abs(total_losses))
+    elif total_wins > 0:
+        profit_factor = float('inf')
+    else:
+        profit_factor = 0.0
+
+    return TradeStats(
+        profit_factor=profit_factor,
+        average_trade_pnl=sum(pnls, _DEFAULT_DECIMAL) / Decimal(str(len(pnls))),
+        average_win=sum(wins, _DEFAULT_DECIMAL) / Decimal(str(len(wins))) if wins else _DEFAULT_DECIMAL,
+        average_loss=sum(losses, _DEFAULT_DECIMAL) / Decimal(str(len(losses))) if losses else _DEFAULT_DECIMAL,
+        largest_win=max(wins) if wins else _DEFAULT_DECIMAL,
+        largest_loss=min(losses) if losses else _DEFAULT_DECIMAL,
+    )
+
+
+@dataclass(frozen=True)
+class TradeStats:
+    """Summary statistics derived from per-trade P&L values."""
+
+    profit_factor: float
+    average_trade_pnl: Decimal
+    average_win: Decimal
+    average_loss: Decimal
+    largest_win: Decimal
+    largest_loss: Decimal
+
 
 @dataclass
 class BacktestReport:
@@ -53,6 +156,7 @@ class BacktestReport:
     total_trades: int = 0
     win_rate: float = 0.0
     profit_factor: float = 0.0
+    average_trade_pnl: Decimal = field(default_factory=lambda: Decimal('0'))
     average_win: Decimal = field(default_factory=lambda: Decimal('0'))
     average_loss: Decimal = field(default_factory=lambda: Decimal('0'))
     largest_win: Decimal = field(default_factory=lambda: Decimal('0'))
@@ -100,6 +204,8 @@ class BacktestReport:
                 'max_drawdown': str(self.max_drawdown),
                 'max_drawdown_pct': self.max_drawdown_pct,
                 'calmar_ratio': self.calmar_ratio,
+                'value_at_risk_95': str(self.value_at_risk_95),
+                'expected_shortfall': str(self.expected_shortfall),
             },
             'trade_statistics': {
                 'total_trades': self.total_trades,
@@ -107,6 +213,10 @@ class BacktestReport:
                 'profit_factor': self.profit_factor,
                 'average_win': str(self.average_win),
                 'average_loss': str(self.average_loss),
+                'largest_win': str(self.largest_win),
+                'largest_loss': str(self.largest_loss),
+                'average_trade_pnl': str(self.average_trade_pnl),
+                'average_trade_duration': self.average_trade_duration,
             },
             'walk_forward': {
                 'in_sample_sharpe': self.in_sample_sharpe,
@@ -120,6 +230,11 @@ class BacktestReport:
                 'total_slippage': str(self.total_slippage_cost),
                 'total_commission': str(self.total_commission_cost),
                 'total_cost': str(self.total_execution_cost),
+            },
+            'data_quality': {
+                'symbols_tested': self.symbols_tested,
+                'symbols_with_issues': self.symbols_with_issues,
+                'warnings': self.data_warnings,
             },
         }
 
@@ -173,25 +288,81 @@ def generate_backtest_report(
         # Aggregate trades from all folds
         total_trades = 0
         total_return = Decimal('0')
+        max_drawdown_pct = 0.0
+        trade_records: list[dict[str, object]] = []
+        execution_slippage = Decimal('0')
+        execution_commission = Decimal('0')
+        sortino_values: list[float] = []
+        calmar_values: list[float] = []
+        returns: list[float] = []
+        max_drawdown = _DEFAULT_DECIMAL
+        return_pcts: list[float] = []
         for fold in wf.folds:
             if fold.test_result:
                 total_trades += fold.test_result.total_trades
                 total_return += fold.test_result.total_return
+                max_drawdown_pct = max(max_drawdown_pct, fold.test_result.max_drawdown_pct)
+                trade_records.extend(fold.test_result.trades)
+                execution_slippage += fold.test_result.total_slippage
+                execution_commission += fold.test_result.total_commission
+                sortino_values.append(fold.test_result.sortino_ratio)
+                calmar_values.append(fold.test_result.calmar_ratio)
+                returns.extend(_extract_returns(fold.test_result.equity_curve))
+                max_drawdown = max(max_drawdown, _calculate_max_drawdown(fold.test_result.equity_curve))
+                return_pcts.append(fold.test_result.total_return_pct)
 
         report.total_trades = total_trades
         report.total_return = total_return
-        if float(config.initial_capital) > 0:
-            report.total_return_pct = float(total_return) / float(config.initial_capital)
+        report.max_drawdown_pct = max_drawdown_pct
+        if return_pcts:
+            report.total_return_pct = sum(return_pcts) / len(return_pcts)
+        if sortino_values:
+            report.sortino_ratio = sum(sortino_values) / len(sortino_values)
+        if calmar_values:
+            report.calmar_ratio = sum(calmar_values) / len(calmar_values)
+
+        trade_stats = _calculate_trade_stats(trade_records)
+        report.win_rate = (total_trades and sum(1 for pnl in _trade_pnls(trade_records) if pnl > 0) / total_trades) or 0
+        report.profit_factor = trade_stats.profit_factor
+        report.average_trade_pnl = trade_stats.average_trade_pnl
+        report.average_win = trade_stats.average_win
+        report.average_loss = trade_stats.average_loss
+        report.largest_win = trade_stats.largest_win
+        report.largest_loss = trade_stats.largest_loss
+        report.total_slippage_cost = execution_slippage
+        report.total_commission_cost = execution_commission
+        report.total_execution_cost = execution_slippage + execution_commission
+        report.max_drawdown = max_drawdown
+        var_95, cvar_95 = _calculate_var_cvar(returns)
+        report.value_at_risk_95 = var_95
+        report.expected_shortfall = cvar_95
 
     # Single period results
     elif result.period_results:
         period = result.period_results[0]
+        trade_stats = _calculate_trade_stats(period.trades)
         report.total_return = period.total_return
         report.total_return_pct = period.total_return_pct
         report.sharpe_ratio = period.sharpe_ratio
+        report.sortino_ratio = period.sortino_ratio
         report.total_trades = period.total_trades
         report.win_rate = period.win_rate
+        report.profit_factor = trade_stats.profit_factor
+        report.average_trade_pnl = trade_stats.average_trade_pnl
+        report.average_win = trade_stats.average_win
+        report.average_loss = trade_stats.average_loss
+        report.largest_win = trade_stats.largest_win
+        report.largest_loss = trade_stats.largest_loss
         report.max_drawdown_pct = period.max_drawdown_pct
+        report.calmar_ratio = period.calmar_ratio
+        report.total_slippage_cost = period.total_slippage
+        report.total_commission_cost = period.total_commission
+        report.total_execution_cost = period.total_slippage + period.total_commission
+        report.max_drawdown = _calculate_max_drawdown(period.equity_curve)
+        returns = _extract_returns(period.equity_curve)
+        var_95, cvar_95 = _calculate_var_cvar(returns)
+        report.value_at_risk_95 = var_95
+        report.expected_shortfall = cvar_95
 
     # Calculate annualized return
     if report.total_days > 0:

@@ -12,6 +12,7 @@
 - `pip install -r requirements-dev.txt` adds pytest, ruff, basedpyright, and related tooling.
 - `python -m aistock` or `python launch_gui.py` starts the FSD GUI/runtime.
 - `python test_ibkr_connection.py` validates local IBKR connectivity.
+- `python -m aistock.backtest --symbols AAPL --start-date 2024-01-01 --end-date 2024-12-31` runs a Massive-backed backtest.
 - `pytest tests/` runs the test suite; target individual files during development.
 - `ruff check .` and `ruff format .` enforce linting/formatting.
 - `basedpyright` runs strict type checks (see `pyrightconfig.json`).
@@ -22,9 +23,9 @@
 - Preserve broker API callback naming (IBKR uses mixed-case callbacks).
 
 ## Testing Guidelines
-- Pytest with `test_*.py` naming; keep new tests alongside the feature’s domain folder.
-- Some tests require environment variables (e.g., `IBKR_ACCOUNT_ID`, `IBKR_CLIENT_ID`) and provider dependencies; configure via `.env` or `.env.example`.
-- CI runs ruff, basedpyright (non-blocking), and pytest across Python 3.10–3.12 with coverage on 3.10.
+- Pytest with `test_*.py` naming; keep new tests alongside the feature's domain folder.
+- Some tests require environment variables (e.g., `IBKR_ACCOUNT_ID`, `IBKR_CLIENT_ID`, `MASSIVE_API_KEY`) and provider dependencies; configure via `.env` or `.env.example`.
+- CI runs ruff, basedpyright (non-blocking), and pytest across Python 3.10-3.12 with coverage on 3.10.
 
 ## Commit & Pull Request Guidelines
 - Commit messages use `type: summary` (common types: `feat`, `fix`, `docs`, `style`, `chore`; scope is optional).
@@ -32,6 +33,6 @@
 - PRs should include a clear description, tests run, and screenshots for GUI changes; update `scripts/README.md` when adding scripts.
 
 ## Configuration & Data
-- Copy `.env.example` to `.env` and set IBKR credentials, ports, and GUI defaults; never commit secrets.
+- Copy `.env.example` to `.env` and set IBKR credentials, Massive API key, and GUI defaults; never commit secrets.
 - `configs/fsd_mode_example.json` shows a baseline FSD configuration.
 - Use `data/README.md` and `scripts/generate_synthetic_dataset.py` to build historical CSV data for backtests.

@@ -90,9 +90,9 @@ def stop(self) -> None:
 |------|------|---------|--------|
 | `aistock/fsd.py` | 1251 | Pickle load fallback | ✓ EXPECTED |
 | `aistock/scanner.py` | 87, 103, 119, 145, 162, 178, 201 | Try-except for optional API calls | ✓ EXPECTED |
-| `aistock/logging.py` | 45 | Log setup fallback | ✓ EXPECTED |
+| `aistock/log_config.py` | 45 | Log setup fallback | ✓ EXPECTED |
 | `aistock/brokers/ibkr.py` | 312, 398 | IBKR callback placeholders | ✓ EXPECTED |
-| `aistock/risk.py` | (empty exception class) | Marker exception | ✓ EXPECTED |
+| `aistock/risk/engine.py` | (empty exception class) | Marker exception | ✓ EXPECTED |
 
 **Examples**:
 
@@ -116,19 +116,9 @@ def historicalData(self, reqId, bar):
 
 **Status**: ✓ ALL ACCEPTABLE - These are intentional no-ops for exception handling or callback placeholders.
 
-#### Category B: Placeholder Test (1 occurrence - ACCEPTABLE)
+#### Category B: Placeholder Tests (0 occurrences)
 
-**File**: `tests/test_coordinator_regression.py`
-**Line**: 188
-
-```python
-def test_placeholder_for_future_coordinator_edge_case():
-    pass  # TODO: Add test when edge case is discovered
-```
-
-**Status**: ⚠ MINOR - Single placeholder test. Acceptable as it's documented.
-
-**Recommendation**: Either implement the test or remove the placeholder. However, this is extremely minor and does not affect code quality.
+**Result**: ✓ CLEAN - No placeholder tests found in the current codebase.
 
 ---
 
@@ -156,7 +146,7 @@ $ rg "from .* import \*" aistock/ tests/ --type py
 # No results
 ```
 
-**Compliance**: ✓ Follows explicit import best practices per CLAUDE.md
+**Compliance**: ✓ Follows explicit import best practices per AGENTS.md
 
 ---
 

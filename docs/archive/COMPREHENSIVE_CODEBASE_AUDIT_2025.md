@@ -453,7 +453,7 @@ def _check_end_of_day(self, current_time: datetime) -> dict[str, object]:
 ---
 
 ### 2.7 Risk Engine Timestamp Deserialization Bug
-**File:** `aistock/risk.py:225-234`
+**File:** `aistock/risk/engine.py:225-234`
 **Severity:** HIGH
 **Category:** Timezone
 
@@ -519,14 +519,14 @@ def should_reconcile(self, current_time: datetime) -> bool:
         raise ValueError(f'Naive datetime not allowed: {current_time}')
 ```
 
-But per CLAUDE.md, "bar timestamps are naive-UTC (industry standard)". If reconciliation is called with bar timestamp, this crashes.
+But per AGENTS.md, "bar timestamps are naive-UTC (industry standard)". If reconciliation is called with bar timestamp, this crashes.
 
 **Fix:** Either convert bar timestamp to UTC-aware before passing, or document that reconciliation accepts naive-UTC.
 
 ---
 
 ### 2.11 Risk Engine: Per-Trade Cap Ignores Concurrent Positions
-**File:** `aistock/risk.py:158-168`
+**File:** `aistock/risk/engine.py:158-168`
 **Severity:** HIGH
 **Category:** Risk Management
 
@@ -617,7 +617,7 @@ Hardcoded threshold of 100 shares. Cannot adapt to different asset classes.
 ---
 
 ### 3.8 Halt Status Resets on Daily Reset
-**File:** `aistock/risk.py:214-223`
+**File:** `aistock/risk/engine.py:214-223`
 **Severity:** MEDIUM
 **Category:** Risk Management
 
