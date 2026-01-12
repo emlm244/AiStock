@@ -7,18 +7,13 @@ This directory contains historical market data for backtesting and live trading.
 ```
 data/
 ├── historical/
-│   ├── stocks/      # Stock data (FSD & Headless modes)
-│   ├── forex/       # Forex data (BOT mode only)
-│   └── crypto/      # Cryptocurrency data (BOT mode only)
-├── staging/          # Temporary staging area for data ingestion
-├── curated/          # Clean, validated data after ingestion
-└── live_data/        # Real-time data feeds (optional)
+│   ├── stocks/       # Stock data for FSD mode
+│   ├── crypto/       # Crypto history (optional)
+│   └── forex/        # FX history (optional)
+└── live/             # Real-time snapshots (optional)
 ```
 
-### Asset Class Restrictions by Mode:
-- **FSD (Full Self-Driving)**: Stocks only (`data/historical/stocks/`)
-- **Headless (Semi-Autonomous)**: Stocks only (`data/historical/stocks/`)
-- **BOT (Manual Control)**: All asset classes (stocks, forex, crypto)
+**FSD Mode**: Stocks only (`data/historical/stocks/`) for CSV-driven backtests.
 
 ## Generating Sample Data
 
@@ -75,12 +70,9 @@ timestamp,open,high,low,close,volume
 
 To use real market data:
 
-1. **Download from a provider**: Use APIs from Alpha Vantage, Yahoo Finance, Polygon.io, etc.
+1. **Download from a provider**: Use APIs from Massive.com, Alpha Vantage, Yahoo Finance, Polygon.io, etc.
 2. **Convert to the required format**: Ensure CSV follows the format above
-3. **Place files in**:
-   - Stocks: `data/historical/stocks/`
-   - Forex: `data/historical/forex/`
-   - Crypto: `data/historical/crypto/`
+3. **Place files in**: `data/historical/stocks/`
 4. **Validate**: Run a test backtest to verify data quality
 
 ## Data Quality
@@ -173,6 +165,6 @@ python -c "from aistock import load_csv_directory, DataSource; from datetime imp
 
 ## Notes
 
-- Generated data files (`.csv`) are in `.gitignore` and won't be committed to git
+- CSV data is ignored by default via `.gitignore`, but this repo may include sample files
 - Data can be regenerated anytime using the scripts
 - For production use, replace synthetic data with real market data

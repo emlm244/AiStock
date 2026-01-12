@@ -448,21 +448,21 @@ This document catalogs ALL edge cases discovered in the AiStock codebase, organi
 ## 10. Risk Management Edge Cases
 
 ### RM-1: Daily Loss Limit Triggered (HIGH) ✓
-**File**: aistock/risk.py:check_pre_trade()
+**File**: aistock/risk/engine.py:check_pre_trade()
 **Scenario**: Daily loss exceeds configured limit (e.g., -$1000)
 **Current Handling**: ✓ Kill switch triggered, all new trades blocked
 **Test Coverage**: ✓ COVERED (test_risk_engine.py:test_daily_loss_limit)
 **Status**: WORKING AS DESIGNED
 
 ### RM-2: Drawdown Limit Triggered (HIGH) ✓
-**File**: aistock/risk.py:check_pre_trade()
+**File**: aistock/risk/engine.py:check_pre_trade()
 **Scenario**: Drawdown from high-water mark exceeds limit (e.g., -10%)
 **Current Handling**: ✓ Kill switch triggered
 **Test Coverage**: ✓ COVERED (test_risk_engine.py:test_drawdown_limit)
 **Status**: WORKING AS DESIGNED
 
 ### RM-3: Kill Switch Manual Reset (MEDIUM)
-**File**: aistock/risk.py:reset_kill_switch()
+**File**: aistock/risk/engine.py:reset_kill_switch()
 **Scenario**: User resets kill switch after review
 **Current Handling**: ✓ Manual reset method exists
 **Test Coverage**: ⚠ PARTIAL (method tested, not full workflow)
@@ -471,7 +471,7 @@ This document catalogs ALL edge cases discovered in the AiStock codebase, organi
 **Status**: WORKING AS DESIGNED
 
 ### RM-4: Per-Trade Capital Exceeds Limit (MEDIUM)
-**File**: aistock/risk.py:check_pre_trade()
+**File**: aistock/risk/engine.py:check_pre_trade()
 **Scenario**: Single order value > max_capital_per_trade
 **Current Handling**: ⚠ Check exists but doesn't account for concurrent positions
 **Test Coverage**: ❌ NOT COVERED (issue H-11)
@@ -560,7 +560,7 @@ This document catalogs ALL edge cases discovered in the AiStock codebase, organi
 **Status**: WORKING AS DESIGNED
 
 ### MS-2: Correlated Symbol Positions (MEDIUM)
-**File**: aistock/risk.py:check_pre_trade()
+**File**: aistock/risk/engine.py:check_pre_trade()
 **Scenario**: Concentrated risk (long AAPL + long MSFT = tech-heavy)
 **Current Handling**: ❌ No sector/correlation risk checks
 **Test Coverage**: ❌ NOT COVERED

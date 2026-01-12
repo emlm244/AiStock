@@ -97,7 +97,7 @@ SessionFactory (factories/session_factory.py)
       │         └── Cash & position management
       │
       ├── Risk Layer
-      │    └── RiskEngine (risk.py)
+      │    └── RiskEngine (risk/engine.py)
       │         ├── Thread-safe pre-trade checks
       │         ├── Daily loss limits
       │         ├── Drawdown protection

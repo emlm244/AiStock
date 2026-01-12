@@ -43,6 +43,10 @@ class SessionFactory:
         self.enable_professional = enable_professional_features
         self.rollover_config = rollover_config
 
+        self.config.validate()
+        if self.fsd_config is not None:
+            self.fsd_config.validate()
+
         self.components_factory = TradingComponentsFactory(config, fsd_config)
         self._logger = configure_logger('SessionFactory', structured=True)
 
@@ -78,8 +82,9 @@ class SessionFactory:
         Run pre-flight validation for futures contracts.
 
         This method validates all configured futures contracts and:
-        - BLOCKS trading if any contract is expired
         - Logs warnings for contracts approaching expiry
+        - Disables futures for this session if contracts are invalid
+        - Keeps stock trading active even when futures checks fail
 
         Args:
             broker: Broker instance (may support request_contract_details)
@@ -99,6 +104,13 @@ class SessionFactory:
         }
 
         if not futures_contracts:
+            caps = self.config.account_capabilities
+            if caps and caps.enable_futures:
+                self._logger.warning(
+                    'futures_enabled_without_contracts',
+                    extra={'detail': 'Futures enabled but no FUT contracts configured; disabling futures.'},
+                )
+                caps.enable_futures = False
             return PreflightResult(passed=True, errors=[], warnings=[], validated_contracts={})
 
         self._logger.info(
@@ -110,7 +122,7 @@ class SessionFactory:
 
         checker = FuturesPreflightChecker(
             warn_threshold_days=warn_days,
-            block_on_expired=True,
+            block_on_expired=False,
         )
 
         # Check if broker supports contract details (cast to protocol if supported)
@@ -122,14 +134,21 @@ class SessionFactory:
             ibkr_broker = broker  # type: ignore[assignment]
 
         result = checker.run_preflight(ibkr_broker, futures_contracts)
+        caps = self.config.account_capabilities
+        futures_enabled = bool(caps and caps.enable_futures)
 
-        if not result.passed:
+        if result.errors:
             error_msg = '; '.join(result.errors)
-            self._logger.error(
-                'futures_preflight_failed',
+            self._logger.warning(
+                'futures_preflight_errors',
                 extra={'errors': result.errors},
             )
-            raise RuntimeError(f'Futures preflight failed: {error_msg}')
+            if futures_enabled and caps:
+                caps.enable_futures = False
+                self._logger.warning(
+                    'futures_disabled_due_to_preflight',
+                    extra={'detail': error_msg},
+                )
 
         # Log warnings
         for warning in result.warnings:
@@ -201,6 +220,13 @@ class SessionFactory:
             edge_case_handler,
         )
 
+        # Wire advanced risk manager (if configured)
+        advanced_risk_manager = self.components_factory.create_advanced_risk_manager()
+        if advanced_risk_manager is not None:
+            set_advanced_risk = getattr(decision_engine, 'set_advanced_risk_manager', None)
+            if callable(set_advanced_risk):
+                set_advanced_risk(advanced_risk_manager)
+
         # Create session components
         bar_processor = self.components_factory.create_bar_processor(timeframe_manager)
         reconciler = self.components_factory.create_reconciler(portfolio, broker, risk_engine)
@@ -232,6 +258,8 @@ class SessionFactory:
             symbols=symbols,
             checkpoint_dir=checkpoint_dir,
             rollover_manager=rollover_manager,
+            safeguards=safeguards,
+            edge_case_handler=edge_case_handler,
         )
 
         return coordinator
@@ -260,7 +288,7 @@ class SessionFactory:
         """
         # Resolve symbols
         symbols = self._resolve_symbols(symbols)
-        timeframes = timeframes or ['1m']
+        timeframes = self._filter_timeframes(timeframes or ['1m'])
 
         # Create core components
         portfolio = self.components_factory.create_portfolio()
@@ -305,7 +333,7 @@ class SessionFactory:
 
         # Resolve symbols
         symbols = self._resolve_symbols(symbols)
-        timeframes = timeframes or ['1m']
+        timeframes = self._filter_timeframes(timeframes or ['1m'])
 
         # Create risk engine with restored state
         risk_engine = self.components_factory.create_risk_engine(
@@ -316,3 +344,28 @@ class SessionFactory:
         return self._wire_components(
             restored_portfolio, risk_engine, symbols, timeframes, safeguard_config, checkpoint_dir
         )
+
+    def _filter_timeframes(self, timeframes: list[str]) -> list[str]:
+        """Apply max_timeframe_seconds (if configured) to the requested timeframes."""
+        if not self.fsd_config:
+            return timeframes
+        max_seconds = int(self.fsd_config.max_timeframe_seconds)
+        if max_seconds <= 0:
+            return timeframes
+        try:
+            from ..timeframes import SECONDS_TO_TIMEFRAME, TIMEFRAME_TO_SECONDS
+        except Exception:
+            return timeframes
+
+        normalized = [tf.lower().strip() for tf in timeframes if tf]
+        filtered = [
+            tf
+            for tf in normalized
+            if (TIMEFRAME_TO_SECONDS.get(tf) or 0) <= max_seconds
+        ]
+
+        decision_seconds = int(getattr(self.config.data.bar_interval, 'total_seconds', lambda: 60)())
+        decision_tf = SECONDS_TO_TIMEFRAME.get(decision_seconds, '1m')
+        if decision_tf not in filtered:
+            filtered.insert(0, decision_tf)
+        return filtered or [decision_tf]

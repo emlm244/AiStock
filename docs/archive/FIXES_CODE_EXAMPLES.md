@@ -261,7 +261,7 @@ def apply_fill(
 ```
 
 ### Why This Matters
-- Per CLAUDE.md: "TradingEngine is the authoritative source for P&L"
+- Per AGENTS.md: "TradingEngine is the authoritative source for P&L"
 - Having two independent implementations violates DRY principle and creates divergence risk
 - If one is fixed, the other isn't automatically updated
 - Proper solution: TradingEngine calculates once, other modules use that value
@@ -507,7 +507,7 @@ class Trade:
     """
     Record of an executed trade.
     
-    CRITICAL: timestamp MUST be timezone-aware (UTC per CLAUDE.md)
+    CRITICAL: timestamp MUST be timezone-aware (UTC per AGENTS.md)
     """
 
     timestamp: datetime  # Must be timezone-aware
@@ -536,7 +536,7 @@ class Trade:
 ```
 
 ### Why This Matters
-- Per CLAUDE.md: "All datetime objects MUST be timezone-aware (UTC)"
+- Per AGENTS.md: "All datetime objects MUST be timezone-aware (UTC)"
 - Naive timestamps cause `TypeError` in edge case handlers and safeguards
 - Early validation prevents silent bugs later
 

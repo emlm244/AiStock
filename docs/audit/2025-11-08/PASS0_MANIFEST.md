@@ -42,7 +42,7 @@
 **Dependencies**: execution types, Decimal
 **Issues**: ✓ Clean
 
-#### aistock/risk.py (~310 LOC)
+#### aistock/risk/engine.py (~310 LOC)
 **Purpose**: Thread-safe risk management with kill switches
 **Key Classes**: `RiskEngine`, `RiskState`, `RiskConfig`
 **Key Functions**: `check_pre_trade()`, `update_daily_metrics()`, `reset_daily()`
@@ -220,7 +220,7 @@
 **Required Methods**: `apply_fill()`, `get_position()`, `total_equity()`
 **Issues**: ✓ Clean
 
-#### aistock/interfaces/risk.py (~60 LOC)
+#### aistock/interfaces/risk/engine.py (~60 LOC)
 **Purpose**: Risk engine protocol
 **Key Protocol**: `RiskEngineProtocol`
 **Required Methods**: `check_pre_trade()`, `update_daily_metrics()`
@@ -336,7 +336,7 @@
 **Dependencies**: logging, json
 **Issues**: ✓ Clean
 
-#### aistock/logging.py (~90 LOC)
+#### aistock/log_config.py (~90 LOC)
 **Purpose**: Logging setup and configuration
 **Key Functions**: `setup_logging()`, `get_logger()`
 **Dependencies**: logging, sys
@@ -534,7 +534,7 @@
 
 ### 4.1 Active Documentation
 
-#### CLAUDE.md (~500 lines)
+#### AGENTS.md (~500 lines)
 **Purpose**: Claude Code assistant playbook
 **Sections**: Architecture, development commands, constraints, testing, style
 **Status**: ✓ Current (will be updated with audit rubric)

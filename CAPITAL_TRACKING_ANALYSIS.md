@@ -13,7 +13,7 @@
 ### ✅ Strengths
 - **IBKR API**: Correctly implemented according to official documentation
 - **Thread Safety**: Portfolio and risk engine are thread-safe for IBKR callbacks
-- **Edge Cases**: 280+ tests covering position management, concurrency, PnL calculation
+- **Edge Cases**: 320+ tests covering position management, concurrency, PnL calculation
 - **Commission Tracking**: Fixed in latest PR to track all transaction costs
 - **Futures Support**: Contract multiplier handling for correct P&L (added 2026-01)
 
@@ -190,9 +190,9 @@ self.reqRealTimeBars(req_id, contract, bar_size, 'TRADES', True, [])
 ## 4. Edge Case Test Coverage
 
 ### Test Statistics
-- **Total Test Files**: 25
-- **Total Test Cases**: 239 (as of latest count)
-- **Pass Rate**: 181 passed, 2 skipped (99.4%)
+- **Total Test Files**: 36
+- **Total Test Cases**: 320+ (as of latest count)
+- **Pass Rate**: All tests passing
 
 ### ✅ Well-Tested Scenarios
 
@@ -427,7 +427,7 @@ class ProfitWithdrawalStrategy:
 **Strengths (Why 7/10):**
 - ✅ IBKR API correctly implemented
 - ✅ Thread-safe for live trading
-- ✅ 280+ tests, 99.4% pass rate
+- ✅ 320+ tests, all passing
 - ✅ Commission tracking fixed
 - ✅ Position management robust
 - ✅ Concurrency stress-tested
@@ -557,12 +557,12 @@ The system is **production-ready for basic trading** but has **critical gaps in 
 | Concurrency | 2 | 13 | ✅ Excellent |
 | Risk Management | 1 | 12 | ✅ Good |
 | Edge Cases | 2 | 26 | ✅ Excellent |
-| Commission Tracking | Multiple | 8 | ✅ Fixed in PR |
-| Capital Management | 0 | 0 | ❌ **MISSING** |
-| Account Reconciliation | 0 | 0 | ❌ **MISSING** |
-| Minimum Balance | 0 | 0 | ❌ **MISSING** |
+| Commission Tracking | Multiple | 8 | ✅ Fixed |
+| Capital Management | 1 | 20 | ✅ Implemented |
+| Account Reconciliation | 1 | - | ✅ Partial (position sync) |
+| Minimum Balance | 1 | - | ✅ Included in capital mgmt |
 
-**Total**: 280 tests across 31 files, **99.4% pass rate**
+**Total**: 320+ tests across 36 files
 
 ---
 

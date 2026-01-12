@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from dataclasses import dataclass
 from datetime import timezone
 from pathlib import Path
 from typing import TypedDict, cast
 
-from aistock.config import BacktestConfig, BrokerConfig, DataSource, EngineConfig
-from aistock.data import load_csv_file
-from aistock.factories import SessionFactory
-from aistock.fsd import FSDConfig
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from aistock.config import BacktestConfig, BrokerConfig, DataSource, EngineConfig  # noqa: E402
+from aistock.data import load_csv_file  # noqa: E402
+from aistock.factories import SessionFactory  # noqa: E402
+from aistock.fsd import FSDConfig  # noqa: E402
 
 
 class SessionSnapshot(TypedDict):

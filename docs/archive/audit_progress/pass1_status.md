@@ -6,7 +6,7 @@
 ## Repository Root
 
 - README.md — Read: High-level marketing-style overview; needs alignment with current architecture/safety doc.
-- CLAUDE.md — Read: Assistant playbook covering critical fixes, workflows, and verification steps.
+- AGENTS.md — Read: Assistant playbook covering critical fixes, workflows, and verification steps.
 - AGENTS.md — Read: Primary repository guidelines spanning architecture, workflows, known risks.
 - CODE_REVIEW_FIXES.md — Read: Historical record of test suite corrections and validation coverage.
 - CONCURRENCY_EDGE_CASES_AUDIT.md — Read: Audit enumerating concurrency issues, many now resolved; serves as historical reference.
@@ -48,12 +48,12 @@
 - aistock/fsd.py — Read: RL trading agent and FSDEngine (legacy FSD focus) with adaptive features.
 - aistock/idempotency.py — Read: Time-boxed order idempotency tracker with TTL persistence.
 - aistock/ingestion.py — Read: Deterministic CSV ingestion and manifest maintenance.
-- aistock/logging.py — Read: Structured logging helper providing JSON/console formatters.
+- aistock/log_config.py — Read: Structured logging helper providing JSON/console formatters.
 - aistock/patterns.py — Read: Candlestick pattern detector using Decimal operations and LRU cache.
 - aistock/performance.py — Read: Performance metrics (returns, Sharpe/Sortino, drawdown).
 - aistock/portfolio.py — Read: Thread-safe portfolio with reversal handling and P&L calculations.
 - aistock/professional.py — Read: Safeguards for overtrading, news events, EOD risk.
-- aistock/risk.py — Read: Thread-safe risk engine enforcing drawdown, rate limits, minimum balance.
+- aistock/risk/engine.py — Read: Thread-safe risk engine enforcing drawdown, rate limits, minimum balance.
 - aistock/scanner.py — Read: IBKR market scanner wrapper with optional ibapi dependency.
 - aistock/simple_gui.py — Read: Tkinter FSD UI tied to SessionFactory; heavy FSD messaging.
 - aistock/timeframes.py — Read: Multi-timeframe manager with lock-guarded aggregation and confluence analysis.
@@ -90,7 +90,7 @@
 - aistock/interfaces/market_data.py — Read: Market data provider protocol for bars/state.
 - aistock/interfaces/persistence.py — Read: State manager protocol for checkpoint persistence.
 - aistock/interfaces/portfolio.py — Read: Portfolio contract exposing cash/positions/fills.
-- aistock/interfaces/risk.py — Read: Risk engine protocol (pre-trade, register, halt).
+- aistock/interfaces/risk/engine.py — Read: Risk engine protocol (pre-trade, register, halt).
 
 ## scripts/
 

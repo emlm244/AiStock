@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from . import edge_cases as edge_cases
     from . import engine as engine
     from . import fsd as fsd
-    from . import logging as logging
+    from . import log_config as log_config
     from . import patterns as patterns
     from . import performance as performance
     from . import portfolio as portfolio
@@ -51,7 +51,7 @@ __all__ = [
     'session',
     'timeframes',
     'universe',
-    'logging',
+    'log_config',
 ]
 
 

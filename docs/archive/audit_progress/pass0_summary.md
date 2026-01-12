@@ -11,7 +11,7 @@
   - docs: 3
   - .env.example: 1
   - AGENTS.md: 1
-  - CLAUDE.md: 1
+  - AGENTS.md: 1
   - CODE_REVIEW_FIXES.md: 1
   - CONCURRENCY_EDGE_CASES_AUDIT.md: 1
   - EDGE_CASE_FIXES_SUMMARY.md: 1

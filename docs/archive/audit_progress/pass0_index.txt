@@ -11,7 +11,6 @@ ruff.toml
 test_ibkr_connection.py
 CONCURRENCY_EDGE_CASES_AUDIT.md
 CODE_REVIEW_FIXES.md
-CLAUDE.md
 AGENTS.md
 .env.example
 docs/FSD_COMPLETE_GUIDE.md
@@ -81,10 +80,10 @@ scripts/compare_backtest_results.py
 aistock/portfolio.py
 aistock/persistence.py
 aistock/performance.py
-aistock/risk.py
+aistock/risk/engine.py
 aistock/professional.py
 aistock/scanner.py
-aistock/logging.py
+aistock/log_config.py
 state/fsd/.gitkeep
 aistock/session/checkpointer.py
 aistock/session/bar_processor.py

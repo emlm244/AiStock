@@ -387,7 +387,7 @@ pytest tests/test_engine_edge_cases.py tests/test_timezone_edge_cases.py tests/t
 
 ## 8. DOCUMENTATION UPDATES NEEDED
 
-### Update CLAUDE.md
+### Update AGENTS.md
 - [x] Add new critical fixes to snapshot table (#16-20)
 - [x] Update test command with new test suites
 - [ ] Update backlog with remaining edge cases
