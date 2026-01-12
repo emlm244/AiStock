@@ -141,6 +141,7 @@ python -m aistock
 - **docs/BACKTEST_RERUN_GUIDE.md** - Backtest rerun workflow
 - **scripts/README.md** - Operational and backtest automation
 - **AGENTS.md** - Developer guide & repo conventions
+- **CLAUDE.md** - Claude Code assistant guide (tooling)
 
 ---
 
@@ -244,6 +245,7 @@ See `AGENTS.md` for detailed configuration options.
 | `docs/BACKTEST_RERUN_GUIDE.md` | Backtest rerun workflow | Developers |
 | `scripts/README.md` | Automation tooling overview | Developers |
 | `AGENTS.md` | Developer guide & codebase instructions | Developers |
+| `CLAUDE.md` | Claude Code assistant guide (tooling) | Developers |
 
 ---
 
