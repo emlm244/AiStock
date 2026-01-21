@@ -11,6 +11,7 @@ This module coordinates:
 from __future__ import annotations
 
 import logging
+import statistics
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -28,14 +29,12 @@ from ..data import Bar
 from ..providers.massive import MassiveConfig, MassiveDataProvider
 from ..risk import RiskEngine, RiskViolation
 from ..timeframes import TIMEFRAME_TO_SECONDS
-from .config import BacktestPlanConfig, DataFetchStatus, PeriodResult
+from .config import BacktestPlanConfig, DataFetchStatus, PeriodResult, TradeRecord
 from .execution import RealisticExecutionModel
 from .universe import HistoricalUniverseManager, UniverseValidationResult
 from .walkforward import WalkForwardResult, WalkForwardValidator
 
 logger = logging.getLogger(__name__)
-
-TradeRecord = dict[str, object]
 
 
 @dataclass
@@ -123,6 +122,7 @@ class BacktestOrchestrator:
             massive_config: Massive.com API configuration.
         """
         self._config = config
+        self._active_symbols = list(config.symbols)
         self._massive_config = massive_config
         self._provider = MassiveDataProvider(massive_config)
         self._universe_mgr = HistoricalUniverseManager()
@@ -153,7 +153,7 @@ class BacktestOrchestrator:
         Returns:
             DataFetchStatus with results.
         """
-        symbols = symbols or self._config.symbols
+        symbols = symbols or self._active_symbols
         start = start_date or self._config.start_date
         end = end_date or self._config.end_date
 
@@ -228,7 +228,7 @@ class BacktestOrchestrator:
         Returns:
             UniverseValidationResult with validation details.
         """
-        symbols = symbols or self._config.symbols
+        symbols = symbols or self._active_symbols
         start = start_date or self._config.start_date
         end = end_date or self._config.end_date
 
@@ -276,7 +276,7 @@ class BacktestOrchestrator:
 
         logger.info('=' * 60)
         logger.info('BACKTEST STARTING')
-        logger.info(f'Symbols: {self._config.symbols}')
+        logger.info(f'Symbols: {self._active_symbols}')
         logger.info(f'Period: {self._config.start_date} to {self._config.end_date}')
         logger.info(f'Walk-forward: {self._config.walkforward is not None}')
         logger.info('=' * 60)
@@ -303,8 +303,8 @@ class BacktestOrchestrator:
                     result.end_time = datetime.now(timezone.utc)
                     return result
 
-                logger.warning(f'Filtered symbols from {len(self._config.symbols)} to {len(valid_symbols)}')
-                self._config.symbols = valid_symbols
+                logger.warning(f'Filtered symbols from {len(self._active_symbols)} to {len(valid_symbols)}')
+                self._active_symbols = valid_symbols
 
         # Step 3: Run backtest
         if self._config.walkforward:
@@ -416,11 +416,10 @@ class BacktestOrchestrator:
 
     def _load_bars_from_cache(self, start_date: date, end_date: date) -> list[Bar]:
         """Load bars from the Massive cache for all symbols."""
-        cache = self._provider._get_cache()
         all_bars: list[Bar] = []
 
-        for symbol in self._config.symbols:
-            symbol_bars = cache.load_bars(symbol, start_date, end_date, 'minute')
+        for symbol in self._active_symbols:
+            symbol_bars = self._provider.load_cached_bars(symbol, start_date, end_date, 'minute')
             all_bars.extend(symbol_bars)
 
         # Sort by timestamp
@@ -560,19 +559,17 @@ class BacktestOrchestrator:
                     for i in range(1, len(equity_curve))
                 ]
                 if returns:
-                    import statistics
-
                     mean_return = statistics.mean(returns)
-                    std_return = statistics.stdev(returns) if len(returns) > 1 else 1
+                    std_return = statistics.stdev(returns) if len(returns) > 1 else 0.0
                     if std_return > 0:
-                        result.sharpe_ratio = (mean_return * 252**0.5) / (std_return * 252**0.5)
+                        result.sharpe_ratio = (mean_return / std_return) * (252**0.5)
 
                     # Calculate Sortino ratio (uses downside deviation only)
                     negative_returns = [r for r in returns if r < 0]
                     if negative_returns and len(negative_returns) > 1:
                         downside_std = statistics.stdev(negative_returns)
                         if downside_std > 0:
-                            result.sortino_ratio = (mean_return * 252**0.5) / (downside_std * 252**0.5)
+                            result.sortino_ratio = (mean_return / downside_std) * (252**0.5)
                     elif mean_return > 0:
                         # No negative returns - infinite Sortino (cap at 10)
                         result.sortino_ratio = 10.0
@@ -1091,7 +1088,7 @@ class BacktestOrchestrator:
 
         return {
             'config': {
-                'symbols': self._config.symbols,
+                'symbols': self._active_symbols,
                 'start_date': str(self._config.start_date),
                 'end_date': str(self._config.end_date),
                 'walkforward_enabled': self._config.walkforward is not None,

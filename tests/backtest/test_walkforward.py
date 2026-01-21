@@ -27,13 +27,15 @@ class TestWalkForwardConfig:
 
     def test_invalid_train_days(self) -> None:
         """Test validation of train days."""
+        config = WalkForwardConfig(initial_train_days=10)
         with pytest.raises(ValueError, match='initial_train_days must be at least 30'):
-            WalkForwardConfig(initial_train_days=10)
+            config.validate()
 
     def test_invalid_test_days(self) -> None:
         """Test validation of test days."""
+        config = WalkForwardConfig(test_window_days=2)
         with pytest.raises(ValueError, match='test_window_days must be at least 5'):
-            WalkForwardConfig(test_window_days=2)
+            config.validate()
 
 
 class TestWalkForwardValidator:
@@ -149,10 +151,10 @@ class TestWalkForwardValidator:
         # Create result with IS >> OOS (overfitting)
         result = WalkForwardResult(
             config=config,
-            in_sample_sharpe=2.0,
-            out_of_sample_sharpe=0.5,
+            is_sharpes=[2.0],
+            oos_sharpes=[0.5],
         )
-        result.overfitting_ratio = validator.calculate_overfitting_ratio(result)
+        validator._calculate_aggregate_metrics(result)
 
         assert result.overfitting_ratio == 4.0
         assert result.is_overfitting(threshold=1.5) is True
@@ -164,10 +166,10 @@ class TestWalkForwardValidator:
 
         result = WalkForwardResult(
             config=config,
-            in_sample_sharpe=1.2,
-            out_of_sample_sharpe=1.1,
+            is_sharpes=[1.2],
+            oos_sharpes=[1.1],
         )
-        result.overfitting_ratio = validator.calculate_overfitting_ratio(result)
+        validator._calculate_aggregate_metrics(result)
 
         assert result.overfitting_ratio < 1.5
         assert result.is_overfitting(threshold=1.5) is False

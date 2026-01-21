@@ -15,11 +15,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any, Callable
-
-if TYPE_CHECKING:
-    pass
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Callable
 
 from .config import PeriodResult, WalkForwardConfig
 
@@ -46,6 +43,9 @@ class WalkForwardFold:
     train_result: PeriodResult | None = None
     test_result: PeriodResult | None = None
     optimized_params: dict[str, Any] | None = None
+    status: str = 'pending'
+    error_message: str | None = None
+    error_timestamp: datetime | None = None
 
     @property
     def train_days(self) -> int:
@@ -255,7 +255,10 @@ class WalkForwardValidator:
                 )
 
             except Exception as e:
-                logger.error(f'  Train period failed: {e}')
+                fold.status = 'failed'
+                fold.error_message = str(e)
+                fold.error_timestamp = datetime.now(timezone.utc)
+                logger.error('  Train period failed for fold %s: %s', fold.fold_number, e, exc_info=True)
                 continue
 
             # Run test period
@@ -280,7 +283,12 @@ class WalkForwardValidator:
                 )
 
             except Exception as e:
-                logger.error(f'  Test period failed: {e}')
+                fold.status = 'failed'
+                fold.error_message = str(e)
+                fold.error_timestamp = datetime.now(timezone.utc)
+                logger.error('  Test period failed for fold %s: %s', fold.fold_number, e, exc_info=True)
+            else:
+                fold.status = 'completed'
 
         # Run final holdout if provided
         if final_holdout_dates:
@@ -342,12 +350,7 @@ class WalkForwardValidator:
         Returns:
             Overfitting ratio.
         """
-        if result.out_of_sample_sharpe == 0:
-            if result.in_sample_sharpe > 0:
-                return float('inf')
-            return 1.0
-
-        return result.in_sample_sharpe / result.out_of_sample_sharpe
+        return result.overfitting_ratio
 
     def generate_summary(self, result: WalkForwardResult) -> dict[str, Any]:
         """

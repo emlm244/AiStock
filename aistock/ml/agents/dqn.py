@@ -19,12 +19,14 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 
-from ..config import DuelingDQNConfig, EarlyStopping, EarlyStoppingConfig, Transition
+from ..config import DuelingDQNConfig, EarlyStopping, EarlyStoppingConfig, SequenceTransition, Transition
 from ..device import get_device
 from ..networks import DuelingNetwork
 from .base import BaseAgent
 
 logger = logging.getLogger(__name__)
+
+TransitionType = Transition | SequenceTransition
 
 
 class DQNAgent(BaseAgent):
@@ -57,6 +59,19 @@ class DQNAgent(BaseAgent):
             min_exploration_rate: Minimum exploration rate
             device: Device preference ('auto', 'cpu', 'cuda', 'mps')
         """
+        validated_config = config or DuelingDQNConfig()
+        validated_config.validate()
+        if learning_rate <= 0:
+            raise ValueError('learning_rate must be positive')
+        if not 0 <= discount_factor <= 1:
+            raise ValueError('discount_factor must be in [0, 1]')
+        if not 0 <= exploration_rate <= 1:
+            raise ValueError('exploration_rate must be in [0, 1]')
+        if not 0 <= exploration_decay <= 1:
+            raise ValueError('exploration_decay must be in [0, 1]')
+        if not 0 <= min_exploration_rate <= 1:
+            raise ValueError('min_exploration_rate must be in [0, 1]')
+
         super().__init__(
             state_dim=state_dim,
             learning_rate=learning_rate,
@@ -66,22 +81,23 @@ class DQNAgent(BaseAgent):
             min_exploration_rate=min_exploration_rate,
         )
 
-        self.config = config or DuelingDQNConfig()
+        self.config = validated_config
         self.device = get_device(device)  # type: ignore
 
         # Build networks
         self._build_networks()
 
         # Optimizer
+        effective_lr = self.config.learning_rate if config is not None else learning_rate
         self.optimizer = optim.Adam(
             self.policy_net.parameters(),
-            lr=self.config.learning_rate if config else learning_rate,
+            lr=effective_lr,
         )
 
         # Learning rate scheduler
         self.scheduler = self._build_scheduler()
         self._warmup_steps = self.config.lr_warmup_steps
-        self._base_lr = self.config.learning_rate if config else learning_rate
+        self._base_lr = effective_lr
 
         # Early stopping
         early_stop_config = EarlyStoppingConfig(
@@ -210,7 +226,7 @@ class DQNAgent(BaseAgent):
             action_idx = q_values.argmax(dim=1).item()
             return self.index_to_action(int(action_idx))
 
-    def update(self, transitions: list[Transition], weights: list[float]) -> dict[str, float]:
+    def update(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
         """Update networks from a batch of transitions.
 
         Args:
@@ -234,7 +250,14 @@ class DQNAgent(BaseAgent):
 
         dones = torch.FloatTensor([float(t.done) for t in transitions]).to(self.device)
 
-        weights_tensor = torch.FloatTensor(weights).to(self.device)
+        if not weights:
+            weights_list = [1.0] * len(transitions)
+        elif len(weights) != len(transitions):
+            raise ValueError(f'weights length {len(weights)} does not match transitions {len(transitions)}')
+        else:
+            weights_list = list(weights)
+
+        weights_tensor = torch.FloatTensor(weights_list).to(self.device)
 
         # Current Q-values
         current_q = self.policy_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
@@ -316,7 +339,7 @@ class DQNAgent(BaseAgent):
         self.target_net.load_state_dict(self.policy_net.state_dict())
         logger.debug('Synced target network')
 
-    def get_td_errors(self, transitions: list[Transition]) -> list[float]:
+    def get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
         """Calculate TD errors for priority updates.
 
         Args:
@@ -410,6 +433,13 @@ class DQNAgent(BaseAgent):
             return False
 
         try:
+            version_str = torch.__version__.split('+', 1)[0]
+            version_parts = version_str.split('.')
+            major = int(version_parts[0]) if version_parts else 0
+            minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+            if (major, minor) < (2, 6):
+                raise RuntimeError('Loading DQN checkpoints requires torch>=2.6.0')
+
             state = torch.load(path, map_location=self.device, weights_only=False)
 
             self.policy_net.load_state_dict(state['policy_net'])

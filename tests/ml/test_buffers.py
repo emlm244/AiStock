@@ -1,5 +1,7 @@
 """Tests for experience replay buffers."""
 
+import math
+
 import numpy as np
 import pytest
 
@@ -253,7 +255,8 @@ class TestPrioritizedReplayBuffer:
         buffer.update_priorities(indices, td_errors)
 
         # Verify max priority was updated
-        assert buffer._max_priority >= 5.0
+        stats = buffer.get_stats()
+        assert stats['max_priority'] >= 5.0
 
     def test_beta_annealing(self, per_config):
         """Test beta annealing schedule."""
@@ -264,7 +267,7 @@ class TestPrioritizedReplayBuffer:
         assert per_config.get_beta(1000) == 1.0
 
         # Halfway
-        assert 0.6 < per_config.get_beta(500) < 0.8
+        assert math.isclose(per_config.get_beta(500), 0.7, rel_tol=0, abs_tol=1e-6)
 
     def test_is_ready(self, per_config):
         """Test is_ready check."""

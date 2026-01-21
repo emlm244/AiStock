@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -28,6 +28,26 @@ class Transition:
             self.state = np.array(self.state, dtype=np.float32)
         if not isinstance(self.next_state, np.ndarray):
             self.next_state = np.array(self.next_state, dtype=np.float32)
+
+
+@dataclass
+class SequenceTransition:
+    """Experience transition containing full state sequences."""
+
+    state_sequence: np.ndarray
+    action: str
+    reward: float
+    next_state_sequence: np.ndarray
+    done: bool
+    td_error: float = 0.0
+    timestamp: datetime | None = None
+
+    def __post_init__(self) -> None:
+        """Ensure arrays are numpy arrays."""
+        if not isinstance(self.state_sequence, np.ndarray):
+            self.state_sequence = np.array(self.state_sequence, dtype=np.float32)
+        if not isinstance(self.next_state_sequence, np.ndarray):
+            self.next_state_sequence = np.array(self.next_state_sequence, dtype=np.float32)
 
 
 @dataclass
@@ -266,7 +286,7 @@ class EarlyStopping:
         """
         self.config = config
         self.best_loss: float = float('inf')
-        self.best_weights: dict | None = None
+        self.best_weights: dict[str, Any] | None = None
         self.counter: int = 0
         self.stopped: bool = False
         self.stop_step: int = 0
@@ -293,7 +313,13 @@ class EarlyStopping:
             self.counter = 0
             if weights is not None and self.config.restore_best:
                 # Deep copy weights
-                self.best_weights = {k: v.clone() for k, v in weights.items()}
+                import copy
+
+                import torch
+
+                self.best_weights = {
+                    k: v.clone() if isinstance(v, torch.Tensor) else copy.deepcopy(v) for k, v in weights.items()
+                }
         else:
             self.counter += 1
 

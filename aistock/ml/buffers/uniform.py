@@ -3,7 +3,9 @@
 import random
 from collections import deque
 
-from ..config import Transition
+from ..config import SequenceTransition, Transition
+
+TransitionType = Transition | SequenceTransition
 
 
 class UniformReplayBuffer:
@@ -23,13 +25,13 @@ class UniformReplayBuffer:
             raise ValueError(f'capacity must be positive, got {capacity}')
 
         self.capacity = capacity
-        self._buffer: deque[Transition] = deque(maxlen=capacity)
+        self._buffer: deque[TransitionType] = deque(maxlen=capacity)
 
     def __len__(self) -> int:
         """Return current number of transitions."""
         return len(self._buffer)
 
-    def add(self, transition: Transition) -> None:
+    def add(self, transition: TransitionType) -> None:
         """Add a transition to the buffer.
 
         Args:
@@ -37,7 +39,7 @@ class UniformReplayBuffer:
         """
         self._buffer.append(transition)
 
-    def sample(self, batch_size: int) -> tuple[list[Transition], list[float], list[int]]:
+    def sample(self, batch_size: int) -> tuple[list[TransitionType], list[float], list[int]]:
         """Sample a batch of transitions uniformly.
 
         Args:
@@ -67,13 +69,14 @@ class UniformReplayBuffer:
         """
         pass  # Uniform sampling ignores priorities
 
-    def is_ready(self, min_size: int) -> bool:
+    def is_ready(self, min_size: int | None = None) -> bool:
         """Check if buffer has enough transitions.
 
         Args:
-            min_size: Minimum required transitions
+            min_size: Minimum required transitions (defaults to 1)
 
         Returns:
             True if len(buffer) >= min_size
         """
-        return len(self._buffer) >= min_size
+        required = min_size if min_size is not None else 1
+        return len(self._buffer) >= required

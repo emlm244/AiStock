@@ -10,6 +10,7 @@ References:
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -123,6 +124,9 @@ class TailRiskCalculator:
         # Filter out NaN and Inf values
         returns_array = returns_array[np.isfinite(returns_array)]
 
+        if self.config.lookback_periods and len(returns_array) > self.config.lookback_periods:
+            returns_array = returns_array[-self.config.lookback_periods :]
+
         if len(returns_array) < 10:
             logger.warning(f'Insufficient data for VaR calculation: {len(returns_array)} returns')
             return TailRiskResult(
@@ -142,6 +146,12 @@ class TailRiskCalculator:
             var_pct, cvar_pct = self._cornish_fisher_var_cvar(returns_array)
         else:
             var_pct, cvar_pct = self._historical_var_cvar(returns_array)
+
+        # Apply annualization scaling (volatility-based)
+        if self.config.annualization_factor != 1:
+            scale = math.sqrt(self.config.annualization_factor)
+            var_pct *= scale
+            cvar_pct *= scale
 
         # Convert to absolute values if portfolio value provided
         if portfolio_value is not None and portfolio_value > 0:

@@ -121,7 +121,7 @@ class RiskLimits:
             raise ValueError(f'max_orders_per_day must be >= 1, got {self.max_orders_per_day}')
 
 
-@dataclass
+@dataclass(frozen=True)
 class AccountCapabilities:
     """
     Account-level trading capabilities and restrictions.
@@ -167,7 +167,7 @@ class AccountCapabilities:
             raise ValueError(f'account_balance must be non-negative, got {self.account_balance}')
 
         # At least one instrument type must be enabled
-        if not any([self.enable_stocks, self.enable_etfs, self.enable_futures, self.enable_options]):
+        if not any(attr for attr in (self.enable_stocks, self.enable_etfs, self.enable_futures, self.enable_options)):
             raise ValueError('At least one instrument type must be enabled')
 
 

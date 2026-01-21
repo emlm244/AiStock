@@ -6,8 +6,7 @@
 ## Repository Root
 
 - README.md — Read: High-level marketing-style overview; needs alignment with current architecture/safety doc.
-- AGENTS.md — Read: Assistant playbook covering critical fixes, workflows, and verification steps.
-- AGENTS.md — Read: Primary repository guidelines spanning architecture, workflows, known risks.
+- AGENTS.md — Read: Assistant playbook covering critical fixes, workflows, verification steps, and primary repository guidelines.
 - CODE_REVIEW_FIXES.md — Read: Historical record of test suite corrections and validation coverage.
 - CONCURRENCY_EDGE_CASES_AUDIT.md — Read: Audit enumerating concurrency issues, many now resolved; serves as historical reference.
 - EDGE_CASE_FIXES_SUMMARY.md — Read: Summary of edge-case fixes, test suites, and recommendations from Jan 2025 review.

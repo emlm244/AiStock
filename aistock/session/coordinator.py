@@ -791,7 +791,17 @@ class TradingCoordinator:
             client_order_id=slice_client_id,
         )
 
-        order_id = self.broker.submit(order)
+        try:
+            order_id = self.broker.submit(order)
+        except Exception as exc:
+            self.logger.error(
+                'Order submission failed for %s (%s): %s',
+                scheduled.symbol,
+                slice_client_id,
+                exc,
+            )
+            return
+
         submission_time = datetime.now(timezone.utc)
         self.risk.record_order_submission(submission_time)
         self.idempotency.mark_submitted(slice_client_id)

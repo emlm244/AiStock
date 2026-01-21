@@ -19,12 +19,14 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from ..config import SequentialConfig, Transition
+from ..config import SequenceTransition, SequentialConfig, Transition
 from ..device import get_device
 from ..networks import LSTMNetwork, TransformerNetwork
 from .base import BaseAgent
 
 logger = logging.getLogger(__name__)
+
+TransitionType = Transition | SequenceTransition
 
 
 class SequenceBuffer:
@@ -129,9 +131,10 @@ class SequentialAgent(BaseAgent):
         self._build_networks()
 
         # Optimizer
+        effective_lr = learning_rate if learning_rate is not None else self.config.learning_rate
         self.optimizer = optim.Adam(
             self.policy_net.parameters(),
-            lr=self.config.learning_rate if config else learning_rate,
+            lr=effective_lr,
         )
 
         # Loss function
@@ -202,7 +205,7 @@ class SequentialAgent(BaseAgent):
             action_idx = q_values.argmax(dim=1).item()
             return self.index_to_action(int(action_idx))
 
-    def update(self, transitions: list[Transition], weights: list[float]) -> dict[str, float]:
+    def update(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
         """Update networks from a batch of transitions.
 
         Note: For sequential models, each transition should contain
@@ -217,20 +220,16 @@ class SequentialAgent(BaseAgent):
         """
         if not transitions:
             return {'loss': 0.0, 'td_error_mean': 0.0}
+        if not all(isinstance(t, SequenceTransition) for t in transitions):
+            raise TypeError('SequentialAgent expects SequenceTransition inputs')
 
-        # For sequential models, we need sequences not single states
-        # This simplified version treats each state as a single-step sequence
-        # A full implementation would maintain sequence history in transitions
-
-        states = (
-            torch.FloatTensor(np.array([t.state for t in transitions])).unsqueeze(1).to(self.device)
-        )  # Add sequence dim
+        states = torch.FloatTensor(np.array([t.state_sequence for t in transitions])).to(self.device)
 
         actions = torch.LongTensor([self.action_to_index(t.action) for t in transitions]).to(self.device)
 
         rewards = torch.FloatTensor([t.reward for t in transitions]).to(self.device)
 
-        next_states = torch.FloatTensor(np.array([t.next_state for t in transitions])).unsqueeze(1).to(self.device)
+        next_states = torch.FloatTensor(np.array([t.next_state_sequence for t in transitions])).to(self.device)
 
         dones = torch.FloatTensor([float(t.done) for t in transitions]).to(self.device)
 
@@ -277,7 +276,7 @@ class SequentialAgent(BaseAgent):
         """Sync target network with policy network."""
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def get_td_errors(self, transitions: list[Transition]) -> list[float]:
+    def get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
         """Calculate TD errors for priority updates.
 
         Args:
@@ -286,14 +285,17 @@ class SequentialAgent(BaseAgent):
         Returns:
             List of absolute TD errors
         """
+        if not all(isinstance(t, SequenceTransition) for t in transitions):
+            raise TypeError('SequentialAgent expects SequenceTransition inputs')
+
         with torch.no_grad():
-            states = torch.FloatTensor(np.array([t.state for t in transitions])).unsqueeze(1).to(self.device)
+            states = torch.FloatTensor(np.array([t.state_sequence for t in transitions])).to(self.device)
 
             actions = torch.LongTensor([self.action_to_index(t.action) for t in transitions]).to(self.device)
 
             rewards = torch.FloatTensor([t.reward for t in transitions]).to(self.device)
 
-            next_states = torch.FloatTensor(np.array([t.next_state for t in transitions])).unsqueeze(1).to(self.device)
+            next_states = torch.FloatTensor(np.array([t.next_state_sequence for t in transitions])).to(self.device)
 
             dones = torch.FloatTensor([float(t.done) for t in transitions]).to(self.device)
 
@@ -379,6 +381,13 @@ class SequentialAgent(BaseAgent):
             return False
 
         try:
+            version_str = torch.__version__.split('+', 1)[0]
+            version_parts = version_str.split('.')
+            major = int(version_parts[0]) if version_parts else 0
+            minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+            if (major, minor) < (2, 6):
+                raise RuntimeError('Loading sequential checkpoints requires torch>=2.6.0')
+
             state = torch.load(path, map_location=self.device, weights_only=False)
 
             self.policy_net.load_state_dict(state['policy_net'])

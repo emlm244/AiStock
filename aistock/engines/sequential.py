@@ -5,6 +5,8 @@ to capture temporal patterns in market data.
 """
 
 import logging
+import math
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Callable
 
@@ -12,11 +14,13 @@ import numpy as np
 
 from ..data import Bar
 from ..ml.agents import SequentialAgent
-from ..ml.config import PERConfig, SequentialConfig, Transition
+from ..ml.config import PERConfig, SequenceTransition, SequentialConfig, Transition
 from ..portfolio import Portfolio
 from .base import BaseDecisionEngine
 
 logger = logging.getLogger(__name__)
+
+TransitionType = Transition | SequenceTransition
 
 
 class SequentialEngine(BaseDecisionEngine):
@@ -75,6 +79,19 @@ class SequentialEngine(BaseDecisionEngine):
             exploration_rate=exploration_rate,
             device=device,
         )
+        self._last_state_sequence: np.ndarray | None = None
+
+    def register_trade_intent(
+        self,
+        symbol: str,
+        timestamp: datetime,
+        decision: dict[str, Any],
+        target_notional: float,
+        target_quantity: float,
+    ) -> None:
+        """Log trade intent and snapshot sequence context."""
+        super().register_trade_intent(symbol, timestamp, decision, target_notional, target_quantity)
+        self._last_state_sequence = self._agent.sequence_buffer.get_sequence()
 
     def evaluate_opportunity(
         self,
@@ -113,9 +130,11 @@ class SequentialEngine(BaseDecisionEngine):
         max_q = max(q_values.values())
         min_q = min(q_values.values())
 
-        # Confidence from Q-value spread
+        # Confidence uses a bounded mapping; assumes normalized Q-spreads near 1.0.
         q_spread = max_q - min_q
-        confidence = min(1.0, max(0.0, 0.5 + q_spread * 0.5))
+        expected_max_spread = 1.0
+        normalized_spread = q_spread / expected_max_spread if expected_max_spread > 0 else q_spread
+        confidence = 1.0 / (1.0 + math.exp(-2.0 * normalized_spread))
 
         # Map action to signal
         signal_map = {
@@ -190,9 +209,11 @@ class SequentialEngine(BaseDecisionEngine):
             features['vol_ratio'] = 1.0
 
         # Volatility
-        if len(prices) > 5:
-            returns = np.diff(prices[-20:]) / prices[-20:-1]
-            features['volatility'] = np.clip(np.std(returns), 0, 0.1).item()
+        if len(prices) >= 2:
+            window = min(20, len(prices))
+            window_prices = prices[-window:]
+            returns = np.diff(window_prices) / window_prices[:-1]
+            features['volatility'] = np.clip(np.std(returns), 0, 0.1).item() if len(returns) else 0.01
         else:
             features['volatility'] = 0.01
 
@@ -248,6 +269,28 @@ class SequentialEngine(BaseDecisionEngine):
 
         return arr
 
+    def _build_transition(
+        self,
+        reward: float,
+        next_state: dict[str, Any],
+        done: bool,
+    ) -> SequenceTransition:
+        """Build a sequence-aware transition for replay."""
+        state_sequence = self._last_state_sequence or self._agent.sequence_buffer.get_sequence()
+        next_state_array = self._state_to_array(next_state)
+        if len(state_sequence) > 0:
+            next_state_sequence = np.vstack([state_sequence[1:], next_state_array])
+        else:
+            next_state_sequence = np.expand_dims(next_state_array, axis=0)
+
+        return SequenceTransition(
+            state_sequence=state_sequence,
+            action=self.last_action or 'HOLD',
+            reward=reward,
+            next_state_sequence=next_state_sequence,
+            done=done,
+        )
+
     def _get_agent_action(self, state: dict[str, Any], training: bool = True) -> str:
         """Get action from sequential agent.
 
@@ -261,7 +304,7 @@ class SequentialEngine(BaseDecisionEngine):
         state_array = self._state_to_array(state)
         return self._agent.select_action(state_array, training)
 
-    def _update_agent(self, transitions: list[Transition], weights: list[float]) -> dict[str, float]:
+    def _update_agent(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
         """Update the sequential agent.
 
         Args:
@@ -273,7 +316,7 @@ class SequentialEngine(BaseDecisionEngine):
         """
         return self._agent.update(transitions, weights)
 
-    def _get_td_errors(self, transitions: list[Transition]) -> list[float]:
+    def _get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
         """Get TD errors for PER.
 
         Args:
@@ -306,6 +349,7 @@ class SequentialEngine(BaseDecisionEngine):
     def reset_sequence(self) -> None:
         """Reset the sequence buffer (call at episode/session start)."""
         self._agent.reset_sequence()
+        self._last_state_sequence = None
 
     def start_session(self) -> dict[str, Any]:
         """Start a new trading session.

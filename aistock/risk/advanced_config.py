@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(frozen=True)
 class KellyCriterionConfig:
     """Configuration for Kelly Criterion position sizing.
 
@@ -38,7 +38,7 @@ class KellyCriterionConfig:
             raise ValueError(f'fallback_fraction must be in (0, 1], got {self.fallback_fraction}')
 
 
-@dataclass
+@dataclass(frozen=True)
 class CorrelationLimitsConfig:
     """Configuration for correlation-based trade blocking.
 
@@ -66,7 +66,7 @@ class CorrelationLimitsConfig:
             )
 
 
-@dataclass
+@dataclass(frozen=True)
 class RegimeDetectionConfig:
     """Configuration for market regime detection.
 
@@ -127,7 +127,7 @@ class RegimeDetectionConfig:
                 raise ValueError(f'{name}_multiplier must be positive, got {mult}')
 
 
-@dataclass
+@dataclass(frozen=True)
 class VolatilityScalingConfig:
     """Configuration for volatility-based position scaling.
 
@@ -165,7 +165,7 @@ class VolatilityScalingConfig:
             raise ValueError(f'realized_vol_lookback must be >= 2, got {self.realized_vol_lookback}')
 
 
-@dataclass
+@dataclass(frozen=True)
 class AdvancedRiskConfig:
     """Composite config for all advanced risk features.
 

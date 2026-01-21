@@ -6,7 +6,9 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from ..config import Transition
+from ..config import SequenceTransition, Transition
+
+TransitionType = Transition | SequenceTransition
 
 
 class AgentProtocol(Protocol):
@@ -28,7 +30,7 @@ class AgentProtocol(Protocol):
         """
         ...
 
-    def update(self, transitions: list[Transition], weights: list[float]) -> dict[str, float]:
+    def update(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
         """Update the agent from a batch of transitions.
 
         Args:
@@ -40,7 +42,7 @@ class AgentProtocol(Protocol):
         """
         ...
 
-    def get_td_errors(self, transitions: list[Transition]) -> list[float]:
+    def get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
         """Calculate TD errors for transitions (for PER priority updates).
 
         Args:
@@ -146,6 +148,8 @@ class BaseAgent(ABC):
         Returns:
             Action index
         """
+        if action not in self.ACTIONS:
+            raise ValueError(f'Unknown action {action!r}; expected one of {self.ACTIONS}')
         return self.ACTIONS.index(action)
 
     def index_to_action(self, index: int) -> str:
@@ -157,6 +161,10 @@ class BaseAgent(ABC):
         Returns:
             Action name
         """
+        if not isinstance(index, int):
+            raise ValueError(f'Action index must be an int, got {type(index).__name__}')
+        if index < 0 or index >= len(self.ACTIONS):
+            raise IndexError(f'Action index {index} out of range for {len(self.ACTIONS)} actions')
         return self.ACTIONS[index]
 
     def decay_exploration(self) -> None:

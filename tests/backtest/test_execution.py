@@ -44,12 +44,14 @@ class TestRealisticExecutionConfig:
     def test_invalid_slippage(self) -> None:
         """Test validation of slippage parameters."""
         with pytest.raises(ValueError, match='base_slippage_bps cannot be negative'):
-            RealisticExecutionConfig(base_slippage_bps=-1.0)
+            config = RealisticExecutionConfig(base_slippage_bps=-1.0)
+            config.validate()
 
     def test_invalid_volume_participation(self) -> None:
         """Test validation of volume participation."""
         with pytest.raises(ValueError, match='max_volume_participation must be in'):
-            RealisticExecutionConfig(max_volume_participation=1.5)
+            config = RealisticExecutionConfig(max_volume_participation=1.5)
+            config.validate()
 
 
 class TestRealisticExecutionModel:

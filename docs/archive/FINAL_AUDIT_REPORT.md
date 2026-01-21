@@ -34,8 +34,7 @@
 - START_HERE.md
 
 ### Retained (Essential Only)
-- ✅ AGENTS.md - Operational guide for automation agents
-- ✅ AGENTS.md - Assistant playbook (references commit 2513252)
+- ✅ AGENTS.md - Assistant playbook and automation guide (references commit 2513252)
 - ✅ README.md - Project overview
 - ✅ IBKR_REQUIREMENTS_CHECKLIST.md - Useful broker reference
 - ✅ docs/FSD_COMPLETE_GUIDE.md - Comprehensive FSD guide
@@ -166,7 +165,6 @@ pytest tests/test_professional_integration.py -q  # 15/15
 - Commits pushed: All synced to origin/main
 
 ### Documentation
-- AGENTS.md: ✅ Up to date
 - AGENTS.md: ✅ Up to date (references 2513252)
 - README.md: ✅ Current
 - Redundant docs: ❌ Removed (16 files)

@@ -34,6 +34,10 @@ class CorrelationMonitor:
     """
 
     def __init__(self, config: CorrelationLimitsConfig) -> None:
+        try:
+            config.validate()
+        except Exception as exc:
+            raise ValueError(f'Invalid CorrelationLimitsConfig: {exc}') from exc
         self.config = config
         self._lock = threading.Lock()
 

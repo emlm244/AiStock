@@ -1,5 +1,6 @@
 """Tests for correlation monitoring."""
 
+import threading
 from decimal import Decimal
 
 import pytest
@@ -84,7 +85,8 @@ class TestCorrelationMonitor:
         )
 
         # Should be allowed (low correlation)
-        assert result.allowed or result.max_correlation <= 0.7
+        assert result.allowed is True
+        assert result.max_correlation <= 0.7
 
     def test_highly_correlated_positions_blocks_trade(self):
         """Highly correlated positions should block trade."""
@@ -154,8 +156,6 @@ class TestCorrelationMonitor:
 
     def test_thread_safety(self):
         """Monitor should be thread-safe."""
-        import threading
-
         config = CorrelationLimitsConfig(enable=True, min_data_points=5)
         monitor = CorrelationMonitor(config)
 
@@ -166,6 +166,7 @@ class TestCorrelationMonitor:
 
         results: list[CorrelationCheckResult] = []
         errors: list[Exception] = []
+        results_lock = threading.Lock()
 
         def check():
             try:
@@ -174,9 +175,11 @@ class TestCorrelationMonitor:
                     {'MSFT': Decimal('100')},
                     price_history,
                 )
-                results.append(result)
+                with results_lock:
+                    results.append(result)
             except Exception as e:
-                errors.append(e)
+                with results_lock:
+                    errors.append(e)
 
         threads = [threading.Thread(target=check) for _ in range(10)]
         for t in threads:

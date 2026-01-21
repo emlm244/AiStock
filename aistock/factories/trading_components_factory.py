@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Literal, cast
+from typing import Literal, Optional, TYPE_CHECKING, cast
 
 from ..brokers.base import BaseBroker
 from ..brokers.ibkr import IBKRBroker
@@ -24,6 +24,9 @@ from ..session.bar_processor import BarProcessor
 from ..session.checkpointer import CheckpointManager
 from ..session.reconciliation import PositionReconciler
 from ..timeframes import TimeframeManager
+
+if TYPE_CHECKING:
+    from ..risk import AdvancedRiskManager
 
 
 class TradingComponentsFactory:
@@ -121,7 +124,7 @@ class TradingComponentsFactory:
         """Create edge case handler."""
         return EdgeCaseHandler()
 
-    def create_advanced_risk_manager(self):
+    def create_advanced_risk_manager(self) -> Optional['AdvancedRiskManager']:
         """Create advanced risk manager if configured.
 
         Returns:
@@ -147,8 +150,12 @@ class TradingComponentsFactory:
             raise ValueError('FSD config required')
 
         engine_type = (self.fsd_config.engine_type or 'tabular').lower().strip()
+        allowed_engines = {'tabular', 'dqn', 'dueling', 'lstm', 'transformer'}
         wants_advanced_tabular = self.fsd_config.enable_double_q or self.fsd_config.enable_per
         use_advanced_engine = engine_type != 'tabular' or wants_advanced_tabular
+
+        if engine_type not in allowed_engines:
+            raise ValueError(f'Unsupported engine_type {engine_type!r}; expected one of {sorted(allowed_engines)}')
 
         if not use_advanced_engine:
             return FSDEngine(

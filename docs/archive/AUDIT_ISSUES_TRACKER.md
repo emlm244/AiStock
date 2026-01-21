@@ -266,6 +266,7 @@ pytest tests/test_professional_integration.py -v
 - M-6 (lines 114-130): Early return hides violations
 
 ### risk/engine.py
+
 - H-7 (lines 225-234): Timestamp deserialization
 - H-11 (lines 158-168): Per-trade cap ignores concurrent positions
 - M-8 (lines 214-223): Halt status reset behavior

@@ -33,10 +33,22 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+class CLIArgs(argparse.Namespace):
+    massive_api_key: str | None
+    symbols: list[str]
+    start_date: date
+    end_date: date
+    timeframe: str
+    output_dir: str
+    walkforward: bool
+    no_cache: bool
+    no_report: bool
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     parser = _build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=CLIArgs())
 
     api_key = args.massive_api_key or os.environ.get('MASSIVE_API_KEY')
     if not api_key:
@@ -58,8 +70,10 @@ def main() -> int:
         use_cache=not args.no_cache,
         generate_report=not args.no_report,
     )
+    plan.validate()
 
     massive_config = MassiveConfig(api_key=api_key)
+    massive_config.validate()
     orchestrator = BacktestOrchestrator(plan, massive_config)
     result = orchestrator.run_backtest()
 

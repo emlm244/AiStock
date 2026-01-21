@@ -78,7 +78,9 @@ class RealisticExecutionModel:
         Args:
             config: Execution configuration. Uses defaults if not provided.
         """
-        self.config = config or RealisticExecutionConfig()
+        execution_config = config or RealisticExecutionConfig()
+        execution_config.validate()
+        self.config = execution_config
 
     def calculate_slippage(
         self,
@@ -340,7 +342,7 @@ class RealisticExecutionModel:
             base_price = bar.close
 
         # Calculate fill quantity (may be partial due to volume constraints)
-        remaining = order.remaining_quantity or order.quantity
+        remaining = order.remaining_quantity if order.remaining_quantity is not None else order.quantity
         fill_qty, is_partial = self.calculate_fill_quantity(remaining, bar)
 
         if fill_qty <= 0:

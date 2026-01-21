@@ -43,6 +43,7 @@
 **Issues**: ✓ Clean
 
 #### aistock/risk/engine.py (~310 LOC)
+
 **Purpose**: Thread-safe risk management with kill switches
 **Key Classes**: `RiskEngine`, `RiskState`, `RiskConfig`
 **Key Functions**: `check_pre_trade()`, `update_daily_metrics()`, `reset_daily()`
@@ -221,6 +222,7 @@
 **Issues**: ✓ Clean
 
 #### aistock/interfaces/risk/engine.py (~60 LOC)
+
 **Purpose**: Risk engine protocol
 **Key Protocol**: `RiskEngineProtocol`
 **Required Methods**: `check_pre_trade()`, `update_daily_metrics()`
@@ -337,6 +339,7 @@
 **Issues**: ✓ Clean
 
 #### aistock/log_config.py (~90 LOC)
+
 **Purpose**: Logging setup and configuration
 **Key Functions**: `setup_logging()`, `get_logger()`
 **Dependencies**: logging, sys

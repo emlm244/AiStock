@@ -8,6 +8,7 @@ Reference: Wang et al. (2016) "Dueling Network Architectures for Deep RL"
 
 import torch
 import torch.nn as nn
+from typing import Any
 
 from .base import BaseNetwork
 
@@ -142,7 +143,7 @@ class DuelingNetwork(BaseNetwork):
             advantage = self.advantage_stream(features)
             return advantage - advantage.mean(dim=1, keepdim=True)
 
-    def get_config(self) -> dict[str, object]:
+    def get_config(self) -> dict[str, Any]:
         """Get network configuration.
 
         Returns:

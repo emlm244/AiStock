@@ -94,6 +94,59 @@ class MassiveCache:
         with open(self._index_path, 'w') as f:
             json.dump(data, f, indent=2)
 
+    def _rebuild_index(self) -> None:
+        """Rebuild the cache index from cached files on disk."""
+        self._index.clear()
+        for asset_type in ('stocks', 'futures'):
+            asset_dir = self._cache_dir / asset_type
+            if not asset_dir.exists():
+                continue
+            for symbol_dir in asset_dir.iterdir():
+                if not symbol_dir.is_dir():
+                    continue
+                for cache_path in symbol_dir.glob('*.json'):
+                    name = cache_path.stem
+                    if '_' not in name:
+                        continue
+                    _, timespan = name.split('_', 1)
+                    try:
+                        with open(cache_path) as f:
+                            month_data = json.load(f)
+                    except (OSError, json.JSONDecodeError) as e:
+                        logger.warning(f'Failed to rebuild cache index from {cache_path}: {e}')
+                        continue
+                    if not month_data:
+                        continue
+
+                    timestamps: list[datetime] = []
+                    for bar_dict in month_data:
+                        try:
+                            ts = datetime.fromisoformat(bar_dict['timestamp'])
+                        except (KeyError, ValueError, TypeError):
+                            continue
+                        if ts.tzinfo is None:
+                            ts = ts.replace(tzinfo=timezone.utc)
+                        else:
+                            ts = ts.astimezone(timezone.utc)
+                        timestamps.append(ts)
+                    if not timestamps:
+                        continue
+
+                    start_ts = min(timestamps)
+                    end_ts = max(timestamps)
+                    symbol = month_data[0].get('symbol', symbol_dir.name)
+                    key = self._get_cache_key(symbol, start_ts.date(), end_ts.date(), timespan, asset_type)
+                    self._index[key] = CacheMetadata(
+                        symbol=symbol,
+                        start_date=start_ts.date().isoformat(),
+                        end_date=end_ts.date().isoformat(),
+                        timespan=timespan,
+                        fetch_timestamp=datetime.now(timezone.utc).isoformat(),
+                        record_count=len(month_data),
+                    )
+
+        self._save_index()
+
     def _get_cache_key(
         self,
         symbol: str,
@@ -263,17 +316,19 @@ class MassiveCache:
 
         # Update index
         if bars:
+            start_ts = min(bar.timestamp for bar in bars)
+            end_ts = max(bar.timestamp for bar in bars)
             key = self._get_cache_key(
                 symbol,
-                bars[0].timestamp.date(),
-                bars[-1].timestamp.date(),
+                start_ts.date(),
+                end_ts.date(),
                 timespan,
                 asset_type,
             )
             self._index[key] = CacheMetadata(
                 symbol=symbol,
-                start_date=bars[0].timestamp.date().isoformat(),
-                end_date=bars[-1].timestamp.date().isoformat(),
+                start_date=start_ts.date().isoformat(),
+                end_date=end_ts.date().isoformat(),
                 timespan=timespan,
                 fetch_timestamp=datetime.now(timezone.utc).isoformat(),
                 record_count=len(bars),
@@ -317,6 +372,10 @@ class MassiveCache:
 
                     for bar_dict in month_data:
                         ts = datetime.fromisoformat(bar_dict['timestamp'])
+                        if ts.tzinfo is None:
+                            ts = ts.replace(tzinfo=timezone.utc)
+                        else:
+                            ts = ts.astimezone(timezone.utc)
                         if start_date <= ts.date() <= end_date:
                             all_bars.append(
                                 Bar(
@@ -398,12 +457,14 @@ class MassiveCache:
             if target_dir.exists():
                 shutil.rmtree(target_dir)
                 logger.info(f'Cleared cache for {symbol} ({asset_type})')
+                self._rebuild_index()
         elif asset_type:
             target_dir = self._cache_dir / asset_type
             if target_dir.exists():
                 shutil.rmtree(target_dir)
                 target_dir.mkdir()
                 logger.info(f'Cleared all {asset_type} cache')
+                self._rebuild_index()
         else:
             # Clear everything except metadata
             for subdir in ['stocks', 'futures', 'corporate_actions']:
