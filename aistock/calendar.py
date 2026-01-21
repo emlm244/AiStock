@@ -238,11 +238,9 @@ def is_within_open_close_buffer(
     session_date = et_time.date()
     open_dt = datetime.combine(session_date, open_time)
     close_dt = datetime.combine(session_date, close_time)
-    if minutes_from_open > 0 and current_time < (open_dt + timedelta(minutes=minutes_from_open)).time():
-        return True
-    if minutes_from_close > 0 and current_time > (close_dt - timedelta(minutes=minutes_from_close)).time():
-        return True
-    return False
+    return (minutes_from_open > 0 and current_time < (open_dt + timedelta(minutes=minutes_from_open)).time()) or (
+        minutes_from_close > 0 and current_time > (close_dt - timedelta(minutes=minutes_from_close)).time()
+    )
 
 
 def next_trading_day(dt: datetime, exchange: str = 'NYSE') -> datetime:

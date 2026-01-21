@@ -1135,7 +1135,8 @@ class FSDEngine:
         current_volume = bars[-1].volume
         volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1.0
 
-        rsi_value = self._compute_rsi(recent_closes) or 50.0
+        rsi_result = self._compute_rsi(recent_closes)
+        rsi_value = rsi_result if rsi_result is not None else 50.0
         macd_hist_pct = 0.0
         macd_values = self._compute_macd(recent_closes)
         if macd_values:
@@ -1832,6 +1833,7 @@ class FSDEngine:
         elif decay_info.get('skipped'):
             logger.debug(f'Q-value decay skipped: {decay_info.get("reason", "unknown")}')
 
+        reward_state = self._reward_tracker.get_state()
         state = {
             'q_values': self.rl_agent.q_values,
             'total_trades': self.rl_agent.total_trades,
@@ -1845,13 +1847,13 @@ class FSDEngine:
             else None,
             # Enhanced reward metrics (v2.0)
             'reward_metrics': {
-                'returns_window': list(self._reward_tracker._returns),
-                'peak_equity': self._reward_tracker._peak_equity,
-                'current_equity': self._reward_tracker._current_equity,
-                'consecutive_wins': self._reward_tracker._consecutive_wins,
-                'consecutive_losses': self._reward_tracker._consecutive_losses,
-                'last_trade_was_win': self._reward_tracker._last_trade_was_win,
-                'version': '2.0',
+                'returns_window': reward_state.returns_window,
+                'peak_equity': reward_state.peak_equity,
+                'current_equity': reward_state.current_equity,
+                'consecutive_wins': reward_state.consecutive_wins,
+                'consecutive_losses': reward_state.consecutive_losses,
+                'last_trade_was_win': reward_state.last_trade_was_win,
+                'version': reward_state.version,
             },
         }
 

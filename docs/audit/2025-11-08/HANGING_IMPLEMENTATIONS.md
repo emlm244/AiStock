@@ -116,9 +116,9 @@ def historicalData(self, reqId, bar):
 
 **Status**: ✓ ALL ACCEPTABLE - These are intentional no-ops for exception handling or callback placeholders.
 
-#### Category B: Placeholder Tests (0 occurrences)
+#### Category B: Placeholder Tests (1 occurrence)
 
-**Result**: ✓ CLEAN - No placeholder tests found in the current codebase.
+**Result**: ⚠️ 1 placeholder test found (see Section 5.1).
 
 ---
 

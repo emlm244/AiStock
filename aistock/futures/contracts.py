@@ -39,7 +39,7 @@ class ContractValidationResult(TypedDict):
     warning: str | None
 
 
-@dataclass
+@dataclass(frozen=True)
 class FuturesContractSpec(ContractSpec):
     """
     Extended contract specification for futures with expiration tracking.

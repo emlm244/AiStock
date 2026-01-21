@@ -2,7 +2,9 @@
 
 from typing import Protocol
 
-from ..config import Transition
+from ..config import SequenceTransition, Transition
+
+TransitionType = Transition | SequenceTransition
 
 
 class ReplayBufferProtocol(Protocol):
@@ -12,7 +14,7 @@ class ReplayBufferProtocol(Protocol):
     to ensure interchangeability.
     """
 
-    def add(self, transition: Transition) -> None:
+    def add(self, transition: TransitionType) -> None:
         """Add a transition to the buffer.
 
         Args:
@@ -20,7 +22,7 @@ class ReplayBufferProtocol(Protocol):
         """
         ...
 
-    def sample(self, batch_size: int) -> tuple[list[Transition], list[float], list[int]]:
+    def sample(self, batch_size: int) -> tuple[list[TransitionType], list[float], list[int]]:
         """Sample a batch of transitions.
 
         Args:
@@ -47,11 +49,11 @@ class ReplayBufferProtocol(Protocol):
         """Return the current number of transitions in the buffer."""
         ...
 
-    def is_ready(self, min_size: int) -> bool:
+    def is_ready(self, min_size: int | None = None) -> bool:
         """Check if buffer has enough transitions for training.
 
         Args:
-            min_size: Minimum required transitions
+            min_size: Minimum required transitions (defaults to implementation-defined minimum when None)
 
         Returns:
             True if len(buffer) >= min_size

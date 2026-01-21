@@ -96,7 +96,7 @@ class BaseNetwork(nn.Module, ABC):
         if not path.exists():
             raise FileNotFoundError(f'Checkpoint not found: {path}')
 
-        checkpoint = torch.load(path, weights_only=False)
+        checkpoint = torch.load(path, weights_only=True)
 
         # Validate dimensions
         if checkpoint.get('state_dim') != self.state_dim:

@@ -14,12 +14,14 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
+
+from .config import TradeRecord
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ _DEFAULT_DECIMAL = Decimal('0')
 def _safe_decimal(value: object) -> Decimal:
     try:
         return Decimal(str(value))
-    except Exception:
+    except (InvalidOperation, ValueError, TypeError):
         return _DEFAULT_DECIMAL
 
 
@@ -71,7 +73,7 @@ def _calculate_max_drawdown(equity_curve: list[tuple[object, Decimal]]) -> Decim
     return max_drawdown
 
 
-def _trade_pnls(trades: list[dict[str, object]]) -> list[Decimal]:
+def _trade_pnls(trades: list[TradeRecord]) -> list[Decimal]:
     pnls: list[Decimal] = []
     for trade in trades:
         pnl = trade.get('pnl')
@@ -81,7 +83,7 @@ def _trade_pnls(trades: list[dict[str, object]]) -> list[Decimal]:
     return pnls
 
 
-def _calculate_trade_stats(trades: list[dict[str, object]]) -> TradeStats:
+def _calculate_trade_stats(trades: list[TradeRecord]) -> TradeStats:
     pnls = _trade_pnls(trades)
     if not pnls:
         return TradeStats(
@@ -289,7 +291,7 @@ def generate_backtest_report(
         total_trades = 0
         total_return = Decimal('0')
         max_drawdown_pct = 0.0
-        trade_records: list[dict[str, object]] = []
+        trade_records: list[TradeRecord] = []
         execution_slippage = Decimal('0')
         execution_commission = Decimal('0')
         sortino_values: list[float] = []
@@ -376,14 +378,14 @@ def generate_backtest_report(
 
     # Save JSON report
     json_path = output_path / f'backtest_report_{report.report_id}.json'
-    with open(json_path, 'w') as f:
+    with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(report.to_dict(), f, indent=2)
     logger.info(f'Saved JSON report to {json_path}')
 
     # Save HTML report
     html_path = output_path / f'backtest_report_{report.report_id}.html'
     html_content = generate_html_report(report, result)
-    with open(html_path, 'w') as f:
+    with open(html_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
     logger.info(f'Saved HTML report to {html_path}')
 

@@ -1,5 +1,7 @@
 """Tests for Kelly Criterion position sizing."""
 
+import threading
+
 import pytest
 
 from aistock.risk.advanced_config import KellyCriterionConfig
@@ -146,8 +148,6 @@ class TestKellyCriterionSizer:
 
     def test_thread_safety(self):
         """Sizer should be thread-safe."""
-        import threading
-
         config = KellyCriterionConfig(enable=True, min_trades_required=5)
         sizer = KellyCriterionSizer(config)
         provider = MockPerformanceProvider({
@@ -156,13 +156,16 @@ class TestKellyCriterionSizer:
 
         results: list[KellyResult] = []
         errors: list[Exception] = []
+        results_lock = threading.Lock()
 
         def calculate():
             try:
                 result = sizer.calculate('AAPL', provider)
-                results.append(result)
+                with results_lock:
+                    results.append(result)
             except Exception as e:
-                errors.append(e)
+                with results_lock:
+                    errors.append(e)
 
         threads = [threading.Thread(target=calculate) for _ in range(10)]
         for t in threads:

@@ -12,6 +12,9 @@ from decimal import Decimal
 from ..config import AccountCapabilities, ContractSpec, RiskLimits
 from ..portfolio import Portfolio
 
+FUTURES_MIN_BALANCE = 2000
+OPTIONS_MIN_BALANCE = 2000
+
 
 class RiskViolation(Exception):  # noqa: N818
     """Exception raised when a risk limit is violated."""
@@ -298,15 +301,19 @@ class RiskEngine:
                 raise RiskViolation('Futures trading is disabled by account capabilities.')
             if caps.account_type != 'margin':
                 raise RiskViolation('Futures trading requires a margin account.')
-            if caps.account_balance < 2000:
-                raise RiskViolation('Futures trading requires at least $2,000 total account balance.')
+            if caps.account_balance < FUTURES_MIN_BALANCE:
+                raise RiskViolation(
+                    f'Futures trading requires at least ${FUTURES_MIN_BALANCE:,} total account balance.'
+                )
         elif sec_type == 'OPT':
             if not caps.enable_options:
                 raise RiskViolation('Options trading is disabled by account capabilities.')
             if caps.account_type != 'margin':
                 raise RiskViolation('Options trading requires a margin account.')
-            if caps.account_balance < 2000:
-                raise RiskViolation('Options trading requires at least $2,000 total account balance.')
+            if caps.account_balance < OPTIONS_MIN_BALANCE:
+                raise RiskViolation(
+                    f'Options trading requires at least ${OPTIONS_MIN_BALANCE:,} total account balance.'
+                )
         elif sec_type == 'STK':
             if not (caps.enable_stocks or caps.enable_etfs):
                 raise RiskViolation('Stocks/ETFs are disabled by account capabilities.')

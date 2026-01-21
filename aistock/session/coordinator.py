@@ -54,6 +54,7 @@ class _ScheduledOrder:
     slice_index: int
     total_slices: int
     volume: float = 0.0
+    retry_count: int = 0
 
 
 class DecisionAction(TypedDict, total=False):
@@ -791,7 +792,32 @@ class TradingCoordinator:
             client_order_id=slice_client_id,
         )
 
-        order_id = self.broker.submit(order)
+        try:
+            order_id = self.broker.submit(order)
+        except Exception as exc:
+            self.logger.error(
+                'Order submission failed for %s (%s): %s',
+                scheduled.symbol,
+                slice_client_id,
+                exc,
+            )
+            retry_delay = timedelta(seconds=5 * (scheduled.retry_count + 1))
+            retry_time = bar.timestamp + retry_delay
+            retry_order = _ScheduledOrder(
+                symbol=scheduled.symbol,
+                quantity=scheduled.quantity,
+                side=scheduled.side,
+                execute_at=retry_time,
+                order_type=scheduled.order_type,
+                base_client_order_id=scheduled.base_client_order_id,
+                slice_index=scheduled.slice_index,
+                total_slices=scheduled.total_slices,
+                volume=scheduled.volume,
+                retry_count=scheduled.retry_count + 1,
+            )
+            self._enqueue_scheduled_orders([retry_order])
+            return
+
         submission_time = datetime.now(timezone.utc)
         self.risk.record_order_submission(submission_time)
         self.idempotency.mark_submitted(slice_client_id)

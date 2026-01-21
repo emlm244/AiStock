@@ -13,11 +13,13 @@ import numpy as np
 
 from ..data import Bar
 from ..ml.agents import DoubleQAgent
-from ..ml.config import DoubleQLearningConfig, PERConfig, Transition
+from ..ml.config import DoubleQLearningConfig, PERConfig, SequenceTransition, Transition
 from ..portfolio import Portfolio
 from .base import BaseDecisionEngine
 
 logger = logging.getLogger(__name__)
+
+TransitionType = Transition | SequenceTransition
 
 
 class TabularEngine(BaseDecisionEngine):
@@ -54,15 +56,28 @@ class TabularEngine(BaseDecisionEngine):
             max_q_table_size: Maximum Q-table entries
             gui_log_callback: Optional GUI logging callback
         """
+        validated_double_q = double_q_config or DoubleQLearningConfig()
+        validated_double_q.validate()
+        validated_per_config = per_config or PERConfig()
+        validated_per_config.validate()
+        if learning_rate <= 0:
+            raise ValueError('learning_rate must be positive')
+        if not 0 <= discount_factor <= 1:
+            raise ValueError('discount_factor must be in [0, 1]')
+        if not 0 <= exploration_rate <= 1:
+            raise ValueError('exploration_rate must be in [0, 1]')
+        if max_q_table_size < 1:
+            raise ValueError('max_q_table_size must be >= 1')
+
         super().__init__(
             portfolio=portfolio,
-            per_config=per_config,
+            per_config=validated_per_config,
             min_confidence_threshold=min_confidence_threshold,
             max_capital=max_capital,
             gui_log_callback=gui_log_callback,
         )
 
-        self.double_q_config = double_q_config or DoubleQLearningConfig()
+        self.double_q_config = validated_double_q
 
         # State dimension (will be determined from first state)
         self._state_dim: int | None = None
@@ -258,7 +273,7 @@ class TabularEngine(BaseDecisionEngine):
         agent = self._ensure_agent(len(state_array))
         return agent.select_action(state_array, training)
 
-    def _update_agent(self, transitions: list[Transition], weights: list[float]) -> dict[str, float]:
+    def _update_agent(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
         """Update the Double Q agent.
 
         Args:
@@ -273,7 +288,7 @@ class TabularEngine(BaseDecisionEngine):
 
         return self._agent.update(transitions, weights)
 
-    def _get_td_errors(self, transitions: list[Transition]) -> list[float]:
+    def _get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
         """Get TD errors for PER priority updates.
 
         Args:
@@ -311,6 +326,7 @@ class TabularEngine(BaseDecisionEngine):
             return self._agent.load_state(filepath)
 
         # Try to load and infer state dimension
+        import ast
         import json
         from pathlib import Path
 
@@ -327,7 +343,11 @@ class TabularEngine(BaseDecisionEngine):
             if q1:
                 first_key = next(iter(q1.keys()))
                 # Parse state array from key
-                state_list = eval(first_key)  # Safe since we wrote it
+                state_list = ast.literal_eval(first_key)
+                if not isinstance(state_list, (list, tuple)) or not state_list:
+                    raise ValueError('Invalid state key format')
+                if not all(isinstance(value, (int, float)) for value in state_list):
+                    raise TypeError('State key must contain numeric values')
                 state_dim = len(state_list)
 
                 agent = self._ensure_agent(state_dim)

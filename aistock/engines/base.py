@@ -8,16 +8,18 @@ import logging
 import threading
 from abc import ABC, abstractmethod
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Callable, TypedDict
 
 from ..data import Bar
 from ..ml.buffers import PrioritizedReplayBuffer, UniformReplayBuffer
-from ..ml.config import PERConfig, Transition
+from ..ml.config import PERConfig, SequenceTransition, Transition
 from ..portfolio import Portfolio
 
 logger = logging.getLogger(__name__)
+
+TransitionType = Transition | SequenceTransition
 
 
 class TradeRecord(TypedDict):
@@ -118,7 +120,7 @@ class BaseDecisionEngine(ABC):
         ...
 
     @abstractmethod
-    def _update_agent(self, transitions: list[Transition], weights: list[float]) -> dict[str, float]:
+    def _update_agent(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
         """Update the RL agent with a batch of transitions.
 
         Args:
@@ -222,13 +224,7 @@ class BaseDecisionEngine(ABC):
                 done = abs(new_position) < 0.01
 
                 # Create transition
-                transition = Transition(
-                    state=self._state_to_array(self.last_state),
-                    action=self.last_action,
-                    reward=reward,
-                    next_state=self._state_to_array(next_state),
-                    done=done,
-                )
+                transition = self._build_transition(reward, next_state, done)
 
                 # Add to replay buffer
                 self._replay_buffer.add(transition)
@@ -287,6 +283,24 @@ class BaseDecisionEngine(ABC):
 
         return next_state
 
+    def _build_transition(
+        self,
+        reward: float,
+        next_state: dict[str, Any],
+        done: bool,
+    ) -> TransitionType:
+        """Build a replay buffer transition.
+
+        Subclasses can override to include richer state (e.g., sequences).
+        """
+        return Transition(
+            state=self._state_to_array(self.last_state or {}),
+            action=self.last_action or 'HOLD',
+            reward=reward,
+            next_state=self._state_to_array(next_state),
+            done=done,
+        )
+
     def _state_to_array(self, state: dict[str, Any]) -> Any:
         """Convert state dictionary to numpy array.
 
@@ -334,7 +348,7 @@ class BaseDecisionEngine(ABC):
         except Exception as e:
             logger.error(f'Batch training failed: {e}', exc_info=True)
 
-    def _get_td_errors(self, transitions: list[Transition]) -> list[float]:
+    def _get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
         """Get TD errors from agent for PER priority updates.
 
         Args:
@@ -353,7 +367,7 @@ class BaseDecisionEngine(ABC):
         Returns:
             Session start info
         """
-        self.session_start_time = datetime.now()
+        self.session_start_time = datetime.now(timezone.utc)
         self.session_trades = 0
 
         return {
@@ -372,7 +386,7 @@ class BaseDecisionEngine(ABC):
 
         stats = {
             'start_time': self.session_start_time.isoformat() if self.session_start_time else None,
-            'end_time': datetime.now().isoformat(),
+            'end_time': datetime.now(timezone.utc).isoformat(),
             'total_trades': self.session_trades,
             'session_pnl': session_pnl,
             'engine': self.__class__.__name__,

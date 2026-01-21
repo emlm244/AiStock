@@ -58,12 +58,14 @@ basedpyright                             # Type check (strict mode)
 ```
 
 ### Testing
+
 ```bash
 pytest tests                             # Run all 440+ tests
 pytest -k test_name                      # Run specific test
 pytest tests/test_engine_pnl.py          # Run single test file
 pytest --cov=. --cov-report=xml          # Coverage report
 ```
+
 
 ### Run
 ```bash

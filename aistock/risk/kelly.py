@@ -50,6 +50,10 @@ class KellyCriterionSizer:
     """
 
     def __init__(self, config: KellyCriterionConfig) -> None:
+        try:
+            config.validate()
+        except ValueError as exc:
+            raise ValueError(f'Invalid KellyCriterionConfig: {exc}') from exc
         self.config = config
         self._lock = threading.Lock()
 

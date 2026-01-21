@@ -7,7 +7,8 @@ Reference: Schaul et al. (2015) "Prioritized Experience Replay"
 
 import numpy as np
 
-from ..config import PERConfig, Transition
+from ..config import PERConfig
+from .base import TransitionType
 from .sum_tree import SumTree
 
 
@@ -37,7 +38,7 @@ class PrioritizedReplayBuffer:
         """Return current number of transitions."""
         return len(self._tree)
 
-    def add(self, transition: Transition) -> None:
+    def add(self, transition: TransitionType) -> None:
         """Add a transition with max priority.
 
         New transitions get maximum priority to ensure they are
@@ -50,7 +51,7 @@ class PrioritizedReplayBuffer:
         priority = self._max_priority**self.config.alpha
         self._tree.add(priority, transition)
 
-    def sample(self, batch_size: int) -> tuple[list[Transition], list[float], list[int]]:
+    def sample(self, batch_size: int) -> tuple[list[TransitionType], list[float], list[int]]:
         """Sample a batch of transitions with prioritized sampling.
 
         Args:
@@ -62,7 +63,7 @@ class PrioritizedReplayBuffer:
         if len(self._tree) < batch_size:
             raise ValueError(f'Not enough transitions: have {len(self._tree)}, need {batch_size}')
 
-        transitions: list[Transition] = []
+        transitions: list[TransitionType] = []
         tree_indices: list[int] = []
         priorities: list[float] = []
 

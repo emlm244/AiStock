@@ -2,7 +2,7 @@
 
 1. **README + Data Docs Alignment**  
    - Rewrite `README.md` and `data/README.md` to reflect coordinator-first architecture, clarify headless/paper workflows, and tone down legacy FSD marketing.  
-   - Mirror updates in `AGENTS.md` / `AGENTS.md` to keep guidance consistent.
+   - Mirror updates in `AGENTS.md` to keep guidance consistent.
 
 2. **Ruff Config & CI Python Version Sync**  
    - Prune stale per-file ignores in `ruff.toml` (references to removed modules).  

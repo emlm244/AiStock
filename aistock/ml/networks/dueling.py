@@ -6,6 +6,8 @@ Q(s,a) = V(s) + (A(s,a) - mean(A(s,:)))
 Reference: Wang et al. (2016) "Dueling Network Architectures for Deep RL"
 """
 
+from typing import Any
+
 import torch
 import torch.nn as nn
 
@@ -142,7 +144,7 @@ class DuelingNetwork(BaseNetwork):
             advantage = self.advantage_stream(features)
             return advantage - advantage.mean(dim=1, keepdim=True)
 
-    def get_config(self) -> dict[str, object]:
+    def get_config(self) -> dict[str, Any]:
         """Get network configuration.
 
         Returns:

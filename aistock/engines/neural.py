@@ -12,11 +12,13 @@ import numpy as np
 
 from ..data import Bar
 from ..ml.agents import DQNAgent
-from ..ml.config import DuelingDQNConfig, PERConfig, Transition
+from ..ml.config import DuelingDQNConfig, PERConfig, SequenceTransition, Transition
 from ..portfolio import Portfolio
 from .base import BaseDecisionEngine
 
 logger = logging.getLogger(__name__)
+
+TransitionType = Transition | SequenceTransition
 
 
 class NeuralEngine(BaseDecisionEngine):
@@ -103,21 +105,19 @@ class NeuralEngine(BaseDecisionEngine):
 
         # Extract continuous state features (no discretization)
         state = self._extract_state(symbol, bars, last_prices)
-        state_array = np.array(list(state.values()), dtype=np.float32)
-
-        # Pad or truncate to expected dimension
-        if len(state_array) < self.state_dim:
-            state_array = np.pad(state_array, (0, self.state_dim - len(state_array)))
-        elif len(state_array) > self.state_dim:
-            state_array = state_array[: self.state_dim]
+        state_array = self._state_to_array(state)
 
         # Get action from agent
         action_name = self._agent.select_action(state_array, training=True)
 
         # Get Q-values for confidence
         q_values = self._agent.get_q_values(state_array)
-        max_q = max(q_values.values())
-        min_q = min(q_values.values())
+        if q_values:
+            max_q = max(q_values.values())
+            min_q = min(q_values.values())
+        else:
+            max_q = 0.0
+            min_q = 0.0
 
         # Confidence from Q-value spread (softmax-like)
         q_spread = max_q - min_q
@@ -138,6 +138,13 @@ class NeuralEngine(BaseDecisionEngine):
         self.last_state = state
         self.last_action = action_name
 
+        action_q = q_values.get(action_name)
+        if action_q is None:
+            logger.warning('Missing Q-value for action %s', action_name)
+            action_q_value = float('nan')
+        else:
+            action_q_value = float(action_q)
+
         return {
             'should_trade': should_trade,
             'action': {
@@ -147,7 +154,7 @@ class NeuralEngine(BaseDecisionEngine):
             },
             'confidence': confidence,
             'state': state,
-            'reason': f'{action_name} (Q={q_values[action_name]:.3f}, conf={confidence:.2f})',
+            'reason': f'{action_name} (Q={action_q_value:.3f}, conf={confidence:.2f})',
         }
 
     def _extract_state(
@@ -192,7 +199,7 @@ class NeuralEngine(BaseDecisionEngine):
         # Volatility (rolling std of returns)
         if len(prices) > 5:
             returns = np.diff(prices[-20:]) / prices[-20:-1]
-            features['volatility'] = float(np.float64(np.clip(np.std(returns), 0, 0.1)))
+            features['volatility'] = float(np.clip(np.std(returns), 0, 0.1))
         else:
             features['volatility'] = 0.01
 
@@ -259,7 +266,7 @@ class NeuralEngine(BaseDecisionEngine):
         state_array = self._state_to_array(state)
         return self._agent.select_action(state_array, training)
 
-    def _update_agent(self, transitions: list[Transition], weights: list[float]) -> dict[str, float]:
+    def _update_agent(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
         """Update the DQN agent.
 
         Args:
@@ -271,7 +278,7 @@ class NeuralEngine(BaseDecisionEngine):
         """
         return self._agent.update(transitions, weights)
 
-    def _get_td_errors(self, transitions: list[Transition]) -> list[float]:
+    def _get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
         """Get TD errors for PER.
 
         Args:

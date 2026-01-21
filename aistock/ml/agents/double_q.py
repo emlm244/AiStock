@@ -23,6 +23,8 @@ from .base import BaseAgent
 
 logger = logging.getLogger(__name__)
 
+TransitionType = Transition
+
 
 def _hash_state(state: np.ndarray) -> str:
     """Hash state array to string key for Q-table lookup.
@@ -105,7 +107,7 @@ class DoubleQAgent(BaseAgent):
             if len(q_table) >= self.max_q_table_size:
                 q_table.popitem(last=False)
             # Initialize Q-values to 0
-            q_table[state_key] = {action: 0.0 for action in self.ACTIONS}
+            q_table[state_key] = dict.fromkeys(self.ACTIONS, 0.0)
         else:
             # Move to end (mark as recently used)
             q_table.move_to_end(state_key)
@@ -136,7 +138,7 @@ class DoubleQAgent(BaseAgent):
             }
             return max(combined_q.items(), key=lambda x: x[1])[0]
 
-    def update(self, transitions: list[Transition], weights: list[float]) -> dict[str, float]:
+    def update(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
         """Update Q-tables from a batch of transitions.
 
         Args:
@@ -211,7 +213,7 @@ class DoubleQAgent(BaseAgent):
             'q2_size': len(self._q2),
         }
 
-    def get_td_errors(self, transitions: list[Transition]) -> list[float]:
+    def get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
         """Calculate TD errors for priority updates.
 
         Args:
@@ -287,7 +289,7 @@ class DoubleQAgent(BaseAgent):
 
         # Atomic write
         temp_path = path.with_suffix('.tmp')
-        with open(temp_path, 'w') as f:
+        with open(temp_path, 'w', encoding='utf-8') as f:
             json.dump(state, f)
         temp_path.replace(path)
 
@@ -308,7 +310,7 @@ class DoubleQAgent(BaseAgent):
             return False
 
         try:
-            with open(path) as f:
+            with open(path, encoding='utf-8') as f:
                 state = json.load(f)
 
             with self._lock:

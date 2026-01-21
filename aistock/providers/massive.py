@@ -53,6 +53,10 @@ class MassiveConfig:
 
     def __post_init__(self) -> None:
         """Validate configuration."""
+        self.validate()
+
+    def validate(self) -> None:
+        """Validate configuration."""
         if not self.api_key:
             raise ValueError('API key is required')
         if self.rate_limit_per_minute < 1:
@@ -99,19 +103,22 @@ class RateLimiter:
         This method will sleep if the rate limit has been reached,
         waiting until a slot becomes available.
         """
-        with self._lock:
-            now = time.time()
+        while True:
+            wait_time = 0.0
+            with self._lock:
+                now = time.time()
 
-            # Remove calls outside the window
-            while self._call_times and now - self._call_times[0] > self._window_seconds:
-                self._call_times.popleft()
+                # Remove calls outside the window
+                while self._call_times and now - self._call_times[0] > self._window_seconds:
+                    self._call_times.popleft()
 
-            # Check if we need to wait
-            if len(self._call_times) >= self._max_calls:
-                # Calculate wait time
+                if len(self._call_times) < self._max_calls:
+                    self._call_times.append(now)
+                    self._total_calls += 1
+                    return
+
                 oldest_call = self._call_times[0]
                 wait_time = self._window_seconds - (now - oldest_call) + 0.5  # Add buffer
-
                 if wait_time > 0:
                     logger.info(
                         f'Rate limit reached ({self._max_calls}/{self._window_seconds}s). Sleeping {wait_time:.1f}s...'
@@ -119,23 +126,8 @@ class RateLimiter:
                     self._total_waits += 1
                     self._total_wait_time += wait_time
 
-                    # Release lock while sleeping
-                    self._lock.release()
-                    try:
-                        time.sleep(wait_time)
-                    finally:
-                        self._lock.acquire()
-
-                    # Refresh timestamp after sleep
-                    now = time.time()
-
-                    # Clean up old calls again
-                    while self._call_times and now - self._call_times[0] > self._window_seconds:
-                        self._call_times.popleft()
-
-            # Record this call
-            self._call_times.append(now)
-            self._total_calls += 1
+            if wait_time > 0:
+                time.sleep(wait_time)
 
     def get_stats(self) -> dict[str, Any]:
         """Get rate limiter statistics."""
@@ -214,6 +206,18 @@ class MassiveDataProvider:
 
             self._cache = MassiveCache(self._config.cache_dir)
         return self._cache
+
+    def load_cached_bars(
+        self,
+        symbol: str,
+        start_date: date,
+        end_date: date,
+        timespan: str = 'minute',
+        asset_type: str = 'stocks',
+    ) -> list[Bar]:
+        """Load cached bars without hitting the Massive API."""
+        cache = self._get_cache()
+        return cache.load_bars(symbol, start_date, end_date, timespan, asset_type)
 
     def fetch_bars(
         self,
@@ -371,6 +375,43 @@ class MassiveDataProvider:
             from_cache=False,
         )
 
+    def _list_futures_aggs(
+        self,
+        client: Any,
+        ticker: str,
+        start_date: date,
+        end_date: date,
+        resolution: str,
+    ) -> list[Any]:
+        params = {
+            'resolution': resolution,
+            'window_start.gte': start_date.strftime('%Y-%m-%d'),
+            'window_start.lte': end_date.strftime('%Y-%m-%d'),
+            'limit': 50000,
+        }
+
+        futures_client = getattr(client, 'futures', None)
+        if futures_client is not None:
+            for method_name in ('list_aggs', 'get_aggs', 'aggs'):
+                method = getattr(futures_client, method_name, None)
+                if method is None:
+                    continue
+                try:
+                    return list(method(ticker=ticker, **params))
+                except TypeError:
+                    return list(method(ticker=ticker, params=params))
+
+        for method_name in ('list_futures_aggs', 'get_futures_aggs'):
+            method = getattr(client, method_name, None)
+            if method is None:
+                continue
+            try:
+                return list(method(ticker=ticker, **params))
+            except TypeError:
+                return list(method(ticker=ticker, params=params))
+
+        raise AttributeError('Massive REST client does not expose a public futures aggregates API')
+
     def fetch_futures(
         self,
         ticker: str,
@@ -410,32 +451,24 @@ class MassiveDataProvider:
         client = self._get_client()
         all_bars: list[Bar] = []
         api_calls = 0
+        attempts = 0
+        while True:
+            try:
+                self._rate_limiter.acquire()
+                api_calls += 1
 
-        try:
-            self._rate_limiter.acquire()
-            api_calls += 1
+                logger.info(f'Fetching futures {ticker}: {start_date} to {end_date}')
 
-            logger.info(f'Fetching futures {ticker}: {start_date} to {end_date}')
+                aggs = self._list_futures_aggs(client, ticker, start_date, end_date, resolution)
 
-            # Futures endpoint is different
-            # /futures/vX/aggs/{ticker}
-            response = client._get(
-                f'/futures/v1/aggs/{ticker}',
-                params={
-                    'resolution': resolution,
-                    'window_start.gte': start_date.strftime('%Y-%m-%d'),
-                    'window_start.lte': end_date.strftime('%Y-%m-%d'),
-                    'limit': 50000,
-                },
-            )
-
-            if hasattr(response, 'results'):
-                for agg in response.results:
-                    # Futures timestamps may be in different format
-                    if isinstance(agg.window_start, (int, float)):
-                        ts = datetime.fromtimestamp(agg.window_start / 1000000000, tz=timezone.utc)
+                for agg in aggs:
+                    window_start = getattr(agg, 'window_start', None)
+                    if window_start is None:
+                        window_start = getattr(agg, 'timestamp', None)
+                    if isinstance(window_start, (int, float)):
+                        ts = datetime.fromtimestamp(window_start / 1000000000, tz=timezone.utc)
                     else:
-                        ts = datetime.fromisoformat(str(agg.window_start).replace('Z', '+00:00'))
+                        ts = datetime.fromisoformat(str(window_start).replace('Z', '+00:00'))
 
                     bar = Bar(
                         symbol=ticker,
@@ -448,25 +481,42 @@ class MassiveDataProvider:
                     )
                     all_bars.append(bar)
 
-            logger.info(f'Fetched {len(all_bars)} futures bars for {ticker}')
+                logger.info(f'Fetched {len(all_bars)} futures bars for {ticker}')
 
-            # Cache results
-            if all_bars and use_cache:
-                cache.store_bars(ticker, all_bars, 'minute', 'futures')
+                # Cache results
+                if all_bars and use_cache:
+                    cache.store_bars(ticker, all_bars, 'minute', 'futures')
+                break
 
-        except Exception as e:
-            logger.error(f'Failed to fetch futures {ticker}: {e}')
-            return FetchResult(
-                success=False,
-                error=str(e),
-                api_calls_used=api_calls,
-            )
+            except Exception as e:
+                if attempts >= self._config.max_retries:
+                    logger.error(f'Failed to fetch futures {ticker}: {e}')
+                    return FetchResult(
+                        success=False,
+                        error=str(e),
+                        api_calls_used=api_calls,
+                    )
+
+                backoff = self._config.retry_backoff_seconds * (2**attempts)
+                attempts += 1
+                logger.info(f'Retry {attempts}/{self._config.max_retries} in {backoff}s')
+                time.sleep(backoff)
 
         return FetchResult(
             success=True,
             data=all_bars,
             api_calls_used=api_calls,
         )
+
+    @staticmethod
+    def _action_date(action: dict[str, object]) -> date | None:
+        raw_date = action.get('ex_date') or action.get('listing_date')
+        if not raw_date:
+            return None
+        try:
+            return date.fromisoformat(str(raw_date))
+        except (TypeError, ValueError):
+            return None
 
     def fetch_corporate_actions(
         self,
@@ -500,23 +550,9 @@ class MassiveDataProvider:
                 if symbol:
                     filtered = [a for a in filtered if a.get('ticker') == symbol]
                 if start_date:
-                    filtered = [
-                        a
-                        for a in filtered
-                        if date.fromisoformat(
-                            str(a.get('ex_date') or a.get('listing_date') or '2000-01-01')
-                        )
-                        >= start_date
-                    ]
+                    filtered = [a for a in filtered if (d := self._action_date(a)) and d >= start_date]
                 if end_date:
-                    filtered = [
-                        a
-                        for a in filtered
-                        if date.fromisoformat(
-                            str(a.get('ex_date') or a.get('listing_date') or '2099-12-31')
-                        )
-                        <= end_date
-                    ]
+                    filtered = [a for a in filtered if (d := self._action_date(a)) and d <= end_date]
                 return FetchResult(
                     success=True,
                     data=filtered,
@@ -583,23 +619,9 @@ class MassiveDataProvider:
             if start_date or end_date:
                 filtered = all_actions
                 if start_date:
-                    filtered = [
-                        a
-                        for a in filtered
-                        if date.fromisoformat(
-                            str(a.get('ex_date') or a.get('listing_date') or '2000-01-01')
-                        )
-                        >= start_date
-                    ]
+                    filtered = [a for a in filtered if (d := self._action_date(a)) and d >= start_date]
                 if end_date:
-                    filtered = [
-                        a
-                        for a in filtered
-                        if date.fromisoformat(
-                            str(a.get('ex_date') or a.get('listing_date') or '2099-12-31')
-                        )
-                        <= end_date
-                    ]
+                    filtered = [a for a in filtered if (d := self._action_date(a)) and d <= end_date]
                 all_actions = filtered
 
             return FetchResult(
@@ -768,7 +790,7 @@ class MassiveDataProvider:
 
     def add_bar(self, symbol: str, timeframe: str, bar: Bar) -> None:
         """Add a new bar to the data store (not used in backtest mode)."""
-        pass  # No-op for backtest provider
+        raise NotImplementedError('add_bar not supported in backtest provider')
 
     def get_latest_bar(self, symbol: str, timeframe: str = '1m') -> Bar | None:
         """Get the most recent bar from cache."""

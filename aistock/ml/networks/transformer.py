@@ -187,7 +187,14 @@ class TransformerNetwork(BaseNetwork):
         # Return dummy attention weights for now
         batch_size = state.size(0) if state.dim() == 3 else 1
         seq_len = state.size(1) if state.dim() == 3 else 1
-        attention_weights = torch.zeros(batch_size, self.num_heads, seq_len, seq_len)
+        attention_weights = torch.zeros(
+            batch_size,
+            self.num_heads,
+            seq_len,
+            seq_len,
+            device=state.device,
+            dtype=state.dtype,
+        )
 
         return q_values, attention_weights
 

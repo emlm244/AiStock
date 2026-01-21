@@ -59,15 +59,9 @@ class TickerLifecycle:
 
     def was_tradeable_on(self, check_date: date) -> bool:
         """Check if symbol was tradeable on a specific date."""
-        # Check if before IPO
-        if self.ipo_date and check_date < self.ipo_date:
-            return False
-
-        # Check if after delisting
-        if self.delisting_date and check_date > self.delisting_date:
-            return False
-
-        return True
+        return (not self.ipo_date or check_date >= self.ipo_date) and (
+            not self.delisting_date or check_date <= self.delisting_date
+        )
 
     def was_tradeable_during(self, start_date: date, end_date: date) -> tuple[bool, str]:
         """
@@ -140,11 +134,12 @@ class HistoricalUniverseManager:
     4. Validating symbol availability for any historical period
     """
 
-    def __init__(self) -> None:
+    def __init__(self, include_unknown_symbols: bool = False) -> None:
         """Initialize the universe manager."""
         self._lifecycles: dict[str, TickerLifecycle] = {}
         self._events: list[TickerEvent] = []
         self._loaded = False
+        self._include_unknown_symbols = include_unknown_symbols
 
     def load_from_massive(
         self,
@@ -365,6 +360,7 @@ class HistoricalUniverseManager:
             timestamp: Historical timestamp or date.
             candidate_symbols: Optional list of symbols to filter from.
                              If None, uses all known symbols.
+            include_unknown_symbols: Whether to include symbols without lifecycle data.
 
         Returns:
             Frozen set of symbols that were tradeable at the timestamp.
@@ -377,8 +373,10 @@ class HistoricalUniverseManager:
         for symbol in candidates:
             lifecycle = self._lifecycles.get(symbol)
             if lifecycle is None:
-                # Unknown symbol - include by default (conservative)
-                active_symbols.add(symbol)
+                if self._include_unknown_symbols:
+                    active_symbols.add(symbol)
+                else:
+                    logger.warning('Skipping %s due to missing lifecycle data', symbol)
                 continue
 
             if lifecycle.was_tradeable_on(check_date):

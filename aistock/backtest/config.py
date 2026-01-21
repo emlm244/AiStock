@@ -5,16 +5,38 @@ Configuration dataclasses for the backtesting framework.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypedDict
+
+import pandas as pd
 
 if TYPE_CHECKING:
     from ..config import RiskLimits
     from ..fsd import FSDConfig
 
 
-@dataclass
+class TradeRecord(TypedDict):
+    """Structure for trade log entries generated during backtests."""
+
+    timestamp: datetime
+    symbol: str
+    action: str
+    side: str
+    quantity: Decimal
+    price: Decimal
+    slippage: Decimal
+    spread_cost: Decimal
+    temporary_impact: Decimal
+    permanent_impact: Decimal
+    commission: Decimal
+    costs: Decimal
+    pnl: Decimal
+    is_partial: bool
+    fill_reason: str
+
+
+@dataclass(frozen=True)
 class WalkForwardConfig:
     """
     Configuration for walk-forward validation.
@@ -42,7 +64,7 @@ class WalkForwardConfig:
     min_folds: int = 3  # Minimum folds for valid walk-forward
     min_test_trades: int = 10  # Minimum trades per test period
 
-    def __post_init__(self) -> None:
+    def validate(self) -> None:
         """Validate configuration."""
         if self.initial_train_days < 30:
             raise ValueError('initial_train_days must be at least 30')
@@ -54,7 +76,7 @@ class WalkForwardConfig:
             raise ValueError('rolling_window_days must be >= initial_train_days')
 
 
-@dataclass
+@dataclass(frozen=True)
 class RealisticExecutionConfig:
     """
     Configuration for realistic execution modeling.
@@ -104,7 +126,7 @@ class RealisticExecutionConfig:
     avoid_open_minutes: int = 15
     avoid_close_minutes: int = 15
 
-    def __post_init__(self) -> None:
+    def validate(self) -> None:
         """Validate configuration."""
         if self.base_slippage_bps < 0:
             raise ValueError('base_slippage_bps cannot be negative')
@@ -112,9 +134,16 @@ class RealisticExecutionConfig:
             raise ValueError('max_slippage_bps must be >= base_slippage_bps')
         if not 0 < self.max_volume_participation <= 1:
             raise ValueError('max_volume_participation must be in (0, 1]')
+        if not 0 < self.min_fill_fraction <= 1:
+            raise ValueError(
+                'min_fill_fraction must be in (0, 1] when enable_partial_fills is '
+                f'{self.enable_partial_fills}'
+            )
         valid_styles = {'market', 'limit', 'twap', 'vwap', 'adaptive'}
-        if self.execution_style.lower().strip() not in valid_styles:
+        normalized_style = self.execution_style.lower().strip()
+        if normalized_style not in valid_styles:
             raise ValueError(f'execution_style must be one of {valid_styles}, got {self.execution_style!r}')
+        object.__setattr__(self, 'execution_style', normalized_style)
         if self.limit_offset_bps < 0:
             raise ValueError('limit_offset_bps cannot be negative')
         if self.twap_slices < 1:
@@ -131,7 +160,7 @@ class RealisticExecutionConfig:
             raise ValueError('avoid_close_minutes cannot be negative')
 
 
-@dataclass
+@dataclass(frozen=True)
 class BacktestPlanConfig:
     """
     Full configuration for a backtest plan.
@@ -179,7 +208,7 @@ class BacktestPlanConfig:
     use_cache: bool = True  # Use Massive.com data cache
     parallel_folds: int = 1  # Reserved for future parallel fold execution (currently sequential)
 
-    def __post_init__(self) -> None:
+    def validate(self) -> None:
         """Validate configuration."""
         if not self.symbols:
             raise ValueError('At least one symbol is required')
@@ -187,12 +216,20 @@ class BacktestPlanConfig:
             raise ValueError('end_date must be after start_date')
         if self.initial_capital <= 0:
             raise ValueError('initial_capital must be positive')
+        if self.walkforward is not None:
+            self.walkforward.validate()
+        if self.execution is not None:
+            self.execution.validate()
+        if self.risk_limits is not None:
+            self.risk_limits.validate()
+        if self.fsd_config is not None:
+            self.fsd_config.validate()
 
     def total_days(self) -> int:
         """Calculate total number of trading days in the backtest period."""
         if not self.start_date or not self.end_date:
             return 0
-        return (self.end_date - self.start_date).days
+        return len(pd.bdate_range(self.start_date, self.end_date, freq='B'))
 
     def expected_folds(self) -> int:
         """Calculate expected number of walk-forward folds."""
@@ -260,4 +297,4 @@ class PeriodResult:
     equity_curve: list[tuple[date, Decimal]] = field(default_factory=list)
 
     # Trade log
-    trades: list[dict[str, object]] = field(default_factory=list)
+    trades: list[TradeRecord] = field(default_factory=list)

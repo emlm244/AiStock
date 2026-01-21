@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ..capital_management import CompoundingStrategy, ProfitWithdrawalStrategy
 from ..config import BacktestConfig
 from ..fsd import FSDConfig
@@ -110,7 +112,8 @@ class SessionFactory:
                     'futures_enabled_without_contracts',
                     extra={'detail': 'Futures enabled but no FUT contracts configured; disabling futures.'},
                 )
-                caps.enable_futures = False
+                caps_modified = replace(caps, enable_futures=False)
+                self.config = replace(self.config, account_capabilities=caps_modified)
             return PreflightResult(passed=True, errors=[], warnings=[], validated_contracts={})
 
         self._logger.info(
@@ -144,7 +147,8 @@ class SessionFactory:
                 extra={'errors': result.errors},
             )
             if futures_enabled and caps:
-                caps.enable_futures = False
+                caps_modified = replace(caps, enable_futures=False)
+                self.config = replace(self.config, account_capabilities=caps_modified)
                 self._logger.warning(
                     'futures_disabled_due_to_preflight',
                     extra={'detail': error_msg},
@@ -354,14 +358,14 @@ class SessionFactory:
             return timeframes
         try:
             from ..timeframes import SECONDS_TO_TIMEFRAME, TIMEFRAME_TO_SECONDS
-        except Exception:
+        except (ImportError, ModuleNotFoundError):
             return timeframes
 
         normalized = [tf.lower().strip() for tf in timeframes if tf]
         filtered = [
             tf
             for tf in normalized
-            if (TIMEFRAME_TO_SECONDS.get(tf) or 0) <= max_seconds
+            if tf in TIMEFRAME_TO_SECONDS and TIMEFRAME_TO_SECONDS[tf] <= max_seconds
         ]
 
         decision_seconds = int(getattr(self.config.data.bar_interval, 'total_seconds', lambda: 60)())

@@ -185,7 +185,7 @@ class VolatilityScaler:
         if len(returns) < 2:
             return None
 
-        daily_vol = float(np.std(returns))
+        daily_vol = float(np.std(returns, ddof=1))
         # Annualize: daily vol * sqrt(252 trading days)
         annualized = daily_vol * np.sqrt(252)
 

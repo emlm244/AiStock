@@ -36,6 +36,7 @@ class SumTree:
         self._data: list[object] = [None] * capacity
         self._write_idx = 0
         self._size = 0
+        self._min_priority = 0.0
 
     def __len__(self) -> int:
         """Return current number of stored items."""
@@ -50,7 +51,7 @@ class SumTree:
         """Add an item with the given priority.
 
         Args:
-            priority: Priority value (must be positive)
+            priority: Priority value (must be non-negative)
             data: Data to store at this leaf
         """
         if priority < 0:
@@ -62,24 +63,29 @@ class SumTree:
         # Store data
         self._data[self._write_idx] = data
 
+        old_priority = float(self._tree[tree_idx])
+
         # Update tree with new priority
         self._update(tree_idx, priority)
 
         # Advance write index (circular buffer)
         self._write_idx = (self._write_idx + 1) % self.capacity
         self._size = min(self._size + 1, self.capacity)
+        self._adjust_min_priority(old_priority, priority)
 
     def update(self, tree_idx: int, priority: float) -> None:
         """Update priority at a specific tree index.
 
         Args:
             tree_idx: Index in the tree array (leaf index)
-            priority: New priority value
+            priority: New priority value (non-negative)
         """
         if priority < 0:
             raise ValueError(f'priority must be non-negative, got {priority}')
 
+        old_priority = float(self._tree[tree_idx])
         self._update(tree_idx, priority)
+        self._adjust_min_priority(old_priority, priority)
 
     def _update(self, tree_idx: int, priority: float) -> None:
         """Internal update method.
@@ -152,19 +158,7 @@ class SumTree:
     @property
     def min_priority(self) -> float:
         """Return minimum non-zero priority among stored items."""
-        if self._size == 0:
-            return 0.0
-
-        # Get leaf node slice
-        leaf_start = self.capacity - 1
-        leaf_end = leaf_start + self._size
-        leaf_priorities = self._tree[leaf_start:leaf_end]
-
-        # Find minimum non-zero priority
-        nonzero = leaf_priorities[leaf_priorities > 0]
-        if len(nonzero) == 0:
-            return 0.0
-        return float(np.min(nonzero))
+        return float(self._min_priority)
 
     @property
     def max_priority(self) -> float:
@@ -175,3 +169,23 @@ class SumTree:
         leaf_start = self.capacity - 1
         leaf_end = leaf_start + self._size
         return float(np.max(self._tree[leaf_start:leaf_end]))
+
+    def _adjust_min_priority(self, old_priority: float, new_priority: float) -> None:
+        if self._size == 0:
+            self._min_priority = 0.0
+            return
+        if new_priority > 0 and (self._min_priority == 0.0 or new_priority < self._min_priority):
+            self._min_priority = float(new_priority)
+            return
+        if old_priority == self._min_priority and new_priority != old_priority:
+            self._recompute_min_priority()
+
+    def _recompute_min_priority(self) -> None:
+        if self._size == 0:
+            self._min_priority = 0.0
+            return
+        leaf_start = self.capacity - 1
+        leaf_end = leaf_start + self._size
+        leaf_priorities = self._tree[leaf_start:leaf_end]
+        nonzero = leaf_priorities[leaf_priorities > 0]
+        self._min_priority = float(np.min(nonzero)) if len(nonzero) else 0.0
