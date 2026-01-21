@@ -71,6 +71,8 @@ class DQNAgent(BaseAgent):
             raise ValueError('exploration_decay must be in [0, 1]')
         if not 0 <= min_exploration_rate <= 1:
             raise ValueError('min_exploration_rate must be in [0, 1]')
+        if min_exploration_rate > exploration_rate:
+            raise ValueError('min_exploration_rate must be <= exploration_rate')
 
         super().__init__(
             state_dim=state_dim,
@@ -89,6 +91,7 @@ class DQNAgent(BaseAgent):
 
         # Optimizer
         effective_lr = self.config.learning_rate if config is not None else learning_rate
+        self.learning_rate = effective_lr
         self.optimizer = optim.Adam(
             self.policy_net.parameters(),
             lr=effective_lr,
@@ -238,6 +241,8 @@ class DQNAgent(BaseAgent):
         """
         if not transitions:
             return {'loss': 0.0, 'td_error_mean': 0.0}
+        if any(isinstance(t, SequenceTransition) for t in transitions):
+            raise TypeError('DQNAgent expects Transition inputs, got SequenceTransition')
 
         # Prepare batch tensors
         states = torch.FloatTensor(np.array([t.state for t in transitions])).to(self.device)
@@ -348,6 +353,8 @@ class DQNAgent(BaseAgent):
         Returns:
             List of absolute TD errors
         """
+        if any(isinstance(t, SequenceTransition) for t in transitions):
+            raise TypeError('DQNAgent expects Transition inputs, got SequenceTransition')
         with torch.no_grad():
             states = torch.FloatTensor(np.array([t.state for t in transitions])).to(self.device)
 

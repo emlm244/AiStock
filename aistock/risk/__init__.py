@@ -18,10 +18,6 @@ Example usage:
     )
 """
 
-# Core risk management (from original risk.py)
-from .engine import RiskEngine, RiskState, RiskViolation
-
-# Advanced risk configs
 from .advanced_config import (
     AdvancedRiskConfig,
     CorrelationLimitsConfig,
@@ -29,10 +25,10 @@ from .advanced_config import (
     RegimeDetectionConfig,
     VolatilityScalingConfig,
 )
-
-# Advanced risk managers
 from .advanced_risk_manager import AdvancedRiskManager, AdvancedRiskResult
 from .correlation import CorrelationCheckResult, CorrelationMonitor
+# Core risk management (from original risk.py)
+from .engine import RiskEngine, RiskState, RiskViolation
 from .kelly import KellyCriterionSizer, KellyResult
 from .regime import MarketRegime, RegimeDetector, RegimeResult
 from .tail_risk import (

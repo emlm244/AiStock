@@ -66,7 +66,9 @@ class RegimeDetector:
     def __init__(self, config: RegimeDetectionConfig) -> None:
         try:
             config.validate()
-        except Exception as exc:
+        except AttributeError as exc:
+            raise ValueError('RegimeDetectionConfig missing validate method') from exc
+        except (ValueError, TypeError) as exc:
             raise ValueError(f'Invalid RegimeDetectionConfig: {exc}') from exc
         self.config = config
         self._lock = threading.Lock()

@@ -3,9 +3,7 @@
 import random
 from collections import deque
 
-from ..config import SequenceTransition, Transition
-
-TransitionType = Transition | SequenceTransition
+from .base import TransitionType
 
 
 class UniformReplayBuffer:

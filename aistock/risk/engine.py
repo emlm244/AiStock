@@ -302,14 +302,18 @@ class RiskEngine:
             if caps.account_type != 'margin':
                 raise RiskViolation('Futures trading requires a margin account.')
             if caps.account_balance < FUTURES_MIN_BALANCE:
-                raise RiskViolation('Futures trading requires at least $2,000 total account balance.')
+                raise RiskViolation(
+                    f'Futures trading requires at least ${FUTURES_MIN_BALANCE:,} total account balance.'
+                )
         elif sec_type == 'OPT':
             if not caps.enable_options:
                 raise RiskViolation('Options trading is disabled by account capabilities.')
             if caps.account_type != 'margin':
                 raise RiskViolation('Options trading requires a margin account.')
             if caps.account_balance < OPTIONS_MIN_BALANCE:
-                raise RiskViolation('Options trading requires at least $2,000 total account balance.')
+                raise RiskViolation(
+                    f'Options trading requires at least ${OPTIONS_MIN_BALANCE:,} total account balance.'
+                )
         elif sec_type == 'STK':
             if not (caps.enable_stocks or caps.enable_etfs):
                 raise RiskViolation('Stocks/ETFs are disabled by account capabilities.')

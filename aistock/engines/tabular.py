@@ -56,14 +56,10 @@ class TabularEngine(BaseDecisionEngine):
             max_q_table_size: Maximum Q-table entries
             gui_log_callback: Optional GUI logging callback
         """
-        if double_q_config is not None and not isinstance(double_q_config, DoubleQLearningConfig):
-            raise ValueError('double_q_config must be a DoubleQLearningConfig instance')
-        if per_config is not None and not isinstance(per_config, PERConfig):
-            raise ValueError('per_config must be a PERConfig instance')
-        if double_q_config is not None:
-            double_q_config.validate()
-        if per_config is not None:
-            per_config.validate()
+        validated_double_q = double_q_config or DoubleQLearningConfig()
+        validated_double_q.validate()
+        validated_per_config = per_config or PERConfig()
+        validated_per_config.validate()
         if learning_rate <= 0:
             raise ValueError('learning_rate must be positive')
         if not 0 <= discount_factor <= 1:
@@ -75,14 +71,12 @@ class TabularEngine(BaseDecisionEngine):
 
         super().__init__(
             portfolio=portfolio,
-            per_config=per_config,
+            per_config=validated_per_config,
             min_confidence_threshold=min_confidence_threshold,
             max_capital=max_capital,
             gui_log_callback=gui_log_callback,
         )
 
-        validated_double_q = double_q_config or DoubleQLearningConfig()
-        validated_double_q.validate()
         self.double_q_config = validated_double_q
 
         # State dimension (will be determined from first state)

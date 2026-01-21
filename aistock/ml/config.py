@@ -1,10 +1,12 @@
 """ML configuration dataclasses for algorithm upgrades."""
 
+import copy
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
 import numpy as np
+import torch
 
 
 @dataclass
@@ -313,10 +315,6 @@ class EarlyStopping:
             self.counter = 0
             if weights is not None and self.config.restore_best:
                 # Deep copy weights
-                import copy
-
-                import torch
-
                 self.best_weights = {
                     k: v.clone() if isinstance(v, torch.Tensor) else copy.deepcopy(v) for k, v in weights.items()
                 }

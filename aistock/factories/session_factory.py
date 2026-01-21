@@ -113,7 +113,7 @@ class SessionFactory:
                     extra={'detail': 'Futures enabled but no FUT contracts configured; disabling futures.'},
                 )
                 caps_modified = replace(caps, enable_futures=False)
-                self.config.account_capabilities = caps_modified
+                self.config = replace(self.config, account_capabilities=caps_modified)
             return PreflightResult(passed=True, errors=[], warnings=[], validated_contracts={})
 
         self._logger.info(
@@ -148,7 +148,7 @@ class SessionFactory:
             )
             if futures_enabled and caps:
                 caps_modified = replace(caps, enable_futures=False)
-                self.config.account_capabilities = caps_modified
+                self.config = replace(self.config, account_capabilities=caps_modified)
                 self._logger.warning(
                     'futures_disabled_due_to_preflight',
                     extra={'detail': error_msg},

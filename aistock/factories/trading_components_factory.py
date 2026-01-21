@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Literal, Optional, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from ..brokers.base import BaseBroker
 from ..brokers.ibkr import IBKRBroker
@@ -124,7 +124,7 @@ class TradingComponentsFactory:
         """Create edge case handler."""
         return EdgeCaseHandler()
 
-    def create_advanced_risk_manager(self) -> Optional['AdvancedRiskManager']:
+    def create_advanced_risk_manager(self) -> 'AdvancedRiskManager | None':
         """Create advanced risk manager if configured.
 
         Returns:

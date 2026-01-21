@@ -7,11 +7,9 @@ Reference: Schaul et al. (2015) "Prioritized Experience Replay"
 
 import numpy as np
 
-from ..config import PERConfig, SequenceTransition, Transition
+from ..config import PERConfig
+from .base import TransitionType
 from .sum_tree import SumTree
-
-
-TransitionType = Transition | SequenceTransition
 
 
 class PrioritizedReplayBuffer:

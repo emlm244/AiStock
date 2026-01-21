@@ -276,7 +276,11 @@ class SequentialEngine(BaseDecisionEngine):
         done: bool,
     ) -> SequenceTransition:
         """Build a sequence-aware transition for replay."""
-        state_sequence = self._last_state_sequence or self._agent.sequence_buffer.get_sequence()
+        state_sequence = (
+            self._last_state_sequence
+            if self._last_state_sequence is not None
+            else self._agent.sequence_buffer.get_sequence()
+        )
         next_state_array = self._state_to_array(next_state)
         if len(state_sequence) > 0:
             next_state_sequence = np.vstack([state_sequence[1:], next_state_array])

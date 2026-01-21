@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from .config import PeriodResult, WalkForwardConfig
 
@@ -43,7 +43,7 @@ class WalkForwardFold:
     train_result: PeriodResult | None = None
     test_result: PeriodResult | None = None
     optimized_params: dict[str, Any] | None = None
-    status: str = 'pending'
+    status: Literal['pending', 'completed', 'failed'] = 'pending'
     error_message: str | None = None
     error_timestamp: datetime | None = None
 

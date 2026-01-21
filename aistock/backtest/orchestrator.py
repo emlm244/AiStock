@@ -955,20 +955,21 @@ class BacktestOrchestrator:
                 pos_after,
             )
 
+        trade_timestamp = bar.timestamp if bar.timestamp.tzinfo else bar.timestamp.replace(tzinfo=timezone.utc)
         return {
-            'timestamp': bar.timestamp.isoformat(),
+            'timestamp': trade_timestamp,
             'symbol': scheduled.symbol,
             'action': 'SLICE',
             'side': side.value,
-            'quantity': float(fill_result.fill_quantity),
-            'price': float(fill_result.fill_price),
-            'slippage': float(fill_result.costs.slippage),
-            'spread_cost': float(fill_result.costs.spread_cost),
-            'temporary_impact': float(fill_result.costs.temporary_impact),
-            'permanent_impact': float(fill_result.costs.permanent_impact),
-            'commission': float(fill_result.costs.commission),
-            'costs': float(fill_result.costs.total),
-            'pnl': float(realised),
+            'quantity': fill_result.fill_quantity,
+            'price': fill_result.fill_price,
+            'slippage': fill_result.costs.slippage,
+            'spread_cost': fill_result.costs.spread_cost,
+            'temporary_impact': fill_result.costs.temporary_impact,
+            'permanent_impact': fill_result.costs.permanent_impact,
+            'commission': fill_result.costs.commission,
+            'costs': fill_result.costs.total,
+            'pnl': realised,
             'is_partial': fill_result.is_partial,
             'fill_reason': fill_result.reason,
         }

@@ -104,6 +104,7 @@ class RateLimiter:
         waiting until a slot becomes available.
         """
         while True:
+            wait_time = 0.0
             with self._lock:
                 now = time.time()
 
@@ -507,6 +508,16 @@ class MassiveDataProvider:
             api_calls_used=api_calls,
         )
 
+    @staticmethod
+    def _action_date(action: dict[str, object]) -> date | None:
+        raw_date = action.get('ex_date') or action.get('listing_date')
+        if not raw_date:
+            return None
+        try:
+            return date.fromisoformat(str(raw_date))
+        except (TypeError, ValueError):
+            return None
+
     def fetch_corporate_actions(
         self,
         action_type: Literal['ipos', 'splits', 'dividends', 'ticker_events'],
@@ -539,19 +550,9 @@ class MassiveDataProvider:
                 if symbol:
                     filtered = [a for a in filtered if a.get('ticker') == symbol]
                 if start_date:
-                    filtered = [
-                        a
-                        for a in filtered
-                        if (a.get('ex_date') or a.get('listing_date'))
-                        and date.fromisoformat(str(a.get('ex_date') or a.get('listing_date'))) >= start_date
-                    ]
+                    filtered = [a for a in filtered if (d := self._action_date(a)) and d >= start_date]
                 if end_date:
-                    filtered = [
-                        a
-                        for a in filtered
-                        if (a.get('ex_date') or a.get('listing_date'))
-                        and date.fromisoformat(str(a.get('ex_date') or a.get('listing_date'))) <= end_date
-                    ]
+                    filtered = [a for a in filtered if (d := self._action_date(a)) and d <= end_date]
                 return FetchResult(
                     success=True,
                     data=filtered,
@@ -618,19 +619,9 @@ class MassiveDataProvider:
             if start_date or end_date:
                 filtered = all_actions
                 if start_date:
-                    filtered = [
-                        a
-                        for a in filtered
-                        if (a.get('ex_date') or a.get('listing_date'))
-                        and date.fromisoformat(str(a.get('ex_date') or a.get('listing_date'))) >= start_date
-                    ]
+                    filtered = [a for a in filtered if (d := self._action_date(a)) and d >= start_date]
                 if end_date:
-                    filtered = [
-                        a
-                        for a in filtered
-                        if (a.get('ex_date') or a.get('listing_date'))
-                        and date.fromisoformat(str(a.get('ex_date') or a.get('listing_date'))) <= end_date
-                    ]
+                    filtered = [a for a in filtered if (d := self._action_date(a)) and d <= end_date]
                 all_actions = filtered
 
             return FetchResult(

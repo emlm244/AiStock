@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .stop_control import StopConfig
 
 
-@dataclass
+@dataclass(frozen=True)
 class DataQualityConfig:
     """Data quality and validation settings."""
 
@@ -27,7 +27,7 @@ class DataQualityConfig:
     min_price: float = 0.01  # Minimum valid price
 
 
-@dataclass
+@dataclass(frozen=True)
 class DataSource:
     """Configuration for data loading."""
 
@@ -41,7 +41,7 @@ class DataSource:
     allow_extended_hours: bool = False  # Whether to allow extended hours trading
 
 
-@dataclass
+@dataclass(frozen=True)
 class StrategyConfig:
     """Legacy configuration for rule-based strategies (unused in FSD mode)."""
 
@@ -51,7 +51,7 @@ class StrategyConfig:
 # Legacy RiskConfig removed - use RiskLimits class instead
 
 
-@dataclass
+@dataclass(frozen=True)
 class RiskLimits:
     """
     Comprehensive risk limits for live trading and backtesting.
@@ -171,7 +171,7 @@ class AccountCapabilities:
             raise ValueError('At least one instrument type must be enabled')
 
 
-@dataclass
+@dataclass(frozen=True)
 class ContractSpec:
     """
     IBKR contract specification.
@@ -202,7 +202,7 @@ class ContractSpec:
     underlying: Optional[str] = None  # Underlying symbol (e.g., 'ES' for ES futures)
 
 
-@dataclass
+@dataclass(frozen=True)
 class BrokerConfig:
     """
     Broker connection and contract configuration.
@@ -245,7 +245,7 @@ class BrokerConfig:
                 raise ValueError('ib_client_id is required when backend is "ibkr". Set IBKR_CLIENT_ID in .env')
 
 
-@dataclass
+@dataclass(frozen=True)
 class ExecutionConfig:
     """Order execution settings."""
 
@@ -265,7 +265,7 @@ class ExecutionConfig:
     avoid_close_minutes: int = 15
 
 
-@dataclass
+@dataclass(frozen=True)
 class EngineConfig:
     """Backtesting engine configuration."""
 
@@ -278,14 +278,14 @@ class EngineConfig:
     data_quality: DataQualityConfig = field(default_factory=DataQualityConfig)
 
 
-@dataclass
+@dataclass(frozen=True)
 class UniverseConfig:
     """Universe selection configuration (unused - symbols specified directly in FSD mode)."""
 
     pass  # Retained for backward compatibility only
 
 
-@dataclass
+@dataclass(frozen=True)
 class BacktestConfig:
     """Complete backtest configuration."""
 

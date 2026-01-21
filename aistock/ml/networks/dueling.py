@@ -6,9 +6,10 @@ Q(s,a) = V(s) + (A(s,a) - mean(A(s,:)))
 Reference: Wang et al. (2016) "Dueling Network Architectures for Deep RL"
 """
 
+from typing import Any
+
 import torch
 import torch.nn as nn
-from typing import Any
 
 from .base import BaseNetwork
 

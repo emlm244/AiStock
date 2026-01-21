@@ -18,12 +18,12 @@ from typing import Any
 
 import numpy as np
 
-from ..config import DoubleQLearningConfig, SequenceTransition, Transition
+from ..config import DoubleQLearningConfig, Transition
 from .base import BaseAgent
 
 logger = logging.getLogger(__name__)
 
-TransitionType = Transition | SequenceTransition
+TransitionType = Transition
 
 
 def _hash_state(state: np.ndarray) -> str:

@@ -19,15 +19,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from ..config import SequenceTransition, SequentialConfig, Transition
+from ..config import SequenceTransition, SequentialConfig
 from ..device import get_device
 from ..networks import LSTMNetwork, TransformerNetwork
 from .base import BaseAgent
 
 logger = logging.getLogger(__name__)
-
-TransitionType = Transition | SequenceTransition
-
 
 class SequenceBuffer:
     """Rolling window buffer for state sequences.
@@ -131,7 +128,10 @@ class SequentialAgent(BaseAgent):
         self._build_networks()
 
         # Optimizer
-        effective_lr = learning_rate if learning_rate is not None else self.config.learning_rate
+        config_lr = self.config.learning_rate if self.config is not None else None
+        effective_lr = config_lr if config_lr is not None else learning_rate
+        if effective_lr is None:
+            raise ValueError('learning_rate must be provided when config learning_rate is unset')
         self.optimizer = optim.Adam(
             self.policy_net.parameters(),
             lr=effective_lr,
@@ -205,14 +205,14 @@ class SequentialAgent(BaseAgent):
             action_idx = q_values.argmax(dim=1).item()
             return self.index_to_action(int(action_idx))
 
-    def update(self, transitions: list[TransitionType], weights: list[float]) -> dict[str, float]:
+    def update(self, transitions: list[SequenceTransition], weights: list[float]) -> dict[str, float]:
         """Update networks from a batch of transitions.
 
         Note: For sequential models, each transition should contain
         the full sequence of states leading to the current state.
 
         Args:
-            transitions: Batch of (s, a, r, s', done) transitions
+            transitions: Batch of sequence transitions
             weights: Importance sampling weights
 
         Returns:
@@ -276,11 +276,11 @@ class SequentialAgent(BaseAgent):
         """Sync target network with policy network."""
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def get_td_errors(self, transitions: list[TransitionType]) -> list[float]:
+    def get_td_errors(self, transitions: list[SequenceTransition]) -> list[float]:
         """Calculate TD errors for priority updates.
 
         Args:
-            transitions: Batch of transitions
+            transitions: Batch of sequence transitions
 
         Returns:
             List of absolute TD errors

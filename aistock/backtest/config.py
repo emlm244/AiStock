@@ -5,7 +5,7 @@ Configuration dataclasses for the backtesting framework.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, TypedDict
 
@@ -19,19 +19,19 @@ if TYPE_CHECKING:
 class TradeRecord(TypedDict):
     """Structure for trade log entries generated during backtests."""
 
-    timestamp: str
+    timestamp: datetime
     symbol: str
     action: str
     side: str
-    quantity: float
-    price: float
-    slippage: float
-    spread_cost: float
-    temporary_impact: float
-    permanent_impact: float
-    commission: float
-    costs: float
-    pnl: float
+    quantity: Decimal
+    price: Decimal
+    slippage: Decimal
+    spread_cost: Decimal
+    temporary_impact: Decimal
+    permanent_impact: Decimal
+    commission: Decimal
+    costs: Decimal
+    pnl: Decimal
     is_partial: bool
     fill_reason: str
 

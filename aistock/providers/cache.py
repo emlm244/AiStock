@@ -81,7 +81,7 @@ class MassiveCache:
             return {}
 
         try:
-            with open(self._index_path) as f:
+            with open(self._index_path, encoding='utf-8') as f:
                 data = json.load(f)
             return {k: CacheMetadata(**v) for k, v in data.items()}
         except (json.JSONDecodeError, TypeError, KeyError) as e:
@@ -91,7 +91,7 @@ class MassiveCache:
     def _save_index(self) -> None:
         """Save cache index to disk."""
         data = {k: asdict(v) for k, v in self._index.items()}
-        with open(self._index_path, 'w') as f:
+        with open(self._index_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
 
     def _rebuild_index(self) -> None:
@@ -110,7 +110,7 @@ class MassiveCache:
                         continue
                     _, timespan = name.split('_', 1)
                     try:
-                        with open(cache_path) as f:
+                        with open(cache_path, encoding='utf-8') as f:
                             month_data = json.load(f)
                     except (OSError, json.JSONDecodeError) as e:
                         logger.warning(f'Failed to rebuild cache index from {cache_path}: {e}')
@@ -124,10 +124,7 @@ class MassiveCache:
                             ts = datetime.fromisoformat(bar_dict['timestamp'])
                         except (KeyError, ValueError, TypeError):
                             continue
-                        if ts.tzinfo is None:
-                            ts = ts.replace(tzinfo=timezone.utc)
-                        else:
-                            ts = ts.astimezone(timezone.utc)
+                        ts = ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
                         timestamps.append(ts)
                     if not timestamps:
                         continue
@@ -309,7 +306,7 @@ class MassiveCache:
             cache_path = self._get_cache_path(symbol, year_month, timespan, asset_type)
             cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(cache_path, 'w') as f:
+            with open(cache_path, 'w', encoding='utf-8') as f:
                 json.dump(month_bars, f)
 
             logger.debug(f'Cached {len(month_bars)} bars for {symbol} {year_month}')
@@ -367,15 +364,12 @@ class MassiveCache:
 
             if cache_path.exists():
                 try:
-                    with open(cache_path) as f:
+                    with open(cache_path, encoding='utf-8') as f:
                         month_data = json.load(f)
 
                     for bar_dict in month_data:
                         ts = datetime.fromisoformat(bar_dict['timestamp'])
-                        if ts.tzinfo is None:
-                            ts = ts.replace(tzinfo=timezone.utc)
-                        else:
-                            ts = ts.astimezone(timezone.utc)
+                        ts = ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
                         if start_date <= ts.date() <= end_date:
                             all_bars.append(
                                 Bar(
@@ -415,7 +409,7 @@ class MassiveCache:
             actions: List of action dictionaries.
         """
         cache_path = self._cache_dir / 'corporate_actions' / f'{action_type}.json'
-        with open(cache_path, 'w') as f:
+        with open(cache_path, 'w', encoding='utf-8') as f:
             json.dump(actions, f, indent=2)
         logger.debug(f'Cached {len(actions)} {action_type} corporate actions')
 
@@ -434,7 +428,7 @@ class MassiveCache:
             return []
 
         try:
-            with open(cache_path) as f:
+            with open(cache_path, encoding='utf-8') as f:
                 data = json.load(f)
                 return cast(list[dict[str, object]], data)
         except (OSError, json.JSONDecodeError) as e:

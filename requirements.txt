@@ -21,7 +21,7 @@ boto3>=1.26.0
 
 # Deep learning stack for advanced RL algorithms
 # Required for Dueling DQN, LSTM, and Transformer models
-torch>=2.7.0
+torch>=2.8.0
 einops>=0.6.0  # Tensor manipulation for attention mechanisms
 
 # For dev/test tools, see requirements-dev.txt
