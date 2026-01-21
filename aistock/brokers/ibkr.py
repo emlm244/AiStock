@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import threading
+from contextlib import suppress
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Callable, Protocol, TypeAlias
@@ -51,6 +52,10 @@ if TYPE_CHECKING:
     class EWrapper:
         def __init__(self) -> None: ...
 
+        def accountSummary(self, reqId: int, account: str, tag: str, value: str, currency: str) -> None: ...
+
+        def accountSummaryEnd(self, reqId: int) -> None: ...
+
     class EClient:
         def __init__(self, wrapper: EWrapper) -> None: ...
 
@@ -83,6 +88,10 @@ if TYPE_CHECKING:
         def reqGlobalCancel(self) -> None: ...
 
         def reqPositions(self) -> None: ...
+
+        def reqAccountSummary(self, req_id: int, group: str, tags: str) -> None: ...
+
+        def cancelAccountSummary(self, req_id: int) -> None: ...
 
         def reqHistoricalData(
             self,
@@ -146,6 +155,12 @@ else:  # pragma: no cover - ibapi not available in test environment
 
         class EClient:
             def __init__(self, *args: object, **kwargs: object) -> None:
+                pass
+
+            def reqAccountSummary(self, *args: object, **kwargs: object) -> None:
+                pass
+
+            def cancelAccountSummary(self, *args: object, **kwargs: object) -> None:
                 pass
 
         class Contract:
@@ -219,6 +234,11 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._hist_buffers: dict[int, list[Bar]] = {}
         self._hist_ready: dict[int, threading.Event] = {}
         self._hist_symbol: dict[int, str] = {}
+
+        # Account summary tracking
+        self._account_summary_results: dict[int, dict[str, dict[str, str]]] = {}
+        self._account_summary_ready: dict[int, threading.Event] = {}
+        self._account_summary_lock = threading.Lock()
 
         # Contract details tracking (for futures expiration validation)
         self._contract_details_results: dict[int, list[object]] = {}
@@ -602,6 +622,29 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
         self._positions_ready.set()
         self._logger.info('positions_received', extra={'count': len(self._positions)})
 
+    def accountSummary(  # noqa: N802 - IBKR API callback name
+        self,
+        reqId: int,
+        account: str,
+        tag: str,
+        value: str,
+        currency: str,
+    ) -> None:
+        """IBKR callback for account summary updates."""
+        with self._account_summary_lock:
+            account_map = self._account_summary_results.get(reqId)
+            if account_map is None:
+                return
+            account_values = account_map.setdefault(account, {})
+            account_values[tag] = value
+
+    def accountSummaryEnd(self, reqId: int) -> None:  # noqa: N802 - IBKR API callback name
+        """IBKR callback when account summary snapshot is complete."""
+        with self._account_summary_lock:
+            event = self._account_summary_ready.get(reqId)
+            if event:
+                event.set()
+
     # --- Contract Details Callbacks (for futures expiration validation) ---
 
     def contractDetails(self, reqId: int, contractDetails: object) -> None:  # noqa: N802,N803 - IBKR API
@@ -743,6 +786,72 @@ class IBKRBroker(BaseBroker, EWrapper, EClient):  # type: ignore[misc]  # pragma
             self._logger.info('positions_reconciled_successfully', extra={'position_count': len(positions_snapshot)})
 
         return True
+
+    def request_account_summary(
+        self,
+        tags: str,
+        group: str = 'All',
+        timeout: float = 10.0,
+    ) -> dict[str, dict[str, str]]:
+        """
+        Request account summary data from IBKR (blocking).
+
+        Args:
+            tags: Comma-separated account summary tags.
+            group: Account group or profile name (typically "All").
+            timeout: Maximum wait time in seconds for the snapshot.
+
+        Returns:
+            Mapping of account -> tag -> value.
+        """
+        self._ensure_connected()
+        req_id = next(self._req_id_seq)
+
+        with self._account_summary_lock:
+            self._account_summary_results[req_id] = {}
+            self._account_summary_ready[req_id] = threading.Event()
+
+        try:
+            self._logger.info('requesting_account_summary', extra={'req_id': req_id, 'tags': tags})
+            self.reqAccountSummary(req_id, group, tags)
+
+            event = self._account_summary_ready[req_id]
+            if not event.wait(timeout):
+                self._logger.warning('account_summary_timeout', extra={'req_id': req_id, 'timeout_seconds': timeout})
+
+            with self._account_summary_lock:
+                snapshot = {
+                    account: dict(values) for account, values in self._account_summary_results.get(req_id, {}).items()
+                }
+        finally:
+            with suppress(Exception):
+                self.cancelAccountSummary(req_id)
+            with self._account_summary_lock:
+                self._account_summary_results.pop(req_id, None)
+                self._account_summary_ready.pop(req_id, None)
+
+        return snapshot
+
+    def get_account_summary(
+        self,
+        account_id: str | None = None,
+        timeout: float = 10.0,
+    ) -> dict[str, str]:
+        """
+        Fetch a single account's summary snapshot.
+
+        Returns:
+            Mapping of tag -> value for the selected account.
+        """
+        tags = 'AccountType,NetLiquidation,TotalCashValue,SettledCash,BuyingPower,Leverage'
+        summaries = self.request_account_summary(tags, timeout=timeout)
+        if not summaries:
+            return {}
+        if account_id:
+            account_summary = summaries.get(account_id)
+            if account_summary:
+                return account_summary
+        return next(iter(summaries.values()))
 
     # --- Helpers -------------------------------------------------------
     def _ensure_connected(self) -> None:

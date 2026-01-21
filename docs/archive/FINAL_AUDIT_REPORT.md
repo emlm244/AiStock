@@ -35,7 +35,7 @@
 
 ### Retained (Essential Only)
 - ✅ AGENTS.md - Operational guide for automation agents
-- ✅ CLAUDE.md - Assistant playbook (references commit 2513252)
+- ✅ AGENTS.md - Assistant playbook (references commit 2513252)
 - ✅ README.md - Project overview
 - ✅ IBKR_REQUIREMENTS_CHECKLIST.md - Useful broker reference
 - ✅ docs/FSD_COMPLETE_GUIDE.md - Comprehensive FSD guide
@@ -167,7 +167,7 @@ pytest tests/test_professional_integration.py -q  # 15/15
 
 ### Documentation
 - AGENTS.md: ✅ Up to date
-- CLAUDE.md: ✅ Up to date (references 2513252)
+- AGENTS.md: ✅ Up to date (references 2513252)
 - README.md: ✅ Current
 - Redundant docs: ❌ Removed (16 files)
 

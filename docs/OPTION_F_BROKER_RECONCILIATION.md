@@ -2,7 +2,7 @@
 
 **Priority**: HIGH
 **Estimated Effort**: ~6 hours
-**Status**: TODO
+**Status**: Planned (not yet implemented)
 **Created**: 2025-11-03
 
 ## Background
@@ -165,7 +165,7 @@ def test_crash_recovery_no_duplicate():
 - [ ] Startup reconciliation hydrates idempotency tracker
 - [ ] Regression test: crash after submit → restart → no duplicate
 - [ ] All existing tests continue to pass
-- [ ] Documentation updated (CLAUDE.md + AGENTS.md)
+- [ ] Documentation updated (AGENTS.md + docs/ARCHITECTURE_MAP.md)
 
 ---
 

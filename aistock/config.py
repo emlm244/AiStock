@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .capital_management import CapitalManagementConfig
+    from .risk import AdvancedRiskConfig
     from .stop_control import StopConfig
 
 
@@ -121,6 +122,56 @@ class RiskLimits:
 
 
 @dataclass
+class AccountCapabilities:
+    """
+    Account-level trading capabilities and restrictions.
+
+    Controls what instruments can be traded, trading hours,
+    and cash account settlement rules.
+    """
+
+    # Account basics
+    account_type: str = 'cash'  # 'cash' or 'margin'
+    account_balance: float = 0.0  # Total account balance (not trading allocation)
+
+    # Tradeable instruments
+    enable_stocks: bool = True
+    enable_etfs: bool = True
+    enable_futures: bool = False  # Requires $2,000+ margin minimum
+    enable_options: bool = False  # Requires options approval
+
+    # PDT Rule (Pattern Day Trader - margin accounts under $25k)
+    pdt_rule_enabled: bool = True  # Track day trades for margin accounts
+    max_day_trades_per_5_days: int = 3  # PDT limit
+
+    # Trading hours
+    allow_extended_hours: bool = False  # Pre-market + after-hours
+
+    # Cash account settlement (T+2 for stocks)
+    enforce_settlement: bool = True  # Track T+2 settlement for cash accounts
+
+    def validate(self) -> None:
+        """Validate account capabilities configuration."""
+        valid_account_types = ('cash', 'margin')
+        if self.account_type not in valid_account_types:
+            raise ValueError(
+                f"account_type must be one of {valid_account_types}, got {self.account_type!r}"
+            )
+
+        if self.max_day_trades_per_5_days < 0:
+            raise ValueError(
+                f'max_day_trades_per_5_days must be non-negative, got {self.max_day_trades_per_5_days}'
+            )
+
+        if self.account_balance < 0:
+            raise ValueError(f'account_balance must be non-negative, got {self.account_balance}')
+
+        # At least one instrument type must be enabled
+        if not any([self.enable_stocks, self.enable_etfs, self.enable_futures, self.enable_options]):
+            raise ValueError('At least one instrument type must be enabled')
+
+
+@dataclass
 class ContractSpec:
     """
     IBKR contract specification.
@@ -199,11 +250,19 @@ class ExecutionConfig:
     """Order execution settings."""
 
     order_type: str = 'MARKET'
+    execution_style: str = 'adaptive'  # market, limit, twap, vwap, adaptive
     slippage_pct: float = 0.001
     slip_bps_limit: float = 10.0  # Slippage in basis points
     commission_per_share: float = 0.005
     partial_fill_probability: float = 0.0  # 0=always full fill, 1=always partial
     min_fill_fraction: float = 0.1  # Minimum fraction for partial fills
+    limit_offset_bps: float = 5.0
+    twap_slices: int = 4
+    twap_window_minutes: int = 15
+    vwap_slices: int = 4
+    vwap_window_minutes: int = 15
+    avoid_open_minutes: int = 15
+    avoid_close_minutes: int = 15
 
 
 @dataclass
@@ -237,6 +296,9 @@ class BacktestConfig:
     broker: Optional[BrokerConfig] = None
     capital_management: Optional['CapitalManagementConfig'] = None
     stop_control: Optional['StopConfig'] = None
+    account_capabilities: Optional[AccountCapabilities] = None
+    # Advanced risk management (Kelly Criterion, correlation limits, regime detection, volatility scaling)
+    advanced_risk: Optional['AdvancedRiskConfig'] = None
 
     def validate(self):
         """
@@ -268,6 +330,32 @@ class BacktestConfig:
         if self.execution.commission_per_share < 0:
             raise ValueError('commission_per_share cannot be negative')
 
+        valid_execution_styles = {'market', 'limit', 'twap', 'vwap', 'adaptive'}
+        execution_style = self.execution.execution_style.lower().strip()
+        if execution_style not in valid_execution_styles:
+            raise ValueError(f'execution_style must be one of {valid_execution_styles}, got {execution_style!r}')
+
+        if self.execution.limit_offset_bps < 0:
+            raise ValueError('limit_offset_bps cannot be negative')
+
+        if self.execution.twap_slices < 1:
+            raise ValueError('twap_slices must be >= 1')
+
+        if self.execution.twap_window_minutes < 0:
+            raise ValueError('twap_window_minutes cannot be negative')
+
+        if self.execution.vwap_slices < 1:
+            raise ValueError('vwap_slices must be >= 1')
+
+        if self.execution.vwap_window_minutes < 0:
+            raise ValueError('vwap_window_minutes cannot be negative')
+
+        if self.execution.avoid_open_minutes < 0:
+            raise ValueError('avoid_open_minutes cannot be negative')
+
+        if self.execution.avoid_close_minutes < 0:
+            raise ValueError('avoid_close_minutes cannot be negative')
+
         if not 0.0 <= self.execution.partial_fill_probability <= 1.0:
             raise ValueError('partial_fill_probability must be in [0, 1]')
 
@@ -278,3 +366,7 @@ class BacktestConfig:
         self.engine.risk.validate()
         if self.broker:
             self.broker.validate()
+        if self.account_capabilities:
+            self.account_capabilities.validate()
+        if self.advanced_risk:
+            self.advanced_risk.validate()

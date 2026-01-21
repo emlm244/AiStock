@@ -215,6 +215,36 @@ def is_trading_time(
     return open_time <= current_time <= close_time
 
 
+def is_within_open_close_buffer(
+    dt: datetime,
+    minutes_from_open: int,
+    minutes_from_close: int,
+    exchange: str = 'NYSE',
+) -> bool:
+    """Check if a time is within the open/close avoidance buffer (regular session only)."""
+    if minutes_from_open <= 0 and minutes_from_close <= 0:
+        return False
+    if exchange.upper() not in {'NYSE', 'NASDAQ'}:
+        raise ValueError(f'Unsupported exchange: {exchange}')
+    if is_weekend(dt) or is_nyse_holiday(dt):
+        return False
+
+    et_time = _utc_to_et(dt)
+    open_time, close_time = nyse_trading_hours(dt)
+    current_time = et_time.time()
+    if not (open_time <= current_time <= close_time):
+        return False
+
+    session_date = et_time.date()
+    open_dt = datetime.combine(session_date, open_time)
+    close_dt = datetime.combine(session_date, close_time)
+    if minutes_from_open > 0 and current_time < (open_dt + timedelta(minutes=minutes_from_open)).time():
+        return True
+    if minutes_from_close > 0 and current_time > (close_dt - timedelta(minutes=minutes_from_close)).time():
+        return True
+    return False
+
+
 def next_trading_day(dt: datetime, exchange: str = 'NYSE') -> datetime:
     """
     Find the next trading day after the given datetime.

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from threading import Lock
 from typing import Any
@@ -111,7 +111,13 @@ class Portfolio:
     - Realized P&L
     """
 
-    def __init__(self, cash: Decimal | None = None, initial_cash: Decimal | None = None):
+    def __init__(
+        self,
+        cash: Decimal | None = None,
+        initial_cash: Decimal | None = None,
+        settlement_tracking: bool = False,
+        settlement_days: int = 2,
+    ):
         # P0-NEW-1 Fix: Add lock for thread safety (IBKR callbacks run on separate thread)
         self._lock = Lock()
 
@@ -123,11 +129,34 @@ class Portfolio:
         self.commissions_paid = Decimal('0')
         self.trade_log: list[dict[str, Any]] = []
         self.logger = logging.getLogger(__name__)
+        self._settlement_tracking = settlement_tracking
+        self._settlement_days = max(0, settlement_days)
+        self._pending_settlements: list[tuple[datetime, Decimal]] = []
 
     def get_cash(self) -> Decimal:
         """Get current cash balance (thread-safe)."""
         with self._lock:
             return self.cash
+
+    def enable_settlement_tracking(self, enabled: bool) -> None:
+        """Enable or disable settlement tracking (thread-safe)."""
+        with self._lock:
+            self._settlement_tracking = enabled
+
+    def get_available_cash(self, as_of: datetime | None = None) -> Decimal:
+        """Return cash available for trading after settlement holds (thread-safe)."""
+        with self._lock:
+            if not self._settlement_tracking:
+                return self.cash
+            now = as_of or datetime.now(timezone.utc)
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=timezone.utc)
+            self._prune_settlements(now)
+            unsettled_total = sum(
+                (amount for settle_date, amount in self._pending_settlements if settle_date > now),
+                Decimal('0'),
+            )
+            return self.cash - unsettled_total
 
     def get_position(self, symbol: str) -> Decimal:
         """Get current position quantity for symbol (thread-safe)."""
@@ -140,6 +169,31 @@ class Portfolio:
         with self._lock:
             pos = self.positions.get(symbol)
             return pos.average_price if pos else None
+
+    def _record_sale_settlement(self, amount: Decimal, trade_time: datetime) -> None:
+        if not self._settlement_tracking or amount <= 0:
+            return
+        settle_date = self._add_business_days(trade_time, self._settlement_days)
+        self._pending_settlements.append((settle_date, amount))
+
+    def _prune_settlements(self, now: datetime) -> None:
+        if not self._pending_settlements:
+            return
+        self._pending_settlements = [
+            (settle_date, amount) for settle_date, amount in self._pending_settlements if settle_date > now
+        ]
+
+    @staticmethod
+    def _add_business_days(start: datetime, days: int) -> datetime:
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        current = start
+        remaining = max(0, days)
+        while remaining:
+            current += timedelta(days=1)
+            if current.weekday() < 5:
+                remaining -= 1
+        return current
 
     def update_position(self, symbol: str, quantity_delta: Decimal, price: Decimal, commission: Decimal = Decimal('0')):
         """
@@ -173,6 +227,8 @@ class Portfolio:
                 # Only update cash if position update succeeded
                 self.cash += cash_delta
                 self.commissions_paid += commission
+                if quantity_delta < 0 and cash_delta > 0:
+                    self._record_sale_settlement(cash_delta, timestamp)
 
                 # Remove position if closed
                 if pos.quantity == 0:
@@ -286,6 +342,8 @@ class Portfolio:
             cash_delta = -(signed_quantity * price * multiplier) - commission
             self.cash += cash_delta
             self.commissions_paid += commission
+            if signed_quantity < 0 and cash_delta > 0:
+                self._record_sale_settlement(cash_delta, timestamp)
 
             if symbol not in self.positions:
                 self.positions[symbol] = Position(symbol=symbol, multiplier=multiplier)
@@ -372,6 +430,47 @@ class Portfolio:
         """Return the total commissions paid (thread-safe)."""
         with self._lock:
             return self.commissions_paid
+
+    def get_gross_exposure(self, last_prices: dict[str, Decimal]) -> Decimal:
+        """
+        Calculate gross exposure (sum of absolute position values) [thread-safe].
+
+        Gross exposure measures total market exposure regardless of direction.
+        Used for risk limits enforcement.
+
+        Args:
+            last_prices: Dict of symbol -> last known price
+
+        Returns:
+            Total gross exposure (absolute notional value of all positions)
+        """
+        with self._lock:
+            gross = Decimal('0')
+            for symbol, pos in self.positions.items():
+                if symbol in last_prices:
+                    # Use absolute value and apply multiplier
+                    gross += abs(pos.quantity) * last_prices[symbol] * pos.multiplier
+            return gross
+
+    def get_net_exposure(self, last_prices: dict[str, Decimal]) -> Decimal:
+        """
+        Calculate net exposure (sum of signed position values) [thread-safe].
+
+        Net exposure measures directional market exposure.
+        Positive = net long, Negative = net short.
+
+        Args:
+            last_prices: Dict of symbol -> last known price
+
+        Returns:
+            Net exposure (signed notional value of all positions)
+        """
+        with self._lock:
+            net = Decimal('0')
+            for symbol, pos in self.positions.items():
+                if symbol in last_prices:
+                    net += pos.quantity * last_prices[symbol] * pos.multiplier
+            return net
 
     def withdraw_cash(self, amount: Decimal, reason: str = 'manual') -> None:
         """

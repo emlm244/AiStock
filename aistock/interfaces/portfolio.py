@@ -20,6 +20,10 @@ class PortfolioProtocol(Protocol):
         """Get current cash balance."""
         ...
 
+    def get_available_cash(self, as_of: datetime | None = None) -> Decimal:
+        """Get cash available for trading after settlement holds."""
+        ...
+
     def get_equity(self, last_prices: dict[str, Decimal]) -> Decimal:
         """Get total equity (cash + positions)."""
         ...

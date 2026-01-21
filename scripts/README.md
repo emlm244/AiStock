@@ -12,7 +12,7 @@ End-to-end workflow demonstration for the complete P&L fix process.
 
 **Usage**:
 ```bash
-python run_full_workflow.py
+python scripts/run_full_workflow.py
 ```
 
 **What it does**:
@@ -31,7 +31,7 @@ Generates sample backtest using corrected TradingEngine P&L calculation.
 
 **Usage**:
 ```bash
-python run_sample_backtest.py
+python scripts/run_sample_backtest.py
 ```
 
 **Validates**: P&L calculation is correct (expected: $550, actual: $550 ✓)
@@ -44,7 +44,7 @@ Compares old (INVALID) vs new (corrected) backtest results side-by-side.
 
 **Usage**:
 ```bash
-python compare_backtest_results.py old.INVALID.json new.json --detailed
+python scripts/compare_backtest_results.py old.INVALID.json new.json --detailed
 ```
 
 **Output**:
@@ -69,10 +69,10 @@ Automates backtest reruns after the critical P&L bug fix (commit da36960).
 
 ```bash
 # Mark pre-fix results as invalid
-python rerun_backtests.py --results-dir backtest_results --mark-invalid
+python scripts/rerun_backtests.py --results-dir backtest_results --mark-invalid
 
 # Generate prioritized rerun plan
-python rerun_backtests.py --results-dir backtest_results --generate-plan plan.json
+python scripts/rerun_backtests.py --results-dir backtest_results --generate-plan plan.json
 ```
 
 **Features**:
@@ -136,7 +136,7 @@ When adding new scripts:
 
 1. **Shebang**: Use `#!/usr/bin/env python3`
 2. **Docstring**: Include purpose, usage, and examples
-3. **Logging**: Use `logging` module (not print statements)
+3. **Logging**: Prefer `logging` for long-running scripts; small demo scripts may use `print`
 4. **Error Handling**: Graceful failures with meaningful messages
 5. **CLI**: Use `argparse` for arguments
 6. **Output**: Support JSON output for automation
@@ -152,11 +152,7 @@ Most scripts require the aistock package:
 pip install -r requirements.txt
 ```
 
-For production monitoring scripts, also install:
-
-```bash
-pip install -r requirements-monitoring.txt  # If it exists
-```
+Scripts use standard project dependencies from `requirements.txt`.
 
 ---
 
@@ -170,22 +166,12 @@ pip install -r requirements-monitoring.txt  # If it exists
   /path/to/logs/aistock.log --alert >> /path/to/logs/duplicate_monitor.log 2>&1
 ```
 
-### Backtest Health Check (Weekly)
+### Backtest Smoke Test (Weekly)
 
 ```cron
 # Run weekly on Sundays at 3 AM
-0 3 * * 0 /path/to/venv/bin/python /path/to/scripts/check_backtest_health.py \
-  --results-dir /path/to/backtest_results >> /path/to/logs/backtest_health.log 2>&1
-```
-
----
-
-## Testing Scripts
-
-Scripts should have unit tests in `tests/test_scripts/`:
-
-```bash
-pytest tests/test_scripts/test_rerun_backtests.py
+0 3 * * 0 /path/to/venv/bin/python /path/to/scripts/run_smoke_backtest.py \
+  >> /path/to/logs/backtest_smoke.log 2>&1
 ```
 
 ---

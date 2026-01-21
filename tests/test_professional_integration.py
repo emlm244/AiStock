@@ -15,7 +15,10 @@ from decimal import Decimal
 
 import pytest
 
+from aistock.config import BacktestConfig, BrokerConfig, DataSource, EngineConfig
 from aistock.data import Bar
+from aistock.engines import NeuralEngine
+from aistock.factories import SessionFactory
 from aistock.fsd import FSDConfig, FSDEngine
 from aistock.patterns import PatternDetector, PatternSignal
 from aistock.portfolio import Portfolio
@@ -553,3 +556,14 @@ class TestFSDProfessionalIntegration:
             )
 
         return bars
+
+
+def test_session_factory_selects_advanced_engine(tmp_path):
+    data = DataSource(path=str(tmp_path), timezone=timezone.utc, symbols=('AAPL',), enforce_trading_hours=False)
+    config = BacktestConfig(data=data, engine=EngineConfig(), broker=BrokerConfig(backend='paper'))
+    fsd_config = FSDConfig(engine_type='dueling', enable_per=True)
+
+    factory = SessionFactory(config, fsd_config=fsd_config)
+    session = factory.create_trading_session(symbols=['AAPL'], timeframes=['1m'])
+
+    assert isinstance(session.decision_engine, NeuralEngine)

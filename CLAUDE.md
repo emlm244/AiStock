@@ -32,7 +32,7 @@ Market Data → BarProcessor → FSD (Q-Learning) → OrderExecution → Portfol
 
 **Execution Layer** (`engine.py`, `execution.py`): Custom trading engine (no BackTrader dependency). Supports Market/Limit/Stop orders with partial fills.
 
-**Portfolio & Risk** (`portfolio.py`, `risk.py`): Thread-safe components with kill switches, daily loss limits, drawdown protection. Uses `threading.Lock()` for IBKR async callbacks.
+**Portfolio & Risk** (`portfolio.py`, `risk/engine.py`): Thread-safe components with kill switches, daily loss limits, drawdown protection. Uses `threading.Lock()` for IBKR async callbacks.
 
 **Capital Management** (`capital_management.py`): Fixed capital mode with automatic profit withdrawal. Maintains target trading capital by withdrawing excess profits on schedule (daily/weekly/monthly). Supports compounding strategy for traditional reinvestment. Thread-safe with complete audit trail.
 
@@ -59,9 +59,9 @@ basedpyright                             # Type check (strict mode)
 
 ### Testing
 ```bash
-pytest tests                             # Run all 280+ tests
+pytest tests                             # Run all 440+ tests
 pytest -k test_name                      # Run specific test
-pytest tests/test_engine.py              # Run single test file
+pytest tests/test_engine_pnl.py          # Run single test file
 pytest --cov=. --cov-report=xml          # Coverage report
 ```
 
@@ -128,23 +128,26 @@ python launch_gui.py                     # Alternative entry point
 ## Directory Structure
 
 ```
-aistock/                   # Main package (~16,500 LOC, 55 files)
+aistock/                   # Main package (see PASS0_MANIFEST for current counts)
+├── backtest/              # Backtest orchestrator + execution model
 ├── brokers/               # Paper trading + IBKR integration
 ├── factories/             # DI factories
 ├── futures/               # Futures contract management (rollover, validation)
 ├── interfaces/            # Protocol definitions
+├── providers/             # Massive.com data + caching
+├── risk/                  # Thread-safe risk management
 ├── session/               # Session orchestration
 ├── ml/                    # Machine learning (excluded from type checking)
 ├── _legacy/               # Deprecated code (excluded)
 ├── fsd.py                 # Q-Learning RL engine (CORE)
 ├── engine.py              # Trading engine
+├── log_config.py          # Logging config (no stdlib shadowing)
 ├── portfolio.py           # Thread-safe portfolio with multiplier support
-├── risk.py                # Thread-safe risk management
 ├── capital_management.py  # Profit withdrawal strategies
 ├── stop_control.py        # Manual stop controls
 └── simple_gui.py          # Tkinter GUI
 
-tests/                     # 31 test files, 280+ tests
+tests/                     # 440+ tests
 configs/                   # Runtime configuration templates
 docs/                      # Technical documentation
 state/                     # Runtime: Checkpoints (gitignored)

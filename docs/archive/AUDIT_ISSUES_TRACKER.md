@@ -42,7 +42,7 @@
 ### Timezone & Validation
 - [ ] **H-4** edge_cases.py:199-295 - Consistent timezone enforcement (30 min)
 - [ ] **H-5** professional.py:307-340 - Add end-of-day timezone validation (10 min)
-- [ ] **H-7** risk.py:225-234 - Fix timestamp deserialization bug (15 min)
+- [ ] **H-7** risk/engine.py:225-234 - Fix timestamp deserialization bug (15 min)
 - [ ] **H-10** reconciliation.py:43-44,59-60 - Fix naive datetime check (15 min)
 
 ### Broker Integration
@@ -51,7 +51,7 @@
 - [ ] **H-9** ibkr.py:122-138 - Cancel orders on stop (20 min)
 
 ### Risk Management
-- [ ] **H-11** risk.py:158-168 - Fix per-trade cap for concurrent positions (45 min)
+- [ ] **H-11** risk/engine.py:158-168 - Fix per-trade cap for concurrent positions (45 min)
 
 ### Documentation
 - [ ] **H-12** Multiple files - Add thread safety documentation (30 min)
@@ -82,7 +82,7 @@
 - [ ] **M-6** professional.py:114-130 - Collect all violations instead of early return (25 min)
 
 ### Risk Management
-- [ ] **M-8** risk.py:214-223 - Clarify halt status reset behavior (30 min)
+- [ ] **M-8** risk/engine.py:214-223 - Clarify halt status reset behavior (30 min)
 
 **Total Medium Fix Time:** ~3 hours
 
@@ -265,7 +265,7 @@ pytest tests/test_professional_integration.py -v
 - H-5 (lines 307-340): End-of-day timezone validation
 - M-6 (lines 114-130): Early return hides violations
 
-### risk.py
+### risk/engine.py
 - H-7 (lines 225-234): Timestamp deserialization
 - H-11 (lines 158-168): Per-trade cap ignores concurrent positions
 - M-8 (lines 214-223): Halt status reset behavior

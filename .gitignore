@@ -118,6 +118,8 @@ secrets.*.claude/
 aistock/state/  # Runtime state directory
 state/**/*.json
 state/**/*.pkl
+state/**/*.backup
+state/**/*.tmp
 !state/**/.gitkeep
 
 # Benchmark results

@@ -234,7 +234,7 @@ def calculate_pnl(symbol):
 **Strategy**: Track cumulative fills per order, set `is_partial = (filled < total_qty)`
 
 ### H-7: Risk Timestamp Deserialization
-**File**: `aistock/risk.py:serialize()`
+**File**: `aistock/risk/engine.py:serialize()`
 **Fix Time**: 15 min
 **Strategy**: Ensure timestamps serialized/deserialized with TZ
 
@@ -254,7 +254,7 @@ def calculate_pnl(symbol):
 **Strategy**: Add TZ validation before reconciliation
 
 ### H-11: Per-Trade Cap Concurrent Positions
-**File**: `aistock/risk.py:check_pre_trade()`
+**File**: `aistock/risk/engine.py:check_pre_trade()`
 **Fix Time**: 45 min
 **Strategy**: Calculate total capital at risk across all positions
 

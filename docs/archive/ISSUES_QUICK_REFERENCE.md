@@ -79,7 +79,7 @@
 - **File:** `aistock/engine.py`
 - **Line:** 22-30 (Trade dataclass)
 - **Issue:** No validation that timestamp is timezone-aware
-- **Recommendation:** Add `__post_init__` validation per CLAUDE.md requirements
+- **Recommendation:** Add `__post_init__` validation per AGENTS.md requirements
 
 ---
 

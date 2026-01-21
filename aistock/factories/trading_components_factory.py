@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Literal, cast
 
 from ..brokers.base import BaseBroker
 from ..brokers.ibkr import IBKRBroker
 from ..brokers.paper import PaperBroker
 from ..config import BacktestConfig
 from ..edge_cases import EdgeCaseHandler
+from ..engines import NeuralEngine, SequentialEngine, TabularEngine
 from ..fsd import FSDConfig, FSDEngine
 from ..idempotency import OrderIdempotencyTracker
+from ..ml.config import DoubleQLearningConfig, DuelingDQNConfig, PERConfig, SequentialConfig
 from ..patterns import PatternDetector
 from ..persistence import FileStateManager
 from ..portfolio import Portfolio
@@ -37,7 +40,12 @@ class TradingComponentsFactory:
     def create_portfolio(self, initial_equity: float | None = None) -> Portfolio:
         """Create portfolio."""
         equity = initial_equity or self.config.engine.initial_equity
-        return Portfolio(cash=Decimal(str(equity)))
+        settlement_tracking = bool(
+            self.config.account_capabilities
+            and self.config.account_capabilities.account_type == 'cash'
+            and self.config.account_capabilities.enforce_settlement
+        )
+        return Portfolio(cash=Decimal(str(equity)), settlement_tracking=settlement_tracking)
 
     def create_risk_engine(
         self,
@@ -64,6 +72,8 @@ class TradingComponentsFactory:
             state=restored_state,
             minimum_balance=Decimal(str(minimum_balance)),
             minimum_balance_enabled=minimum_balance_enabled,
+            account_capabilities=self.config.account_capabilities,
+            contract_specs=self.config.broker.contracts if self.config.broker else None,
         )
 
     def create_broker(self) -> BaseBroker:
@@ -111,6 +121,19 @@ class TradingComponentsFactory:
         """Create edge case handler."""
         return EdgeCaseHandler()
 
+    def create_advanced_risk_manager(self):
+        """Create advanced risk manager if configured.
+
+        Returns:
+            AdvancedRiskManager instance or None if not configured
+        """
+        if not self.config.advanced_risk:
+            return None
+
+        from ..risk import AdvancedRiskManager
+
+        return AdvancedRiskManager(self.config.advanced_risk)
+
     def create_fsd_engine(
         self,
         portfolio: Portfolio,
@@ -118,10 +141,98 @@ class TradingComponentsFactory:
         pattern_detector: PatternDetector | None = None,
         safeguards: ProfessionalSafeguards | None = None,
         edge_case_handler: EdgeCaseHandler | None = None,
-    ) -> FSDEngine:
+    ) -> FSDEngine | TabularEngine | NeuralEngine | SequentialEngine:
         """Create FSD decision engine."""
         if not self.fsd_config:
             raise ValueError('FSD config required')
+
+        engine_type = (self.fsd_config.engine_type or 'tabular').lower().strip()
+        wants_advanced_tabular = self.fsd_config.enable_double_q or self.fsd_config.enable_per
+        use_advanced_engine = engine_type != 'tabular' or wants_advanced_tabular
+
+        if not use_advanced_engine:
+            return FSDEngine(
+                self.fsd_config,
+                portfolio,
+                timeframe_manager=timeframe_manager,
+                pattern_detector=pattern_detector,
+                safeguards=safeguards,
+                edge_case_handler=edge_case_handler,
+            )
+
+        per_config = None
+        if self.fsd_config.enable_per:
+            per_config = PERConfig(
+                enable=True,
+                buffer_size=self.fsd_config.per_buffer_size,
+                alpha=self.fsd_config.per_alpha,
+                beta_start=self.fsd_config.per_beta_start,
+                beta_end=self.fsd_config.per_beta_end,
+                beta_annealing_steps=self.fsd_config.per_annealing_steps,
+                batch_size=self.fsd_config.batch_size,
+                train_frequency=self.fsd_config.train_frequency,
+            )
+
+        if engine_type == 'tabular':
+            double_q_config = DoubleQLearningConfig(
+                enable=self.fsd_config.enable_double_q,
+                target_update_freq=self.fsd_config.target_update_freq,
+            )
+            return TabularEngine(
+                portfolio=portfolio,
+                double_q_config=double_q_config,
+                per_config=per_config,
+                learning_rate=self.fsd_config.learning_rate,
+                discount_factor=self.fsd_config.discount_factor,
+                exploration_rate=self.fsd_config.exploration_rate,
+                min_confidence_threshold=self.fsd_config.min_confidence_threshold,
+                max_capital=self.fsd_config.max_capital,
+                max_q_table_size=self.fsd_config.max_q_table_states,
+            )
+
+        if engine_type in {'dqn', 'dueling'}:
+            dqn_config = DuelingDQNConfig(
+                enable=engine_type == 'dueling',
+                hidden_sizes=self.fsd_config.dqn_hidden_sizes,
+                learning_rate=self.fsd_config.dqn_learning_rate,
+                gradient_clip=self.fsd_config.dqn_gradient_clip,
+                target_update_freq=self.fsd_config.target_update_freq,
+            )
+            return NeuralEngine(
+                portfolio=portfolio,
+                dqn_config=dqn_config,
+                per_config=per_config,
+                learning_rate=self.fsd_config.dqn_learning_rate,
+                discount_factor=self.fsd_config.discount_factor,
+                exploration_rate=self.fsd_config.exploration_rate,
+                min_confidence_threshold=self.fsd_config.min_confidence_threshold,
+                max_capital=self.fsd_config.max_capital,
+                device=self.fsd_config.device,
+            )
+
+        if engine_type in {'lstm', 'transformer'}:
+            seq_model = cast(Literal['lstm', 'transformer'], engine_type)
+            seq_config = SequentialConfig(
+                enable=True,
+                model_type=seq_model,
+                sequence_length=self.fsd_config.sequence_length,
+                hidden_size=self.fsd_config.seq_hidden_size,
+                num_layers=self.fsd_config.seq_num_layers,
+                num_heads=self.fsd_config.seq_num_heads,
+                dropout=self.fsd_config.seq_dropout,
+                learning_rate=self.fsd_config.dqn_learning_rate,
+            )
+            return SequentialEngine(
+                portfolio=portfolio,
+                seq_config=seq_config,
+                per_config=per_config,
+                learning_rate=self.fsd_config.dqn_learning_rate,
+                discount_factor=self.fsd_config.discount_factor,
+                exploration_rate=self.fsd_config.exploration_rate,
+                min_confidence_threshold=self.fsd_config.min_confidence_threshold,
+                max_capital=self.fsd_config.max_capital,
+                device=self.fsd_config.device,
+            )
 
         return FSDEngine(
             self.fsd_config,

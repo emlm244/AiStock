@@ -109,11 +109,11 @@ Validates Option D (time-boxed idempotency) is working correctly.
 4. **Bulk Rerun** (example):
    ```bash
    # For each strategy in plan.json (top priority first)
-   python -m aistock.backtest \
+   MASSIVE_API_KEY=... python -m aistock.backtest \
      --symbols AAPL MSFT \
      --start-date 2024-01-01 \
      --end-date 2024-12-31 \
-     --output results/AAPL_MSFT_corrected.json
+     --output-dir backtest_results
    ```
 
 5. **Compare Results**:

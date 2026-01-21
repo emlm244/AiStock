@@ -10,6 +10,7 @@ This interface is designed for users who:
 
 from __future__ import annotations
 
+import queue
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
@@ -21,6 +22,7 @@ from tkinter import messagebox, ttk
 from typing import TYPE_CHECKING, Callable, Literal, Protocol, TypedDict, cast
 
 from .config import (
+    AccountCapabilities,
     BacktestConfig,
     BrokerConfig,
     ContractSpec,
@@ -33,7 +35,7 @@ from .factories import SessionFactory
 from .fsd import FSDConfig
 from .interfaces.decision import SupportsGuiLogCallback
 from .log_config import configure_logger
-from .runtime_settings import load_runtime_settings
+from .runtime_settings import load_runtime_settings, update_dotenv_file
 
 if TYPE_CHECKING:
     from .session.coordinator import TradingCoordinator
@@ -42,6 +44,10 @@ if TYPE_CHECKING:
 
 
 VolatilityBias = Literal['high', 'low', 'balanced']
+
+FUTURES_MIN_BALANCE = 2000.0
+OPTIONS_MIN_BALANCE = 2000.0
+AUTO_DETECT_CLIENT_ID_OFFSET = 2
 
 
 class GuiRiskConfig(TypedDict):
@@ -148,6 +154,8 @@ class SimpleGUI:
 
         self._build_layout()
 
+        self._schedule_ibkr_auto_detect()
+
         self.root.after(1000, self._update_dashboard)
 
     def _init_fonts(self) -> None:
@@ -207,15 +215,19 @@ class SimpleGUI:
         management state, safety limits, dashboard display variables, and capital management
         settings.
         """
+        # Account capabilities + GUI settings (loaded from .env)
+        caps = self.runtime_settings.account_capabilities
+        gui = self.runtime_settings.gui_settings
+
         # Simple user inputs
-        self.capital_var = tk.StringVar(value='200')
-        self.risk_level_var = tk.StringVar(value='conservative')
-        self.investment_goal_var = tk.StringVar(value='steady_growth')
-        self.max_loss_per_trade_var = tk.StringVar(value='5')  # percentage
+        self.capital_var = tk.StringVar(value=gui.capital)
+        self.risk_level_var = tk.StringVar(value=gui.risk_level)
+        self.investment_goal_var = tk.StringVar(value=gui.investment_goal)
+        self.max_loss_per_trade_var = tk.StringVar(value=gui.max_loss_per_trade_pct)  # percentage
 
         # Trading mode selection (2 modes: ibkr_paper, ibkr_live)
-        self.trading_mode_var = tk.StringVar(value='ibkr_paper')  # Default: IBKR paper (safe)
-        self.allow_extended_hours_var = tk.BooleanVar(value=False)  # Default: regular market hours only
+        self.trading_mode_var = tk.StringVar(value=gui.trading_mode)
+        self.allow_extended_hours_var = tk.BooleanVar(value=caps.allow_extended_hours)
 
         # IBKR runtime settings
         self.ibkr_settings = self.runtime_settings.ibkr
@@ -238,16 +250,16 @@ class SimpleGUI:
         self._logged_trade_ids: set[str] = set()
         self._session_stop_after_id: str | None = None
 
-        self.trade_tempo_var = tk.StringVar(value='balanced')
+        self.trade_tempo_var = tk.StringVar(value=gui.trade_tempo)
 
         # Safety limits (hard caps the AI must respect)
-        self.max_daily_loss_pct_var = tk.StringVar(value='5')
-        self.max_drawdown_pct_var = tk.StringVar(value='15')
-        self.max_trades_per_hour_var = tk.StringVar(value='20')
-        self.max_trades_per_day_var = tk.StringVar(value='100')
-        self.chase_threshold_pct_var = tk.StringVar(value='5')
-        self.news_volume_multiplier_var = tk.StringVar(value='5')
-        self.end_of_day_minutes_var = tk.StringVar(value='30')
+        self.max_daily_loss_pct_var = tk.StringVar(value=gui.max_daily_loss_pct)
+        self.max_drawdown_pct_var = tk.StringVar(value=gui.max_drawdown_pct)
+        self.max_trades_per_hour_var = tk.StringVar(value=gui.max_trades_per_hour)
+        self.max_trades_per_day_var = tk.StringVar(value=gui.max_trades_per_day)
+        self.chase_threshold_pct_var = tk.StringVar(value=gui.chase_threshold_pct)
+        self.news_volume_multiplier_var = tk.StringVar(value=gui.news_volume_multiplier)
+        self.end_of_day_minutes_var = tk.StringVar(value=gui.end_of_day_minutes)
 
         # Dashboard metrics
         self.balance_var = tk.StringVar(value='$0.00')
@@ -256,24 +268,340 @@ class SimpleGUI:
         self.activity_text: tk.Text | None = None
 
         # Session time limit (user editable)
-        self.session_time_limit_var = tk.StringVar(value='240')  # 4 hours default
+        self.session_time_limit_var = tk.StringVar(value=gui.session_time_limit_minutes)
 
         # Minimum balance protection (new feature)
-        self.minimum_balance_var = tk.StringVar(value='100')  # Default: Don't go below $100
-        self.minimum_balance_enabled_var = tk.BooleanVar(value=True)  # Enabled by default
+        self.minimum_balance_var = tk.StringVar(value=gui.minimum_balance)
+        self.minimum_balance_enabled_var = tk.BooleanVar(value=gui.minimum_balance_enabled)
 
         # Capital management (profit withdrawal)
-        self.enable_withdrawal_var = tk.BooleanVar(value=False)  # Disabled by default
-        self.target_capital_var = tk.StringVar(value='200')  # Will be set to initial capital
-        self.withdrawal_threshold_var = tk.StringVar(value='5000')  # Default: $5k threshold
-        self.withdrawal_frequency_var = tk.StringVar(value='Daily')  # Daily, Weekly, Monthly
+        self.enable_withdrawal_var = tk.BooleanVar(value=gui.enable_withdrawal)
+        self.target_capital_var = tk.StringVar(value=gui.target_capital)
+        self.withdrawal_threshold_var = tk.StringVar(value=gui.withdrawal_threshold)
+        self.withdrawal_frequency_var = tk.StringVar(value=gui.withdrawal_frequency)
 
         # Stop controls
-        self.enable_eod_flatten_var = tk.BooleanVar(value=False)  # Disabled by default
-        self.eod_flatten_time_var = tk.StringVar(value='15:45')  # 3:45 PM ET (15 min before close)
+        self.enable_eod_flatten_var = tk.BooleanVar(value=gui.enable_eod_flatten)
+        self.eod_flatten_time_var = tk.StringVar(value=gui.eod_flatten_time)
         # Withdrawal stats (updated during trading)
         self.total_withdrawn_var = tk.StringVar(value='$0.00')
         self.last_withdrawal_var = tk.StringVar(value='Never')
+
+        self.account_type_var = tk.StringVar(value=caps.account_type)
+        self.account_balance_var = tk.StringVar(value=self._format_balance(caps.account_balance))
+        self._last_valid_account_balance = caps.account_balance
+        self.enable_stocks_var = tk.BooleanVar(value=caps.enable_stocks)
+        self.enable_etfs_var = tk.BooleanVar(value=caps.enable_etfs)
+        self.enable_futures_var = tk.BooleanVar(value=caps.enable_futures)
+        self.enable_options_var = tk.BooleanVar(value=caps.enable_options)
+        self.enforce_settlement_var = tk.BooleanVar(value=caps.enforce_settlement)
+        self._env_save_after_id: str | None = None
+        self._auto_detect_after_id: str | None = None
+        self._auto_detect_poll_after_id: str | None = None
+        self._auto_detect_in_progress = False
+        self._auto_detect_pending = False
+        self._auto_detect_queue: queue.Queue[tuple[dict[str, str], str | None, str]] = queue.Queue()
+        self._suppress_capability_warnings = True
+
+    def _format_balance(self, value: float) -> str:
+        formatted = f'{value:.2f}'.rstrip('0').rstrip('.')
+        return formatted if formatted else '0'
+
+    def _parse_account_balance(self) -> float:
+        raw = self.account_balance_var.get().strip()
+        if not raw:
+            return self._last_valid_account_balance
+        try:
+            value = float(raw)
+        except ValueError:
+            return self._last_valid_account_balance
+        if value < 0:
+            return self._last_valid_account_balance
+        self._last_valid_account_balance = value
+        return value
+
+    def _schedule_env_save(self) -> None:
+        if self._env_save_after_id:
+            self.root.after_cancel(self._env_save_after_id)
+        self._env_save_after_id = self.root.after(500, self._persist_gui_settings_to_env)
+
+    def _persist_gui_settings_to_env(self) -> None:
+        account_type = self.account_type_var.get().strip().lower()
+        if account_type not in ('cash', 'margin'):
+            account_type = 'cash'
+
+        updates = {
+            'ACCOUNT_TYPE': account_type,
+            'ACCOUNT_BALANCE': self._format_balance(self._parse_account_balance()),
+            'ENABLE_STOCKS': self._bool_to_env(self.enable_stocks_var.get()),
+            'ENABLE_ETFS': self._bool_to_env(self.enable_etfs_var.get()),
+            'ENABLE_FUTURES': self._bool_to_env(self.enable_futures_var.get()),
+            'ENABLE_OPTIONS': self._bool_to_env(self.enable_options_var.get()),
+            'ALLOW_EXTENDED_HOURS': self._bool_to_env(self.allow_extended_hours_var.get()),
+            'ENFORCE_SETTLEMENT': self._bool_to_env(self.enforce_settlement_var.get()),
+            'GUI_CAPITAL': self.capital_var.get().strip(),
+            'GUI_RISK_LEVEL': self.risk_level_var.get().strip(),
+            'GUI_INVESTMENT_GOAL': self.investment_goal_var.get().strip(),
+            'GUI_SESSION_TIME_LIMIT_MINUTES': self.session_time_limit_var.get().strip(),
+            'GUI_MAX_LOSS_PER_TRADE_PCT': self.max_loss_per_trade_var.get().strip(),
+            'GUI_TRADE_TEMPO': self.trade_tempo_var.get().strip(),
+            'GUI_MINIMUM_BALANCE': self.minimum_balance_var.get().strip(),
+            'GUI_MINIMUM_BALANCE_ENABLED': self._bool_to_env(self.minimum_balance_enabled_var.get()),
+            'GUI_MAX_DAILY_LOSS_PCT': self.max_daily_loss_pct_var.get().strip(),
+            'GUI_MAX_DRAWDOWN_PCT': self.max_drawdown_pct_var.get().strip(),
+            'GUI_MAX_TRADES_PER_HOUR': self.max_trades_per_hour_var.get().strip(),
+            'GUI_MAX_TRADES_PER_DAY': self.max_trades_per_day_var.get().strip(),
+            'GUI_CHASE_THRESHOLD_PCT': self.chase_threshold_pct_var.get().strip(),
+            'GUI_NEWS_VOLUME_MULTIPLIER': self.news_volume_multiplier_var.get().strip(),
+            'GUI_END_OF_DAY_MINUTES': self.end_of_day_minutes_var.get().strip(),
+            'GUI_TRADING_MODE': self.trading_mode_var.get().strip(),
+            'GUI_ENABLE_WITHDRAWAL': self._bool_to_env(self.enable_withdrawal_var.get()),
+            'GUI_TARGET_CAPITAL': self.target_capital_var.get().strip(),
+            'GUI_WITHDRAWAL_THRESHOLD': self.withdrawal_threshold_var.get().strip(),
+            'GUI_WITHDRAWAL_FREQUENCY': self.withdrawal_frequency_var.get().strip(),
+            'GUI_ENABLE_EOD_FLATTEN': self._bool_to_env(self.enable_eod_flatten_var.get()),
+            'GUI_EOD_FLATTEN_TIME': self.eod_flatten_time_var.get().strip(),
+        }
+        update_dotenv_file(updates)
+
+    def _bind_account_capabilities_controls(self) -> None:
+        self.account_type_var.trace_add('write', self._on_account_capability_trace)
+        self.account_balance_var.trace_add('write', self._on_account_capability_trace)
+        self.enable_futures_var.trace_add('write', self._on_account_capability_trace)
+        self.enable_options_var.trace_add('write', self._on_account_capability_trace)
+        for var in (self.enable_stocks_var, self.enable_etfs_var, self.allow_extended_hours_var, self.enforce_settlement_var):
+            var.trace_add('write', self._on_env_save_trace)
+
+        self._refresh_instrument_eligibility(show_warning=False)
+        self._suppress_capability_warnings = False
+
+    def _bind_gui_settings_controls(self) -> None:
+        for var in (
+            self.capital_var,
+            self.risk_level_var,
+            self.investment_goal_var,
+            self.session_time_limit_var,
+            self.max_loss_per_trade_var,
+            self.trade_tempo_var,
+            self.minimum_balance_var,
+            self.minimum_balance_enabled_var,
+            self.max_daily_loss_pct_var,
+            self.max_drawdown_pct_var,
+            self.max_trades_per_hour_var,
+            self.max_trades_per_day_var,
+            self.chase_threshold_pct_var,
+            self.news_volume_multiplier_var,
+            self.end_of_day_minutes_var,
+            self.enable_withdrawal_var,
+            self.target_capital_var,
+            self.withdrawal_threshold_var,
+            self.withdrawal_frequency_var,
+            self.enable_eod_flatten_var,
+            self.eod_flatten_time_var,
+        ):
+            var.trace_add('write', self._on_env_save_trace)
+        self.trading_mode_var.trace_add('write', self._on_trading_mode_trace)
+
+    def _on_account_capability_trace(self, *_: str) -> None:
+        self._on_account_capability_change()
+
+    def _on_env_save_trace(self, *_: str) -> None:
+        self._schedule_env_save()
+
+    def _on_trading_mode_trace(self, *_: str) -> None:
+        self._on_trading_mode_change()
+
+    def _on_account_capability_change(self) -> None:
+        self._refresh_instrument_eligibility(show_warning=True)
+        self._schedule_env_save()
+
+    def _on_trading_mode_change(self) -> None:
+        self._schedule_env_save()
+        self._schedule_ibkr_auto_detect()
+
+    def _refresh_instrument_eligibility(self, *, show_warning: bool) -> None:
+        account_type = self.account_type_var.get().strip().lower()
+        account_balance = self._parse_account_balance()
+        is_margin = account_type == 'margin'
+
+        warnings: list[str] = []
+        futures_allowed = is_margin and account_balance >= FUTURES_MIN_BALANCE
+        options_allowed = is_margin and account_balance >= OPTIONS_MIN_BALANCE
+
+        self._futures_cb.config(state=tk.NORMAL)
+        if not futures_allowed and self.enable_futures_var.get():
+            self.enable_futures_var.set(False)
+            warnings.append(
+                'Futures disabled: requires a margin account and at least $2,000 in total account balance.'
+            )
+
+        self._options_cb.config(state=tk.NORMAL)
+        if not options_allowed and self.enable_options_var.get():
+            self.enable_options_var.set(False)
+            warnings.append(
+                'Options disabled: requires a margin account and at least $2,000 in total account balance.'
+            )
+
+        if show_warning and warnings and not self._suppress_capability_warnings:
+            messagebox.showwarning('Account Capabilities', '\n\n'.join(warnings))
+
+    @staticmethod
+    def _bool_to_env(value: bool) -> str:
+        return 'true' if value else 'false'
+
+    @staticmethod
+    def _parse_summary_float(raw: str | None) -> float | None:
+        if raw is None:
+            return None
+        try:
+            return float(raw)
+        except ValueError:
+            return None
+
+    def _extract_account_balance(self, summary: dict[str, str]) -> float | None:
+        for key in ('NetLiquidation', 'TotalCashValue', 'SettledCash'):
+            value = self._parse_summary_float(summary.get(key))
+            if value is not None:
+                return value
+        return None
+
+    def _infer_account_type(self, summary: dict[str, str]) -> str | None:
+        raw_type = summary.get('AccountType', '').strip().upper()
+        if 'CASH' in raw_type:
+            return 'cash'
+        if 'MARGIN' in raw_type:
+            return 'margin'
+
+        leverage = self._parse_summary_float(summary.get('Leverage'))
+        if leverage is not None and leverage > 1.01:
+            return 'margin'
+
+        net_liq = self._parse_summary_float(summary.get('NetLiquidation'))
+        buying_power = self._parse_summary_float(summary.get('BuyingPower'))
+        if net_liq is not None and buying_power is not None:
+            if buying_power > net_liq * 1.05:
+                return 'margin'
+            return 'cash'
+
+        return None
+
+    def _schedule_ibkr_auto_detect(self, delay_ms: int = 800) -> None:
+        if self._auto_detect_in_progress:
+            self._auto_detect_pending = True
+            return
+        if self._auto_detect_after_id:
+            self.root.after_cancel(self._auto_detect_after_id)
+        self._auto_detect_after_id = self.root.after(delay_ms, self._start_ibkr_auto_detect)
+
+    def _start_ibkr_auto_detect(self) -> None:
+        if self._auto_detect_in_progress:
+            self._auto_detect_pending = True
+            return
+        self._auto_detect_after_id = None
+
+        trading_mode = self.trading_mode_var.get().strip()
+        broker_config = self._build_ibkr_auto_detect_config(trading_mode)
+        if broker_config is None:
+            return
+
+        self._auto_detect_in_progress = True
+        worker = threading.Thread(
+            target=self._run_ibkr_auto_detect,
+            args=(broker_config, trading_mode),
+            daemon=True,
+        )
+        worker.start()
+        self._poll_ibkr_auto_detect_result()
+
+    def _build_ibkr_auto_detect_config(self, trading_mode: str) -> BrokerConfig | None:
+        if trading_mode not in ('ibkr_paper', 'ibkr_live'):
+            return None
+        try:
+            account_id, client_id = self.ibkr_settings.require_credentials()
+        except ValueError as exc:
+            self._log_activity(f'⚠️ IBKR auto-detect skipped: {exc}')
+            return None
+
+        port = self.ibkr_paper_port if trading_mode == 'ibkr_paper' else self.ibkr_live_port
+        return BrokerConfig(
+            backend='ibkr',
+            ib_host=self.ibkr_host,
+            ib_port=port,
+            ib_client_id=client_id + AUTO_DETECT_CLIENT_ID_OFFSET,
+            ib_account=account_id,
+            contracts={},
+        )
+
+    def _run_ibkr_auto_detect(self, broker_config: BrokerConfig, trading_mode: str) -> None:
+        summary: dict[str, str] = {}
+        error: str | None = None
+        try:
+            from .brokers.ibkr import IBAPI_AVAILABLE, IBKRBroker
+        except Exception as exc:
+            error = f'⚠️ IBKR auto-detect unavailable: {exc}'
+        else:
+            if not IBAPI_AVAILABLE:
+                error = '⚠️ IBKR auto-detect unavailable (ibapi not installed).'
+            else:
+                broker = IBKRBroker(broker_config)
+                try:
+                    broker.start()
+                    summary = broker.get_account_summary(account_id=broker_config.ib_account, timeout=10.0)
+                except Exception as exc:
+                    error = f'⚠️ IBKR auto-detect failed: {exc}'
+                finally:
+                    with suppress(Exception):
+                        broker.stop()
+
+        self._auto_detect_queue.put((summary, error, trading_mode))
+
+    def _poll_ibkr_auto_detect_result(self) -> None:
+        if not self._auto_detect_in_progress:
+            return
+        try:
+            summary, error, trading_mode = self._auto_detect_queue.get_nowait()
+        except queue.Empty:
+            self._auto_detect_poll_after_id = self.root.after(200, self._poll_ibkr_auto_detect_result)
+            return
+
+        self._auto_detect_poll_after_id = None
+        self._handle_ibkr_auto_detect_result(summary, error, trading_mode)
+
+    def _handle_ibkr_auto_detect_result(
+        self,
+        summary: dict[str, str],
+        error: str | None,
+        trading_mode: str,
+    ) -> None:
+        self._auto_detect_in_progress = False
+
+        if error:
+            self._log_activity(error)
+        elif not summary:
+            self._log_activity('⚠️ IBKR auto-detect returned no account summary.')
+        else:
+            account_type = self._infer_account_type(summary)
+            account_balance = self._extract_account_balance(summary)
+
+            self._suppress_capability_warnings = True
+            if account_balance is not None:
+                self.account_balance_var.set(self._format_balance(account_balance))
+            if account_type:
+                self.account_type_var.set(account_type)
+            self._suppress_capability_warnings = False
+            self._refresh_instrument_eligibility(show_warning=False)
+            self._persist_gui_settings_to_env()
+
+            if account_balance is not None or account_type:
+                mode_label = 'paper' if trading_mode == 'ibkr_paper' else 'live'
+                self._log_activity(
+                    f'✅ IBKR auto-detect ({mode_label}): account_type={account_type or "unknown"}, '
+                    f'net_liquidation={summary.get("NetLiquidation", "n/a")}'
+                )
+
+        if self._auto_detect_pending:
+            self._auto_detect_pending = False
+            self._schedule_ibkr_auto_detect(delay_ms=200)
 
     def _discover_available_symbols(self) -> list[str]:
         """
@@ -1066,6 +1394,84 @@ class SimpleGUI:
             justify='left',
         ).pack(anchor='w', padx=(25, 0), pady=(10, 0))
 
+        # Account Capabilities
+        acct_frame = ttk.LabelFrame(main, text='Account Capabilities', padding=20)
+        acct_frame.pack(fill=tk.X, pady=(0, 20))
+
+        # Account type row
+        acct_type_row = tk.Frame(acct_frame)
+        acct_type_row.pack(fill=tk.X, pady=(0, 10))
+        tk.Label(acct_type_row, text='Account Type:', font=self._font(11, weight='bold')).pack(side=tk.LEFT)
+        ttk.Radiobutton(
+            acct_type_row, text='Cash Account', variable=self.account_type_var, value='cash'
+        ).pack(side=tk.LEFT, padx=(15, 5))
+        ttk.Radiobutton(
+            acct_type_row, text='Margin Account', variable=self.account_type_var, value='margin'
+        ).pack(side=tk.LEFT, padx=5)
+
+        # Account type info
+        tk.Label(
+            acct_frame,
+            text='Cash Account: No PDT rule, but T+2 settlement applies (funds from sales take 2 days to settle)\n'
+            'Margin Account: Can use leverage, but PDT rule applies (max 3 day trades per 5 days if under $25k)',
+            font=self._font(9),
+            fg='#666666',
+            justify='left',
+        ).pack(anchor='w', pady=(0, 15))
+
+        # Account balance row
+        balance_row = tk.Frame(acct_frame)
+        balance_row.pack(fill=tk.X, pady=(0, 10))
+        tk.Label(balance_row, text='Account Balance:', font=self._font(11, weight='bold')).pack(side=tk.LEFT)
+        tk.Label(balance_row, text='$', font=self._font(11)).pack(side=tk.LEFT, padx=(10, 0))
+        tk.Entry(
+            balance_row,
+            textvariable=self.account_balance_var,
+            font=self._font(12),
+            width=10,
+            justify=tk.CENTER,
+            bg='white',
+            relief=tk.SUNKEN,
+            borderwidth=2,
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(
+            balance_row,
+            text='Used for futures/options eligibility checks',
+            font=self._font(9),
+            fg='#666666',
+        ).pack(side=tk.LEFT)
+
+        # Instruments row
+        tk.Label(acct_frame, text='Tradeable Instruments:', font=self._font(11, weight='bold')).pack(anchor='w')
+        instr_row = tk.Frame(acct_frame)
+        instr_row.pack(fill=tk.X, pady=5)
+        ttk.Checkbutton(instr_row, text='Stocks', variable=self.enable_stocks_var).pack(side=tk.LEFT, padx=(0, 15))
+        ttk.Checkbutton(instr_row, text='ETFs', variable=self.enable_etfs_var).pack(side=tk.LEFT, padx=(0, 15))
+        self._futures_cb = ttk.Checkbutton(instr_row, text='Futures', variable=self.enable_futures_var)
+        self._futures_cb.pack(side=tk.LEFT, padx=(0, 5))
+        tk.Label(instr_row, text='(Requires margin + $2,000+)', font=self._font(9), fg='#d32f2f').pack(side=tk.LEFT)
+        self._options_cb = ttk.Checkbutton(instr_row, text='Options', variable=self.enable_options_var)
+        self._options_cb.pack(side=tk.LEFT, padx=(15, 5))
+        tk.Label(instr_row, text='(Requires approval)', font=self._font(9), fg='#d32f2f').pack(side=tk.LEFT)
+
+        # Settlement tracking
+        ttk.Checkbutton(
+            acct_frame,
+            text='Enforce T+2 Settlement (Cash accounts: prevents using unsettled funds)',
+            variable=self.enforce_settlement_var,
+        ).pack(anchor='w')
+
+        tk.Label(
+            acct_frame,
+            text='Settings saved to .env file and persist between sessions',
+            font=self._font(9),
+            fg='#2e7d32',
+            justify='left',
+        ).pack(anchor='w', pady=(10, 0))
+
+        self._bind_account_capabilities_controls()
+        self._bind_gui_settings_controls()
+
         # Start button
         button_frame = tk.Frame(main)
         button_frame.pack(pady=20)
@@ -1407,6 +1813,16 @@ class SimpleGUI:
             if not timeframes:
                 timeframes = ['1m', '5m', '15m']
 
+            try:
+                from . import timeframes as timeframes_module
+            except Exception:
+                timeframe_to_seconds = {}
+            else:
+                timeframe_to_seconds = timeframes_module.TIMEFRAME_TO_SECONDS
+
+            timeframe_seconds = [timeframe_to_seconds.get(tf.lower().strip()) for tf in timeframes]
+            max_timeframe_seconds = max((sec for sec in timeframe_seconds if sec), default=60)
+
             max_stocks = int(risk_config.get('max_stocks', 10))
             if max_stocks <= 0:
                 max_stocks = 10
@@ -1654,6 +2070,20 @@ class SimpleGUI:
             if stop_config.enable_eod_flatten:
                 self._log_activity(f'🛑 EOD Auto-Flatten Enabled: will flatten at {eod_time} ET')
 
+            # Build account capabilities from GUI settings
+            account_balance = self._parse_account_balance()
+            account_capabilities = AccountCapabilities(
+                account_type=self.account_type_var.get(),
+                account_balance=account_balance,
+                enable_stocks=self.enable_stocks_var.get(),
+                enable_etfs=self.enable_etfs_var.get(),
+                enable_futures=self.enable_futures_var.get(),
+                enable_options=self.enable_options_var.get(),
+                allow_extended_hours=self.allow_extended_hours_var.get(),
+                enforce_settlement=self.enforce_settlement_var.get(),
+            )
+            self._persist_gui_settings_to_env()
+
             config = BacktestConfig(
                 data=data_source,
                 engine=engine,
@@ -1661,6 +2091,7 @@ class SimpleGUI:
                 broker=broker,
                 capital_management=capital_mgmt_config,
                 stop_control=stop_config,
+                account_capabilities=account_capabilities,
             )
 
             self._log_activity(
@@ -1670,7 +2101,7 @@ class SimpleGUI:
             # Build FSD config with user preferences (ENHANCED with professional features)
             fsd_config = FSDConfig(
                 max_capital=max_capital,
-                max_timeframe_seconds=session_time_limit * 60,  # Convert minutes to seconds
+                max_timeframe_seconds=max_timeframe_seconds,
                 learning_rate=risk_config['learning_rate'],
                 exploration_rate=risk_config['exploration_rate'],
                 min_confidence_threshold=risk_config['confidence_threshold'],

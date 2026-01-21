@@ -79,6 +79,7 @@ class FSDConfig:
 
 ```
 aistock/
+├── backtest/           # Backtest orchestrator + execution model
 ├── fsd.py              # FSD RL Agent (CORE)
 ├── engine.py           # Custom trading engine
 ├── simple_gui.py       # FSD GUI interface
@@ -89,12 +90,18 @@ aistock/
 │   ├── analytics_reporter.py
 │   ├── checkpointer.py
 │   └── reconciliation.py
+├── ml/                 # Advanced RL algorithms (NEW)
+│   ├── buffers/        # Experience replay (uniform, PER)
+│   ├── networks/       # Neural networks (Dueling, LSTM, Transformer)
+│   └── agents/         # RL agents (Double Q, DQN, Sequential)
+├── engines/            # Decision engine implementations (NEW)
 ├── portfolio.py        # Position tracking
-├── risk.py             # Risk management
+├── risk/               # Risk management (core + advanced)
 ├── stop_control.py     # Manual/EOD stop handling
-└── brokers/            # Broker integrations
+├── brokers/            # Broker integrations
     ├── paper.py        # Paper trading
     └── ibkr.py         # Interactive Brokers
+└── providers/          # Massive.com data + caching
 ```
 
 ---
@@ -108,6 +115,15 @@ pip install -r requirements-dev.txt
 # Run tests
 pytest tests/
 
+# Smoke backtest (paper broker + SessionFactory)
+python scripts/run_smoke_backtest.py
+
+# Sample P&L backtest (TradingEngine)
+python scripts/run_sample_backtest.py
+
+# Massive-backed backtest (requires MASSIVE_API_KEY)
+MASSIVE_API_KEY=... python -m aistock.backtest --symbols AAPL --start-date 2024-01-01 --end-date 2024-12-31
+
 # Test FSD import
 python -c "from aistock.fsd import FSDEngine; print('✅ OK')"
 
@@ -119,11 +135,13 @@ python -m aistock
 
 ## 📚 Documentation
 
-- **START_HERE.md** - Quick start guide for new users
 - **IBKR_REQUIREMENTS_CHECKLIST.md** - IBKR connection setup
 - **docs/FSD_COMPLETE_GUIDE.md** - FSD technical deep dive
-- **CODE_REVIEW_FIXES_IMPLEMENTATION_COMPLETE.md** - Recent improvements (Oct 30, 2025)
-- **CLAUDE.md** - Developer guide for working with the codebase
+- **docs/audit/2025-11-08/ARCHITECTURE_MAP.md** - Architecture map
+- **docs/BACKTEST_RERUN_GUIDE.md** - Backtest rerun workflow
+- **scripts/README.md** - Operational and backtest automation
+- **AGENTS.md** - Developer guide & repo conventions
+- **CLAUDE.md** - Claude Code assistant guide (tooling)
 
 ---
 
@@ -135,7 +153,7 @@ python -m aistock
 
 **Before trading with real money:**
 1. Run paper trading successfully for 1-2 weeks
-2. Review `CODE_REVIEW_FIXES_IMPLEMENTATION_COMPLETE.md` for recent improvements
+2. Review `docs/FSD_COMPLETE_GUIDE.md` for implementation details
 3. Start with **very small capital** ($1K-2K, NOT $10K)
 4. Use **single symbol** initially (e.g., AAPL only)
 5. Set **conservative FSD parameters** (learning_rate=0.0001, min_confidence=0.8)
@@ -149,9 +167,11 @@ python -m aistock
 
 - **Python 3.10+**
 - **Tkinter** - GUI
-- **NumPy** - Math operations
+- **NumPy/Pandas** - Math operations
+- **PyTorch** - Deep learning (optional, for advanced RL)
 - **Custom Engine** - No BackTrader dependency
 - **Q-Learning** - Reinforcement learning algorithm
+- **Advanced RL** - Double Q-Learning, PER, Dueling DQN, LSTM/Transformer
 
 ---
 
@@ -167,7 +187,8 @@ python -m aistock
 ### For Advanced Users:
 - Adjust `FSDConfig` parameters
 - Modify Q-Learning settings
-- Integrate custom features
+- Enable advanced RL: `engine_type='dueling'` or `'transformer'`
+- Use GPU acceleration: `device='cuda'`
 - Export Q-values for analysis
 
 ---
@@ -180,6 +201,28 @@ python -m aistock
 - ✅ **Better performance** - Optimized for FSD
 - ✅ **Cleaner code** - 23,000 lines vs 46,000 lines
 
+## 🧠 Advanced RL Algorithms (New!)
+
+Enable state-of-the-art reinforcement learning:
+
+| Algorithm | Benefit |
+|-----------|---------|
+| **Double Q-Learning** | Reduces overestimation bias |
+| **Prioritized Experience Replay** | Learns from important trades |
+| **Dueling DQN** | Better value estimation |
+| **LSTM/Transformer** | Captures temporal patterns |
+
+```python
+# Enable in FSDConfig
+config = FSDConfig(
+    engine_type='dueling',    # Use neural network
+    enable_per=True,          # Prioritized replay
+    device='cuda',            # GPU acceleration
+)
+```
+
+See `AGENTS.md` for detailed configuration options.
+
 ---
 
 ## 📞 Support
@@ -187,8 +230,7 @@ python -m aistock
 - **Errors?** Check logs (if logging is enabled)
 - **IBKR Setup?** See `IBKR_REQUIREMENTS_CHECKLIST.md`
 - **FSD Questions?** Read `docs/FSD_COMPLETE_GUIDE.md`
-- **Recent Improvements?** See `CODE_REVIEW_FIXES_IMPLEMENTATION_COMPLETE.md`
-- **Code Development?** See `CLAUDE.md` for developer guidelines
+- **Code Development?** See `AGENTS.md` for developer guidelines
 
 ---
 
@@ -197,11 +239,13 @@ python -m aistock
 | Document | Purpose | Audience |
 |----------|---------|----------|
 | `README.md` | Project overview and quick start | Everyone |
-| `START_HERE.md` | Step-by-step setup guide | New users |
 | `IBKR_REQUIREMENTS_CHECKLIST.md` | IBKR connection setup | Live trading users |
 | `docs/FSD_COMPLETE_GUIDE.md` | FSD deep dive & implementation | Advanced users |
-| `CODE_REVIEW_FIXES_IMPLEMENTATION_COMPLETE.md` | Recent improvements (Oct 30, 2025) | Developers & advanced users |
-| `CLAUDE.md` | Developer guide & codebase instructions | Developers |
+| `docs/audit/2025-11-08/ARCHITECTURE_MAP.md` | System architecture map | Developers |
+| `docs/BACKTEST_RERUN_GUIDE.md` | Backtest rerun workflow | Developers |
+| `scripts/README.md` | Automation tooling overview | Developers |
+| `AGENTS.md` | Developer guide & codebase instructions | Developers |
+| `CLAUDE.md` | Claude Code assistant guide (tooling) | Developers |
 
 ---
 
